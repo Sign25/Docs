@@ -1,0 +1,15 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="250" cy="250" r="225" fill="url(#paint0_radial_1_2)"/>
+<g transform="translate(125, 125)">
+<path d="M125 25C111.193 25 100 37.1929 100 50V200C100 212.807 111.193 225 125 225C138.807 225 150 212.807 150 200V50C150 37.1929 138.807 25 125 25Z" fill="white"/>
+<ellipse cx="125" cy="125" rx="75" ry="50" fill="white" opacity="0.8"/>
+<circle cx="125" cy="75" r="15" fill="#FF6B35"/>
+<circle cx="125" cy="175" r="15" fill="#00B4D8"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_1_2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(250 150) rotate(90) scale(350 250)">
+<stop stop-color="#667EEA"/>
+<stop offset="1" stop-color="#764BA2"/>
+</radialGradient>
+</defs>
+</svg>
