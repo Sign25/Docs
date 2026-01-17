@@ -2,6 +2,14 @@
 Constants package for Open WebUI
 """
 
+# Import message constants
+from open_webui.constants.messages import (
+    ERROR_MESSAGES,
+    MESSAGES,
+    WEBHOOK_MESSAGES,
+)
+
+# Import role constants
 from open_webui.constants.roles import (
     UserRole,
     has_permission,
@@ -15,6 +23,11 @@ from open_webui.constants.roles import (
 )
 
 __all__ = [
+    # Message constants
+    "ERROR_MESSAGES",
+    "MESSAGES",
+    "WEBHOOK_MESSAGES",
+    # Role constants
     "UserRole",
     "has_permission",
     "has_admin_access",
