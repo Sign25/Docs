@@ -13,8 +13,9 @@ from open_webui.models.channels import ChannelMember
 
 from open_webui.utils.misc import throttle
 
+from open_webui.constants import UserRole, validate_role
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, validator
 from sqlalchemy import (
     BigInteger,
     JSON,
@@ -50,6 +51,7 @@ class User(Base):
     email = Column(String)
     username = Column(String(50), nullable=True)
     role = Column(String)
+    brand_id = Column(String, nullable=True)  # For managers: restrict to specific brand
 
     name = Column(String)
 
@@ -82,6 +84,7 @@ class UserModel(BaseModel):
     email: str
     username: Optional[str] = None
     role: str = "pending"
+    brand_id: Optional[str] = None  # For managers: restrict to specific brand
 
     name: str
 
@@ -108,6 +111,15 @@ class UserModel(BaseModel):
     created_at: int  # timestamp in epoch
 
     model_config = ConfigDict(from_attributes=True)
+
+    @validator("role")
+    def validate_user_role(cls, v: str) -> str:
+        """Validate that role is one of the allowed roles"""
+        if not validate_role(v):
+            raise ValueError(
+                f"Invalid role: {v}. Must be one of: {', '.join(UserRole.ALL_ROLES)}"
+            )
+        return v
 
 
 class UserStatusModel(UserModel):

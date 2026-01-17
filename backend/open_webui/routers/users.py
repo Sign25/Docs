@@ -28,6 +28,8 @@ from open_webui.models.users import (
     UserUpdateForm,
 )
 
+from open_webui.constants import UserRole, has_admin_access
+
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import STATIC_DIR
 from open_webui.internal.db import get_session
@@ -304,7 +306,7 @@ async def update_user_settings_by_session_user(
     updated_user_settings = form_data.model_dump()
     ui_settings = updated_user_settings.get("ui")
     if (
-        user.role != "admin"
+        not has_admin_access(user.role)
         and ui_settings is not None
         and "toolServers" in ui_settings.keys()
         and not has_permission(
@@ -570,7 +572,7 @@ async def update_user_by_id(
                         detail=ERROR_MESSAGES.ACTION_PROHIBITED,
                     )
 
-                if form_data.role != "admin":
+                if form_data.role != UserRole.ADMIN:
                     # If the primary admin is trying to change their own role, prevent it
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,

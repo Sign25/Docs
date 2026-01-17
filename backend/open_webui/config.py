@@ -1215,6 +1215,18 @@ MODEL_ORDER_LIST = PersistentConfig(
     [],
 )
 
+####################################
+# USER ROLES
+####################################
+
+# Adolf Ohana Market custom roles:
+# - pending: Awaiting approval (no access)
+# - staff: No access to @Adolf_Reputation agent
+# - manager: Access to own brand_id only
+# - senior: Access to all brands + escalation
+# - director: Access to all brands + analytics
+# - admin: Full system access
+
 DEFAULT_USER_ROLE = PersistentConfig(
     "DEFAULT_USER_ROLE",
     "ui.default_user_role",

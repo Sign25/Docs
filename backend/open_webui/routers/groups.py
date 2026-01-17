@@ -13,7 +13,7 @@ from open_webui.models.groups import (
 )
 
 from open_webui.config import CACHE_DIR
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from open_webui.internal.db import get_session
@@ -41,7 +41,7 @@ async def get_groups(
     filter = {}
 
     # Admins can share to all groups regardless of share setting
-    if user.role != "admin":
+    if not has_admin_access(user.role):
         filter["member_id"] = user.id
         if share is not None:
             filter["share"] = share

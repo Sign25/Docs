@@ -8,7 +8,7 @@ from open_webui.models.prompts import (
     PromptModel,
     Prompts,
 )
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access, has_permission
 from open_webui.config import BYPASS_ADMIN_ACCESS_CONTROL
@@ -26,7 +26,7 @@ router = APIRouter()
 async def get_prompts(
     user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         prompts = Prompts.get_prompts(db=db)
     else:
         prompts = Prompts.get_prompts_by_user_id(user.id, "read", db=db)
@@ -38,7 +38,7 @@ async def get_prompts(
 async def get_prompt_list(
     user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         prompts = Prompts.get_prompts(db=db)
     else:
         prompts = Prompts.get_prompts_by_user_id(user.id, "read", db=db)
@@ -47,7 +47,7 @@ async def get_prompt_list(
         PromptAccessResponse(
             **prompt.model_dump(),
             write_access=(
-                (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                 or user.id == prompt.user_id
                 or has_access(user.id, "write", prompt.access_control, db=db)
             ),
@@ -68,7 +68,7 @@ async def create_new_prompt(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not (
+    if not has_admin_access(user.role) and not (
         has_permission(
             user.id,
             "workspace.prompts",
@@ -116,14 +116,14 @@ async def get_prompt_by_command(
 
     if prompt:
         if (
-            user.role == "admin"
+            has_admin_access(user.role)
             or prompt.user_id == user.id
             or has_access(user.id, "read", prompt.access_control, db=db)
         ):
             return PromptAccessResponse(
                 **prompt.model_dump(),
                 write_access=(
-                    (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or user.id == prompt.user_id
                     or has_access(user.id, "write", prompt.access_control, db=db)
                 ),
@@ -158,7 +158,7 @@ async def update_prompt_by_command(
     if (
         prompt.user_id != user.id
         and not has_access(user.id, "write", prompt.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -194,7 +194,7 @@ async def delete_prompt_by_command(
     if (
         prompt.user_id != user.id
         and not has_access(user.id, "write", prompt.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

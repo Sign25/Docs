@@ -27,7 +27,7 @@ from open_webui.models.folders import Folders
 from open_webui.internal.db import get_session
 
 from open_webui.config import ENABLE_ADMIN_CHAT_ACCESS, ENABLE_ADMIN_EXPORT
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -115,7 +115,7 @@ def get_session_user_chat_usage_stats(
                     history_assistant_messages = []
 
                     for message in messages_map.values():
-                        if message.get("role", "") == "user":
+                        if message.get("role", "") == "staff":
                             history_user_messages.append(message)
                         elif message.get("role", "") == "assistant":
                             history_assistant_messages.append(message)
@@ -269,7 +269,7 @@ def _process_chat_for_export(chat) -> Optional[ChatStatsExport]:
 
                 # --- Aggregation Logic (copied/adapted from usage stats) ---
                 role = message.get("role", "")
-                if role == "user":
+                if role == "staff":
                     history_user_messages.append(message)
                 elif role == "assistant":
                     history_assistant_messages.append(message)
@@ -427,7 +427,7 @@ async def export_chat_stats(
     db: Session = Depends(get_session),
 ):
     # Check if the user has permission to share/export chats
-    if (user.role != "admin") and (
+    if (not has_admin_access(user.role)) and (
         not request.app.state.config.ENABLE_COMMUNITY_SHARING
     ):
         raise HTTPException(
@@ -486,7 +486,7 @@ async def export_single_chat_stats(
     Returns ChatStatsExport for the specified chat.
     """
     # Check if the user has permission to share/export chats
-    if (user.role != "admin") and (
+    if (not has_admin_access(user.role)) and (
         not request.app.state.config.ENABLE_COMMUNITY_SHARING
     ):
         raise HTTPException(
@@ -504,7 +504,7 @@ async def export_single_chat_stats(
             )
 
         # Verify the chat belongs to the user (unless admin)
-        if chat.user_id != user.id and user.role != "admin":
+        if chat.user_id != user.id and not has_admin_access(user.role):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
@@ -537,7 +537,7 @@ async def delete_all_user_chats(
     db: Session = Depends(get_session),
 ):
 
-    if user.role == "user" and not has_permission(
+    if user.role == "staff" and not has_permission(
         user.id, "chat.delete", request.app.state.config.USER_PERMISSIONS
     ):
         raise HTTPException(
@@ -876,9 +876,9 @@ async def get_shared_chat_by_id(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
-    if user.role == "user" or (user.role == "admin" and not ENABLE_ADMIN_CHAT_ACCESS):
+    if user.role == "staff" or (has_admin_access(user.role) and not ENABLE_ADMIN_CHAT_ACCESS):
         chat = Chats.get_chat_by_share_id(share_id, db=db)
-    elif user.role == "admin" and ENABLE_ADMIN_CHAT_ACCESS:
+    elif has_admin_access(user.role) and ENABLE_ADMIN_CHAT_ACCESS:
         chat = Chats.get_chat_by_id(share_id, db=db)
 
     if chat:
@@ -986,7 +986,7 @@ async def update_chat_message_by_id(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    if chat.user_id != user.id and user.role != "admin":
+    if chat.user_id != user.id and not has_admin_access(user.role):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
@@ -1049,7 +1049,7 @@ async def send_chat_message_event_by_id(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    if chat.user_id != user.id and user.role != "admin":
+    if chat.user_id != user.id and not has_admin_access(user.role):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
@@ -1085,7 +1085,7 @@ async def delete_chat_by_id(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role == "admin":
+    if has_admin_access(user.role):
         chat = Chats.get_chat_by_id(id, db=db)
         if not chat:
             raise HTTPException(
@@ -1223,7 +1223,7 @@ async def clone_shared_chat_by_id(
     id: str, user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
 
-    if user.role == "admin":
+    if has_admin_access(user.role):
         chat = Chats.get_chat_by_id(id, db=db)
     else:
         chat = Chats.get_chat_by_share_id(id, db=db)
@@ -1313,7 +1313,7 @@ async def share_chat_by_id(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if (user.role != "admin") and (
+    if (not has_admin_access(user.role)) and (
         not has_permission(
             user.id, "chat.share", request.app.state.config.USER_PERMISSIONS
         )

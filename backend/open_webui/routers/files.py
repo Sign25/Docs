@@ -24,7 +24,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from open_webui.internal.db import get_session, SessionLocal
 
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.retrieval.vector.factory import VECTOR_DB_CLIENT
 
 from open_webui.models.channels import Channels
@@ -351,7 +351,7 @@ async def list_files(
     content: bool = Query(True),
     db: Session = Depends(get_session),
 ):
-    if user.role == "admin":
+    if has_admin_access(user.role):
         files = Files.get_files(db=db)
     else:
         files = Files.get_files_by_user_id(user.id, db=db)
@@ -388,7 +388,7 @@ async def search_files(
     Uses SQL-based filtering with pagination for better performance.
     """
     # Determine user_id: null for admin (search all), user.id for regular users
-    user_id = None if user.role == "admin" else user.id
+    user_id = None if has_admin_access(user.role) else user.id
 
     # Use optimized database query with pagination
     files = Files.search_files(
@@ -461,7 +461,7 @@ async def get_file_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "read", user, db=db)
     ):
         return file
@@ -489,7 +489,7 @@ async def get_file_process_status(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "read", user, db=db)
     ):
         if stream:
@@ -554,7 +554,7 @@ async def get_file_data_content_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "read", user, db=db)
     ):
         return {"content": file.data.get("content", "")}
@@ -592,7 +592,7 @@ async def update_file_data_content_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "write", user, db=db)
     ):
         try:
@@ -636,7 +636,7 @@ async def get_file_content_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "read", user, db=db)
     ):
         try:
@@ -705,7 +705,7 @@ async def get_html_file_content_by_id(
         )
 
     file_user = Users.get_user_by_id(file.user_id, db=db)
-    if not file_user.role == "admin":
+    if not has_admin_access(file_user.role):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ERROR_MESSAGES.NOT_FOUND,
@@ -713,7 +713,7 @@ async def get_html_file_content_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "read", user, db=db)
     ):
         try:
@@ -757,7 +757,7 @@ async def get_file_content_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "read", user, db=db)
     ):
         file_path = file.path
@@ -821,7 +821,7 @@ async def delete_file_by_id(
 
     if (
         file.user_id == user.id
-        or user.role == "admin"
+        or has_admin_access(user.role)
         or has_access_to_file(id, "write", user, db=db)
     ):
 

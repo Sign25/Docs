@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from open_webui.config import CACHE_DIR
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS
 
 from open_webui.models.chats import Chats
@@ -545,7 +545,7 @@ async def generate_images(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.image_generation", request.app.state.config.USER_PERMISSIONS
     ):
         raise HTTPException(

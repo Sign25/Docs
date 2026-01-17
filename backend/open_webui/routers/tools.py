@@ -32,7 +32,7 @@ from open_webui.utils.access_control import has_access, has_permission
 from open_webui.utils.tools import get_tool_servers
 
 from open_webui.config import CACHE_DIR, BYPASS_ADMIN_ACCESS_CONTROL
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 
 
 log = logging.getLogger(__name__)
@@ -144,7 +144,7 @@ async def get_tools(
                 )
             )
 
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         # Admin can see all tools
         return tools
     else:
@@ -169,7 +169,7 @@ async def get_tools(
 async def get_tool_list(
     user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         tools = Tools.get_tools(db=db)
     else:
         tools = Tools.get_tools_by_user_id(user.id, "read", db=db)
@@ -178,7 +178,7 @@ async def get_tool_list(
         ToolAccessResponse(
             **tool.model_dump(),
             write_access=(
-                (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                 or user.id == tool.user_id
                 or has_access(user.id, "write", tool.access_control, db=db)
             ),
@@ -275,7 +275,7 @@ async def export_tools(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id,
         "workspace.tools_export",
         request.app.state.config.USER_PERMISSIONS,
@@ -286,7 +286,7 @@ async def export_tools(
             detail=ERROR_MESSAGES.UNAUTHORIZED,
         )
 
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         return Tools.get_tools(db=db)
     else:
         return Tools.get_tools_by_user_id(user.id, "read", db=db)
@@ -304,7 +304,7 @@ async def create_new_tools(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not (
+    if not has_admin_access(user.role) and not (
         has_permission(
             user.id, "workspace.tools", request.app.state.config.USER_PERMISSIONS, db=db
         )
@@ -379,14 +379,14 @@ async def get_tools_by_id(
 
     if tools:
         if (
-            user.role == "admin"
+            has_admin_access(user.role)
             or tools.user_id == user.id
             or has_access(user.id, "read", tools.access_control, db=db)
         ):
             return ToolAccessResponse(
                 **tools.model_dump(),
                 write_access=(
-                    (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or user.id == tools.user_id
                     or has_access(user.id, "write", tools.access_control, db=db)
                 ),
@@ -427,7 +427,7 @@ async def update_tools_by_id(
     if (
         tools.user_id != user.id
         and not has_access(user.id, "write", tools.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -489,7 +489,7 @@ async def delete_tools_by_id(
     if (
         tools.user_id != user.id
         and not has_access(user.id, "write", tools.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -585,7 +585,7 @@ async def update_tools_valves_by_id(
     if (
         tools.user_id != user.id
         and not has_access(user.id, "write", tools.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -27,7 +27,7 @@ from open_webui.models.users import (
 from open_webui.models.groups import Groups
 from open_webui.models.oauth_sessions import OAuthSessions
 
-from open_webui.constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, WEBHOOK_MESSAGES, has_admin_access, UserRole
 from open_webui.env import (
     WEBUI_AUTH,
     WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
@@ -513,7 +513,7 @@ async def ldap_auth(
                 )
 
                 if (
-                    user.role != "admin"
+                    not has_admin_access(user.role)
                     and ENABLE_LDAP_GROUP_MANAGEMENT
                     and user_groups
                 ):
@@ -588,7 +588,7 @@ async def signin(
             )
 
         user = Auths.authenticate_user_by_email(email, db=db)
-        if WEBUI_AUTH_TRUSTED_GROUPS_HEADER and user and user.role != "admin":
+        if WEBUI_AUTH_TRUSTED_GROUPS_HEADER and user and not has_admin_access(user.role):
             group_names = request.headers.get(
                 WEBUI_AUTH_TRUSTED_GROUPS_HEADER, ""
             ).split(",")
