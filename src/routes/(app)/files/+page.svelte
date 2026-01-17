@@ -288,7 +288,7 @@
 													
 													{#if file.created_at}
 														<span>•</span>
-														<span>{new Date(file.created_at).toLocaleDateString('ru-RU')}</span>
+														<span>{new Date(file.created_at * 1000).toLocaleDateString('ru-RU')}</span>
 													{/if}
 												</div>
 											</div>
