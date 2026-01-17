@@ -21,7 +21,7 @@ from open_webui.models.knowledge import Knowledges
 
 
 from open_webui.config import UPLOAD_DIR
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.internal.db import get_session
 from sqlalchemy.orm import Session
 
@@ -57,7 +57,7 @@ async def get_folders(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id,
         "features.folders",
         request.app.state.config.USER_PERMISSIONS,
@@ -306,7 +306,7 @@ async def delete_folder_by_id(
         chat_delete_permission = has_permission(
             user.id, "chat.delete", request.app.state.config.USER_PERMISSIONS, db=db
         )
-        if user.role != "admin" and not chat_delete_permission:
+        if not has_admin_access(user.role) and not chat_delete_permission:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=ERROR_MESSAGES.ACCESS_PROHIBITED,

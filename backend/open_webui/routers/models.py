@@ -17,7 +17,7 @@ from open_webui.models.models import (
 )
 
 from pydantic import BaseModel
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from fastapi import (
     APIRouter,
     Depends,
@@ -83,7 +83,7 @@ async def get_models(
     if direction:
         filter["direction"] = direction
 
-    if not user.role == "admin" or not BYPASS_ADMIN_ACCESS_CONTROL:
+    if not has_admin_access(user.role) or not BYPASS_ADMIN_ACCESS_CONTROL:
         groups = Groups.get_groups_by_member_id(user.id, db=db)
         if groups:
             filter["group_ids"] = [group.id for group in groups]
@@ -96,7 +96,7 @@ async def get_models(
             ModelAccessResponse(
                 **model.model_dump(),
                 write_access=(
-                    (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or user.id == model.user_id
                     or has_access(user.id, "write", model.access_control, db=db)
                 ),
@@ -128,7 +128,7 @@ async def get_base_models(
 async def get_model_tags(
     user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         models = Models.get_models(db=db)
     else:
         models = Models.get_models_by_user_id(user.id, db=db)
@@ -157,7 +157,7 @@ async def create_new_model(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "workspace.models", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -200,7 +200,7 @@ async def export_models(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id,
         "workspace.models_export",
         request.app.state.config.USER_PERMISSIONS,
@@ -211,7 +211,7 @@ async def export_models(
             detail=ERROR_MESSAGES.UNAUTHORIZED,
         )
 
-    if user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL:
+    if has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL:
         return Models.get_models(db=db)
     else:
         return Models.get_models_by_user_id(user.id, db=db)
@@ -233,7 +233,7 @@ async def import_models(
     form_data: ModelsImportForm = (...),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id,
         "workspace.models_import",
         request.app.state.config.USER_PERMISSIONS,
@@ -313,14 +313,14 @@ async def get_model_by_id(
     model = Models.get_model_by_id(id, db=db)
     if model:
         if (
-            (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+            (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
             or model.user_id == user.id
             or has_access(user.id, "read", model.access_control, db=db)
         ):
             return ModelAccessResponse(
                 **model.model_dump(),
                 write_access=(
-                    (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or user.id == model.user_id
                     or has_access(user.id, "write", model.access_control, db=db)
                 ),
@@ -393,7 +393,7 @@ async def toggle_model_by_id(
     model = Models.get_model_by_id(id, db=db)
     if model:
         if (
-            user.role == "admin"
+            has_admin_access(user.role)
             or model.user_id == user.id
             or has_access(user.id, "write", model.access_control, db=db)
         ):
@@ -439,7 +439,7 @@ async def update_model_by_id(
     if (
         model.user_id != user.id
         and not has_access(user.id, "write", model.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -471,7 +471,7 @@ async def delete_model_by_id(
         )
 
     if (
-        user.role != "admin"
+        not has_admin_access(user.role)
         and model.user_id != user.id
         and not has_access(user.id, "write", model.access_control, db=db)
     ):

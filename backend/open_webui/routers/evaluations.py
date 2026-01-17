@@ -18,7 +18,7 @@ from open_webui.models.feedbacks import (
     Feedbacks,
 )
 
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.internal.db import get_session
 from sqlalchemy.orm import Session
@@ -410,7 +410,7 @@ async def create_feedback(
 async def get_feedback_by_id(
     id: str, user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
-    if user.role == "admin":
+    if has_admin_access(user.role):
         feedback = Feedbacks.get_feedback_by_id(id=id, db=db)
     else:
         feedback = Feedbacks.get_feedback_by_id_and_user_id(
@@ -432,7 +432,7 @@ async def update_feedback_by_id(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role == "admin":
+    if has_admin_access(user.role):
         feedback = Feedbacks.update_feedback_by_id(id=id, form_data=form_data, db=db)
     else:
         feedback = Feedbacks.update_feedback_by_id_and_user_id(
@@ -451,7 +451,7 @@ async def update_feedback_by_id(
 async def delete_feedback_by_id(
     id: str, user=Depends(get_verified_user), db: Session = Depends(get_session)
 ):
-    if user.role == "admin":
+    if has_admin_access(user.role):
         success = Feedbacks.delete_feedback_by_id(id=id, db=db)
     else:
         success = Feedbacks.delete_feedback_by_id_and_user_id(

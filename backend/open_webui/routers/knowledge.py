@@ -27,7 +27,7 @@ from open_webui.routers.retrieval import (
 )
 from open_webui.storage.provider import Storage
 
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.utils.access_control import has_access, has_permission
 
@@ -115,7 +115,7 @@ async def get_knowledge_bases(
     skip = (page - 1) * limit
 
     filter = {}
-    if not user.role == "admin" or not BYPASS_ADMIN_ACCESS_CONTROL:
+    if not has_admin_access(user.role) or not BYPASS_ADMIN_ACCESS_CONTROL:
         groups = Groups.get_groups_by_member_id(user.id, db=db)
         if groups:
             filter["group_ids"] = [group.id for group in groups]
@@ -132,7 +132,7 @@ async def get_knowledge_bases(
                 **knowledge_base.model_dump(),
                 write_access=(
                     user.id == knowledge_base.user_id
-                    or (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    or (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or has_access(
                         user.id, "write", knowledge_base.access_control, db=db
                     )
@@ -162,7 +162,7 @@ async def search_knowledge_bases(
     if view_option:
         filter["view_option"] = view_option
 
-    if not user.role == "admin" or not BYPASS_ADMIN_ACCESS_CONTROL:
+    if not has_admin_access(user.role) or not BYPASS_ADMIN_ACCESS_CONTROL:
         groups = Groups.get_groups_by_member_id(user.id, db=db)
         if groups:
             filter["group_ids"] = [group.id for group in groups]
@@ -179,7 +179,7 @@ async def search_knowledge_bases(
                 **knowledge_base.model_dump(),
                 write_access=(
                     user.id == knowledge_base.user_id
-                    or (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    or (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or has_access(
                         user.id, "write", knowledge_base.access_control, db=db
                     )
@@ -229,7 +229,7 @@ async def create_new_knowledge(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "workspace.knowledge", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -239,7 +239,7 @@ async def create_new_knowledge(
 
     # Check if user can share publicly
     if (
-        user.role != "admin"
+        not has_admin_access(user.role)
         and form_data.access_control == None
         and not has_permission(
             user.id,
@@ -279,7 +279,7 @@ async def reindex_knowledge_files(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin":
+    if not has_admin_access(user.role):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.UNAUTHORIZED,
@@ -378,7 +378,7 @@ async def get_knowledge_by_id(
 
     if knowledge:
         if (
-            user.role == "admin"
+            has_admin_access(user.role)
             or knowledge.user_id == user.id
             or has_access(user.id, "read", knowledge.access_control, db=db)
         ):
@@ -387,7 +387,7 @@ async def get_knowledge_by_id(
                 **knowledge.model_dump(),
                 write_access=(
                     user.id == knowledge.user_id
-                    or (user.role == "admin" and BYPASS_ADMIN_ACCESS_CONTROL)
+                    or (has_admin_access(user.role) and BYPASS_ADMIN_ACCESS_CONTROL)
                     or has_access(user.id, "write", knowledge.access_control, db=db)
                 ),
             )
@@ -426,7 +426,7 @@ async def update_knowledge_by_id(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -435,7 +435,7 @@ async def update_knowledge_by_id(
 
     # Check if user can share publicly
     if (
-        user.role != "admin"
+        not has_admin_access(user.role)
         and form_data.access_control == None
         and not has_permission(
             user.id,
@@ -491,7 +491,7 @@ async def get_knowledge_files_by_id(
         )
 
     if not (
-        user.role == "admin"
+        has_admin_access(user.role)
         or knowledge.user_id == user.id
         or has_access(user.id, "read", knowledge.access_control, db=db)
     ):
@@ -547,7 +547,7 @@ def add_file_to_knowledge_by_id(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -616,7 +616,7 @@ def update_file_from_knowledge_by_id(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
 
         raise HTTPException(
@@ -685,7 +685,7 @@ def remove_file_from_knowledge_by_id(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -762,7 +762,7 @@ async def delete_knowledge_by_id(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -831,7 +831,7 @@ async def reset_knowledge_by_id(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -874,7 +874,7 @@ async def add_files_to_knowledge_batch(
     if (
         knowledge.user_id != user.id
         and not has_access(user.id, "write", knowledge.access_control, db=db)
-        and user.role != "admin"
+        and not has_admin_access(user.role)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

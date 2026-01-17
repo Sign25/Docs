@@ -23,7 +23,7 @@ from open_webui.config import (
     ENABLE_ADMIN_CHAT_ACCESS,
     ENABLE_ADMIN_EXPORT,
 )
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 
 
 from open_webui.utils.auth import get_admin_user, get_verified_user
@@ -56,7 +56,7 @@ async def get_notes(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.notes", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -101,7 +101,7 @@ async def search_notes(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.notes", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -127,7 +127,7 @@ async def search_notes(
     if direction:
         filter["direction"] = direction
 
-    if not user.role == "admin" or not BYPASS_ADMIN_ACCESS_CONTROL:
+    if not has_admin_access(user.role) or not BYPASS_ADMIN_ACCESS_CONTROL:
         groups = Groups.get_groups_by_member_id(user.id, db=db)
         if groups:
             filter["group_ids"] = [group.id for group in groups]
@@ -149,7 +149,7 @@ async def create_new_note(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.notes", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -183,7 +183,7 @@ async def get_note_by_id(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.notes", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -197,7 +197,7 @@ async def get_note_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
-    if user.role != "admin" and (
+    if not has_admin_access(user.role) and (
         user.id != note.user_id
         and (
             not has_access(
@@ -210,7 +210,7 @@ async def get_note_by_id(
         )
 
     write_access = (
-        user.role == "admin"
+        has_admin_access(user.role)
         or (user.id == note.user_id)
         or has_access(
             user.id,
@@ -237,7 +237,7 @@ async def update_note_by_id(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.notes", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -251,7 +251,7 @@ async def update_note_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
-    if user.role != "admin" and (
+    if not has_admin_access(user.role) and (
         user.id != note.user_id
         and not has_access(
             user.id, type="write", access_control=note.access_control, db=db
@@ -263,7 +263,7 @@ async def update_note_by_id(
 
     # Check if user can share publicly
     if (
-        user.role != "admin"
+        not has_admin_access(user.role)
         and form_data.access_control == None
         and not has_permission(
             user.id,
@@ -302,7 +302,7 @@ async def delete_note_by_id(
     user=Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.notes", request.app.state.config.USER_PERMISSIONS, db=db
     ):
         raise HTTPException(
@@ -316,7 +316,7 @@ async def delete_note_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
-    if user.role != "admin" and (
+    if not has_admin_access(user.role) and (
         user.id != note.user_id
         and not has_access(
             user.id, type="write", access_control=note.access_control, db=db

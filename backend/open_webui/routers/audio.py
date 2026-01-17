@@ -48,7 +48,7 @@ from open_webui.config import (
     ELEVENLABS_API_BASE_URL,
 )
 
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 from open_webui.env import (
     ENV,
     AIOHTTP_CLIENT_SESSION_SSL,
@@ -338,7 +338,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
             detail=ERROR_MESSAGES.NOT_FOUND,
         )
 
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "chat.tts", request.app.state.config.USER_PERMISSIONS
     ):
         raise HTTPException(
@@ -1169,7 +1169,7 @@ def transcription(
     language: Optional[str] = Form(None),
     user=Depends(get_verified_user),
 ):
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "chat.stt", request.app.state.config.USER_PERMISSIONS
     ):
         raise HTTPException(

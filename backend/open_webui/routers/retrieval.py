@@ -116,7 +116,7 @@ from open_webui.env import (
     SENTENCE_TRANSFORMERS_CROSS_ENCODER_SIGMOID_ACTIVATION_FUNCTION,
 )
 
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, has_admin_access, UserRole
 
 log = logging.getLogger(__name__)
 
@@ -1587,7 +1587,7 @@ def process_file(
     """
     Process a file and save its content to the vector database.
     """
-    if user.role == "admin":
+    if has_admin_access(user.role):
         file = Files.get_file_by_id(form_data.file_id, db=db)
     else:
         file = Files.get_file_by_id_and_user_id(form_data.file_id, user.id, db=db)
@@ -2220,7 +2220,7 @@ async def process_web_search(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    if user.role != "admin" and not has_permission(
+    if not has_admin_access(user.role) and not has_permission(
         user.id, "features.web_search", request.app.state.config.USER_PERMISSIONS
     ):
         raise HTTPException(

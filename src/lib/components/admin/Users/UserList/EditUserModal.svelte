@@ -39,7 +39,8 @@
 		role: 'pending',
 		name: '',
 		email: '',
-		password: ''
+		password: '',
+		brand_id: null
 	};
 
 	let userGroups: any[] | null = null;
@@ -143,12 +144,34 @@
 												disabled={_user.id == sessionUser.id}
 												required
 											>
-												<option value="admin">{$i18n.t('Admin')}</option>
-												<option value="user">{$i18n.t('User')}</option>
 												<option value="pending">{$i18n.t('Pending')}</option>
+												<option value="staff">{$i18n.t('Staff')}</option>
+												<option value="manager">{$i18n.t('Manager')}</option>
+												<option value="senior">{$i18n.t('Senior Manager')}</option>
+												<option value="director">{$i18n.t('Director')}</option>
+												<option value="admin">{$i18n.t('Admin')}</option>
 											</select>
 										</div>
 									</div>
+
+									{#if _user.role === 'manager'}
+										<div class="flex flex-col w-full">
+											<div class=" mb-1 text-xs text-gray-500">Brand ID</div>
+
+											<div class="flex-1">
+												<input
+													class="w-full text-sm bg-transparent outline-hidden"
+													type="text"
+													bind:value={_user.brand_id}
+													placeholder="Enter Brand ID (e.g., brand-001)"
+													autocomplete="off"
+												/>
+											</div>
+											<div class="text-xs text-gray-400 mt-0.5">
+												Manager can only access this brand's data
+											</div>
+										</div>
+									{/if}
 
 									<div class="flex flex-col w-full">
 										<div class=" mb-1 text-xs text-gray-500">{$i18n.t('Name')}</div>
