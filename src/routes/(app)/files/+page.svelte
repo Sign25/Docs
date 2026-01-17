@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { showSidebar } from '$lib/stores';
+	import { showSidebar, user } from '$lib/stores';
 	
 	// Icons
 	import Plus from '$lib/components/icons/Plus.svelte';
@@ -23,6 +23,8 @@
 
 	let showDeleteConfirm = false;
 	let deleteFileObj = null;
+
+	let users = {}; // Map user_id -> user info
 
 	// Функция загрузки файла
 	async function uploadFile(file) {
@@ -91,16 +93,43 @@
 		uploading = false;
 	}
 
+	// Загрузка информации о пользователях
+	async function loadUsers() {
+		try {
+			const res = await fetch('/api/v1/users/');
+			if (res.ok) {
+				const usersArray = await res.json();
+				// Создаем map user_id -> user
+				users = usersArray.reduce((acc, u) => {
+					acc[u.id] = u;
+					return acc;
+				}, {});
+			}
+		} catch (e) {
+			console.error('Ошибка загрузки пользователей:', e);
+		}
+	}
+
 	// Загрузка списка файлов
 	async function loadFiles() {
 		try {
 			const res = await fetch('/api/v1/files/');
 			if (res.ok) {
 				files = await res.json();
+
+				// Если админ - загрузить информацию о пользователях
+				if ($user?.role === 'admin') {
+					await loadUsers();
+				}
 			}
 		} catch (e) {
 			console.error('Ошибка загрузки файлов:', e);
 		}
+	}
+
+	// Получить имя пользователя по ID
+	function getUserName(userId) {
+		return users[userId]?.name || users[userId]?.email || 'Неизвестный';
 	}
 
 	// Удаление файла
@@ -281,14 +310,23 @@
 													{file.filename || file.meta?.name || 'Неизвестный файл'}
 												</div>
 												
-												<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-													{#if file.meta?.size}
-														<span>{formatFileSize(file.meta.size)}</span>
-													{/if}
-													
-													{#if file.created_at}
-														<span>•</span>
-														<span>{new Date(file.created_at * 1000).toLocaleDateString('ru-RU')}</span>
+												<div class="flex flex-col gap-0.5">
+													<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+														{#if file.meta?.size}
+															<span>{formatFileSize(file.meta.size)}</span>
+														{/if}
+
+														{#if file.created_at}
+															<span>•</span>
+															<span>{new Date(file.created_at * 1000).toLocaleDateString('ru-RU')}</span>
+														{/if}
+													</div>
+
+													{#if $user?.role === 'admin' && file.user_id}
+														<div class="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+															<span>👤</span>
+															<span>{getUserName(file.user_id)}</span>
+														</div>
 													{/if}
 												</div>
 											</div>
