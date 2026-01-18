@@ -7,6 +7,7 @@ from open_webui.constants.messages import (
     ERROR_MESSAGES,
     MESSAGES,
     WEBHOOK_MESSAGES,
+    TASKS,
 )
 
 # Import role constants
@@ -27,6 +28,7 @@ __all__ = [
     "ERROR_MESSAGES",
     "MESSAGES",
     "WEBHOOK_MESSAGES",
+    "TASKS",
     # Role constants
     "UserRole",
     "has_permission",
