@@ -1,7 +1,7 @@
 """Add brand_id to user table for role-based access control
 
 Revision ID: e1a2b3c4d5f6
-Revises: d31026856c01
+Revises: 018012973d35
 Create Date: 2026-01-17 19:00:00.000000
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "e1a2b3c4d5f6"
-down_revision = "d31026856c01"
+down_revision = "018012973d35"
 branch_labels = None
 depends_on = None
 
