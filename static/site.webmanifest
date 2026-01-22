@@ -1,7 +1,7 @@
 {
   "name": "Adolf Ohana Market",
-  "short_name": "Ohana", 
-  "description": "Adolf Ohana Market - Reputation Module",
+  "short_name": "Adolf", 
+  "description": "Adolf Ohana Market",
   "start_url": "/",
   "icons": [
     {
@@ -21,5 +21,5 @@
   "background_color": "#ffffff", 
   "display": "standalone",
   "scope": "/",
-  "orientation": "portrait"
+  "orientation": "any"
 }
