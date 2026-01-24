@@ -2,7 +2,7 @@
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
-	import { config, models, settings } from '$lib/stores';
+	import { config, models, settings, user } from '$lib/stores';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	import { onMount, tick, getContext } from 'svelte';
@@ -95,6 +95,17 @@
 	});
 </script>
 
-{#key model}
-	<ModelEditor {model} {onSubmit} />
-{/key}
+{#if $user?.role === 'admin'}
+	{#key model}
+		<ModelEditor {model} {onSubmit} />
+	{/key}
+{:else}
+	<div class="flex flex-col items-center justify-center h-full">
+		<div class="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+			{$i18n.t('Access Denied')}
+		</div>
+		<div class="text-sm text-gray-500 dark:text-gray-400">
+			{$i18n.t('Only administrators can access this page')}
+		</div>
+	</div>
+{/if}
