@@ -6,7 +6,6 @@
 	import { toast } from 'svelte-sonner';
 
 	import { getBackendConfig, getModels, getTaskConfig, updateTaskConfig } from '$lib/apis';
-	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
 	import { config, settings, user } from '$lib/stores';
 	import { createEventDispatcher, onMount, getContext } from 'svelte';
 
@@ -21,7 +20,6 @@
 	import Textarea from '$lib/components/common/Textarea.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Banners from './Interface/Banners.svelte';
-	import PromptSuggestions from '$lib/components/workspace/Models/PromptSuggestions.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -46,14 +44,11 @@
 		VOICE_MODE_PROMPT_TEMPLATE: ''
 	};
 
-	let promptSuggestions = [];
 	let banners: Banner[] = [];
 
 	const updateInterfaceHandler = async () => {
 		taskConfig = await updateTaskConfig(localStorage.token, taskConfig);
 
-		promptSuggestions = promptSuggestions.filter((p) => p.content !== '');
-		promptSuggestions = await setDefaultPromptSuggestions(localStorage.token, promptSuggestions);
 		await updateBanners();
 
 		await config.set(await getBackendConfig());
@@ -70,7 +65,6 @@
 
 	const init = async () => {
 		taskConfig = await getTaskConfig(localStorage.token);
-		promptSuggestions = $config?.default_prompt_suggestions ?? [];
 		banners = await getBanners(localStorage.token);
 
 		workspaceModels = await getBaseModels(localStorage.token);
@@ -466,15 +460,6 @@
 					<Banners bind:banners />
 				</div>
 
-				{#if $user?.role === 'admin'}
-					<PromptSuggestions bind:promptSuggestions />
-
-					{#if promptSuggestions.length > 0}
-						<div class="text-xs text-left w-full mt-2">
-							{$i18n.t('Adjusting these settings will apply changes universally to all users.')}
-						</div>
-					{/if}
-				{/if}
 			</div>
 		</div>
 
