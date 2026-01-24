@@ -145,9 +145,9 @@
 	};
 
 	const shareModelHandler = async (model) => {
-		toast.success($i18n.t('Redirecting you to Open WebUI Community'));
+		toast.success($i18n.t('Redirecting you to Ohana Lab Community'));
 
-		const url = 'https://openwebui.com';
+		const url = 'https://ohana-lab.com';
 
 		const tab = await window.open(`${url}/models/create`, '_blank');
 
