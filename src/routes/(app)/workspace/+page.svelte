@@ -4,10 +4,12 @@
 	import { onMount } from 'svelte';
 
 	onMount(() => {
-		if ($user?.role !== 'admin') {
-			if ($user?.permissions?.workspace?.models) {
-				goto('/workspace/models');
-			} else if ($user?.permissions?.workspace?.knowledge) {
+		if ($user?.role === 'admin') {
+			// Admins can access models
+			goto('/workspace/models');
+		} else {
+			// Non-admins: skip models, go to other workspace sections
+			if ($user?.permissions?.workspace?.knowledge) {
 				goto('/workspace/knowledge');
 			} else if ($user?.permissions?.workspace?.prompts) {
 				goto('/workspace/prompts');
@@ -16,8 +18,6 @@
 			} else {
 				goto('/');
 			}
-		} else {
-			goto('/workspace/models');
 		}
 	});
 </script>

@@ -6,7 +6,7 @@
 	const i18n = getContext('i18n');
 
 	import { page } from '$app/stores';
-	import { config, models, settings } from '$lib/stores';
+	import { config, models, settings, user } from '$lib/stores';
 
 	import { getModelById, updateModelById } from '$lib/apis/models';
 
@@ -51,6 +51,17 @@
 	};
 </script>
 
-{#if model}
-	<ModelEditor edit={true} {model} {onSubmit} />
+{#if $user?.role === 'admin'}
+	{#if model}
+		<ModelEditor edit={true} {model} {onSubmit} />
+	{/if}
+{:else}
+	<div class="flex flex-col items-center justify-center h-full">
+		<div class="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+			{$i18n.t('Access Denied')}
+		</div>
+		<div class="text-sm text-gray-500 dark:text-gray-400">
+			{$i18n.t('Only administrators can access this page')}
+		</div>
+	</div>
 {/if}
