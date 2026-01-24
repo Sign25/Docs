@@ -11,7 +11,7 @@
 	import { user, config } from '$lib/stores';
 
 	import Textarea from '$lib/components/common/Textarea.svelte';
-	import Knowledge from '$lib/components/workspace/Models/Knowledge.svelte';
+	import Knowledge from '$lib/components/workspace/Knowledge.svelte';
 	import { getFolderById } from '$lib/apis/folders';
 	const i18n = getContext('i18n');
 

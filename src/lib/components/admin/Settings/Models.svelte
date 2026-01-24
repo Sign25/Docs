@@ -26,7 +26,6 @@
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 
-	import ModelEditor from '$lib/components/workspace/Models/ModelEditor.svelte';
 	import { toast } from 'svelte-sonner';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import Cog6 from '$lib/components/icons/Cog6.svelte';
@@ -202,15 +201,16 @@
 		}
 	};
 
-	const cloneHandler = async (model) => {
-		sessionStorage.model = JSON.stringify({
-			...model,
-			base_model_id: model.id,
-			id: `${model.id}-clone`,
-			name: `${model.name} (Clone)`
-		});
-		goto('/workspace/models/create');
-	};
+	// Model cloning disabled - workspace/models pages removed
+	// const cloneHandler = async (model) => {
+	// 	sessionStorage.model = JSON.stringify({
+	// 		...model,
+	// 		base_model_id: model.id,
+	// 		id: `${model.id}-clone`,
+	// 		name: `${model.name} (Clone)`
+	// 	});
+	// 	goto('/workspace/models/create');
+	// };
 
 	const exportModelHandler = async (model) => {
 		let blob = new Blob([JSON.stringify([model])], {
@@ -447,9 +447,6 @@
 									copyLinkHandler={() => {
 										copyLinkHandler(model);
 									}}
-									cloneHandler={() => {
-										cloneHandler(model);
-									}}
 									onClose={() => {}}
 								>
 									<button
@@ -582,19 +579,17 @@
 			</div>
 		{/if}
 	{:else}
-		<ModelEditor
-			edit
-			model={models.find((m) => m.id === selectedModelId)}
-			preset={false}
-			onSubmit={(model) => {
-				console.log(model);
-				upsertModelHandler(model);
-				selectedModelId = null;
-			}}
-			onBack={() => {
-				selectedModelId = null;
-			}}
-		/>
+		<div class="flex flex-col gap-2 p-4">
+			<div class="text-sm">{$i18n.t('Model editing is currently disabled.')}</div>
+			<button
+				class="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition"
+				on:click={() => {
+					selectedModelId = null;
+				}}
+			>
+				{$i18n.t('Back')}
+			</button>
+		</div>
 	{/if}
 {:else}
 	<div class=" h-full w-full flex justify-center items-center">

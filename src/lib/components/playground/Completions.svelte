@@ -9,7 +9,6 @@
 	import { chatCompletion } from '$lib/apis/openai';
 
 	import { splitStream } from '$lib/utils';
-	import Selector from '$lib/components/chat/ModelSelector/Selector.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -127,15 +126,9 @@
 					<div class="flex w-full">
 						<div class="overflow-hidden w-full">
 							<div class="max-w-full">
-								<Selector
-									placeholder={$i18n.t('Select a model')}
-									items={$models.map((model) => ({
-										value: model.id,
-										label: model.name,
-										model: model
-									}))}
-									bind:value={selectedModelId}
-								/>
+								<div class="px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">
+									{$i18n.t('Model')}: {$models.find(m => m.id === selectedModelId)?.name || selectedModelId || $i18n.t('No model selected')}
+								</div>
 							</div>
 						</div>
 					</div>
