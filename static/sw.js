@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'open-webui-v2';
+const CACHE_NAME = 'adolf-pwa-v3';
 
 // Install event
 self.addEventListener('install', (event) => {

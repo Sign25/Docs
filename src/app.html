@@ -247,5 +247,12 @@
 		if ('serviceWorker' in navigator) {
 			navigator.serviceWorker.register('/sw.js').catch(console.error);
 		}
+
+		// Unlock screen orientation for PWA
+		if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+			if (screen.orientation && screen.orientation.unlock) {
+				screen.orientation.unlock();
+			}
+		}
 	</script>
 </html>
