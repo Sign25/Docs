@@ -108,7 +108,6 @@
 			{$showSidebar ? 'ml-1' : ''}
 			"
 				>
-					<!-- Model selector removed - models handled by backend -->
 				</div>
 
 				<div class="self-start flex flex-none items-center text-gray-600 dark:text-gray-400">

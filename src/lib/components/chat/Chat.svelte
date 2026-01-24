@@ -124,15 +124,9 @@
 
 	let chatIdUnsubscriber: Unsubscriber | undefined;
 
-	// Model selection disabled - handled by backend
-	let selectedModels = ['']; // Static, will be set by backend
+	let selectedModels = [''];
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
-	// $: if (atSelectedModel !== undefined) {
-	// 	selectedModelIds = [atSelectedModel.id];
-	// } else {
-	// 	selectedModelIds = selectedModels;
-	// }
 
 	let selectedToolIds = [];
 	let selectedFilterIds = [];
@@ -227,23 +221,6 @@
 		}
 	};
 
-	// Model selection disabled
-	// $: if (selectedModels && chatIdProp !== '') {
-	// 	saveSessionSelectedModels();
-	// }
-
-	// const saveSessionSelectedModels = () => {
-	// 	const selectedModelsString = JSON.stringify(selectedModels);
-	// 	if (
-	// 		selectedModels.length === 0 ||
-	// 		(selectedModels.length === 1 && selectedModels[0] === '') ||
-	// 		sessionStorage.selectedModels === selectedModelsString
-	// 	) {
-	// 		return;
-	// 	}
-	// 	sessionStorage.selectedModels = selectedModelsString;
-	// 	console.log('saveSessionSelectedModels', selectedModels, sessionStorage.selectedModels);
-	// };
 
 	let oldSelectedModelIds = [''];
 	$: if (JSON.stringify(selectedModelIds) !== JSON.stringify(oldSelectedModelIds)) {
@@ -521,25 +498,6 @@
 		}
 	};
 
-	// Model selection disabled
-	// const savedModelIds = async () => {
-	// 	if (
-	// 		$selectedFolder &&
-	// 		selectedModels.filter((modelId) => modelId !== '').length > 0 &&
-	// 		JSON.stringify($selectedFolder?.data?.model_ids) !== JSON.stringify(selectedModels)
-	// 	) {
-	// 		const res = await updateFolderById(localStorage.token, $selectedFolder.id, {
-	// 			data: {
-	// 				model_ids: selectedModels
-	// 			}
-	// 		});
-	// 	}
-	// };
-
-	// $: if (selectedModels !== null) {
-	// 	savedModelIds();
-	}
-
 	let pageSubscribe = null;
 	let showControlsSubscribe = null;
 	let selectedFolderSubscribe = null;
@@ -624,17 +582,6 @@
 			}
 		});
 
-		// Model selection disabled
-		// selectedFolderSubscribe = selectedFolder.subscribe(async (folder) => {
-		// 	if (
-		// 		folder?.data?.model_ids &&
-		// 		JSON.stringify(selectedModels) !== JSON.stringify(folder.data.model_ids)
-		// 	) {
-		// 		selectedModels = folder.data.model_ids;
-		//
-		// 		console.log('Set selectedModels from folder data:', selectedModels);
-		// 	}
-		// });
 
 		const chatInput = document.getElementById('chat-input');
 		chatInput?.focus();
@@ -913,94 +860,15 @@
 			await temporaryChatEnabled.set(false);
 		}
 
-		// Model selection disabled - using backend default
 		const availableModels = $models
 			.filter((m) => !(m?.info?.meta?.hidden ?? false))
 			.map((m) => m.id);
 
-		const defaultModels = $config?.default_models ? $config?.default_models.split(',') : [];
-
-		// Set to first available model or empty
 		if (availableModels.length > 0) {
 			selectedModels = [availableModels[0]];
 		} else {
 			selectedModels = [''];
 		}
-
-		// Below code commented out - model selection handled by backend
-		// if ($page.url.searchParams.get('models') || $page.url.searchParams.get('model')) {
-		// 	const urlModels = (
-		// 		$page.url.searchParams.get('models') ||
-		// 		$page.url.searchParams.get('model') ||
-		// 		''
-		// 	)?.split(',');
-		//
-		// 	if (urlModels.length === 1) {
-		// 		if (!$models.find((m) => m.id === urlModels[0])) {
-		// 			// Model not found; open model selector and prefill
-		// 			const modelSelectorButton = document.getElementById('model-selector-0-button');
-		// 			if (modelSelectorButton) {
-		// 				modelSelectorButton.click();
-		// 				await tick();
-		//
-		// 				const modelSelectorInput = document.getElementById('model-search-input');
-		// 				if (modelSelectorInput) {
-		// 					modelSelectorInput.focus();
-		// 					modelSelectorInput.value = urlModels[0];
-		// 					modelSelectorInput.dispatchEvent(new Event('input'));
-		// 				}
-		// 			}
-		// 		} else {
-		// 			// Model found; set it as selected
-		// 			selectedModels = urlModels;
-		// 		}
-		// 	} else {
-		// 		// Multiple models; set as selected
-		// 		selectedModels = urlModels;
-		// 	}
-		//
-		// 	// Unavailable models filtering
-		// 	selectedModels = selectedModels.filter((modelId) =>
-		// 		$models.map((m) => m.id).includes(modelId)
-		// 	);
-		// } else {
-		// 	if ($selectedFolder?.data?.model_ids) {
-		// 		// Set from folder model IDs
-		// 		selectedModels = $selectedFolder?.data?.model_ids;
-		// 	} else {
-		// 		if (sessionStorage.selectedModels) {
-		// 			// Set from session storage (temporary selection)
-		// 			selectedModels = JSON.parse(sessionStorage.selectedModels);
-		// 			sessionStorage.removeItem('selectedModels');
-		// 		} else {
-		// 			if ($settings?.models) {
-		// 				// Set from user settings
-		// 				selectedModels = $settings?.models;
-		// 			} else if (defaultModels && defaultModels.length > 0) {
-		// 				// Set from default models
-		// 				selectedModels = defaultModels;
-		// 			}
-		// 		}
-		// 	}
-		//
-		// 	// Unavailable & hidden models filtering
-		// 	selectedModels = selectedModels.filter((modelId) => availableModels.includes(modelId));
-		// }
-		//
-		// // Ensure at least one model is selected
-		// if (selectedModels.length === 0 || (selectedModels.length === 1 && selectedModels[0] === '')) {
-		// 	if (availableModels.length > 0) {
-		// 		if (defaultModels && defaultModels.length > 0) {
-		// 			// Set from default models
-		// 			selectedModels = defaultModels.filter((modelId) => availableModels.includes(modelId));
-		// 		}
-		//
-		// 		// Set to first available model
-		// 		selectedModels = [availableModels?.at(0) ?? ''];
-		// 	} else {
-		// 		selectedModels = [''];
-		// 	}
-		// }
 
 		await showControls.set(false);
 		await showCallOverlay.set(false);
@@ -1076,10 +944,6 @@
 			}
 		}
 
-		// Model selection disabled
-		// selectedModels = selectedModels.map((modelId) =>
-		// 	$models.map((m) => m.id).includes(modelId) ? modelId : ''
-		// );
 
 		const chatInput = document.getElementById('chat-input');
 		setTimeout(() => chatInput?.focus(), 0);
@@ -1107,17 +971,6 @@
 			if (chatContent) {
 				console.log(chatContent);
 
-				// Model selection disabled - using backend default
-				// selectedModels =
-				// 	(chatContent?.models ?? undefined) !== undefined
-				// 		? chatContent.models
-				// 		: [chatContent.models ?? ''];
-				//
-				// if (!($user?.role === 'admin' || ($user?.permissions?.chat?.multiple_models ?? true))) {
-				// 	selectedModels = selectedModels.length > 0 ? [selectedModels[0]] : [''];
-				// }
-				//
-				// oldSelectedModelIds = JSON.parse(JSON.stringify(selectedModels));
 
 				history =
 					(chatContent?.history ?? undefined) !== undefined
@@ -1572,24 +1425,11 @@
 	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
 		console.log('submitPrompt', userPrompt, $chatId);
 
-		// Model selection disabled
-		// const _selectedModels = selectedModels.map((modelId) =>
-		// 	$models.map((m) => m.id).includes(modelId) ? modelId : ''
-		// );
-		//
-		// if (JSON.stringify(selectedModels) !== JSON.stringify(_selectedModels)) {
-		// 	selectedModels = _selectedModels;
-		// }
 
 		if (userPrompt === '' && files.length === 0) {
 			toast.error($i18n.t('Please enter a prompt'));
 			return;
 		}
-		// Model selection disabled - backend handles model selection
-		// if (selectedModels.includes('')) {
-		// 	toast.error($i18n.t('Model not selected'));
-		// 	return;
-		// }
 
 		if (
 			files.length > 0 &&
