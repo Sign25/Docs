@@ -47,7 +47,9 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
           "metrics": {
             "products_monitored": 230,
             "price_changes_today": 15
-          }
+          },
+          "salary_equivalent": 60000,
+          "fte_coefficient": 1.0
         },
         {
           "agent_id": "watcher_night_agent",
@@ -56,7 +58,9 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
           "status": "ok",
           "last_activity": "2025-01-24T03:15:00Z",
           "current_task": null,
-          "metrics": {}
+          "metrics": {},
+          "salary_equivalent": 60000,
+          "fte_coefficient": 0.5
         }
       ]
     },
@@ -66,6 +70,8 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
       "agents": [...]
     }
   ],
+  "total_agents": 12,
+  "total_savings": 480000,
   "updated_at": "2025-01-24T14:35:00Z"
 }
 ```
