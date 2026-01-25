@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADOLF Reputation - UI Reference</title>
+  
+  <!-- Подключение стилей -->
+  <link rel="stylesheet" href="../base/adolf-design-tokens.css">
+  <link rel="stylesheet" href="../base/adolf-components.css">
+  <link rel="stylesheet" href="reputation.css">
+  
+  <style>
+    /* Стили для демо-страницы */
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: var(--adolf-font-family);
+      background-color: var(--adolf-bg-tertiary);
+      color: var(--adolf-text-primary);
+      margin: 0;
+      padding: var(--adolf-spacing-xl);
+      line-height: 1.5;
+    }
+    
+    .demo-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .demo-header {
+      text-align: center;
+      margin-bottom: var(--adolf-spacing-2xl);
+    }
+    
+    .demo-title {
+      font-size: var(--adolf-text-3xl);
+      font-weight: var(--adolf-font-bold);
+      color: var(--adolf-module-reputation);
+      margin: 0 0 var(--adolf-spacing-sm) 0;
+    }
+    
+    .demo-subtitle {
+      font-size: var(--adolf-text-base);
+      color: var(--adolf-text-secondary);
+      margin: 0;
+    }
+    
+    .demo-section {
+      margin-bottom: var(--adolf-spacing-2xl);
+    }
+    
+    .demo-section-title {
+      font-size: var(--adolf-text-xl);
+      font-weight: var(--adolf-font-semibold);
+      color: var(--adolf-text-primary);
+      margin: 0 0 var(--adolf-spacing-md) 0;
+      padding-bottom: var(--adolf-spacing-sm);
+      border-bottom: 2px solid var(--adolf-module-reputation);
+    }
+    
+    .demo-description {
+      font-size: var(--adolf-text-sm);
+      color: var(--adolf-text-secondary);
+      margin-bottom: var(--adolf-spacing-md);
+    }
+    
+    .demo-code-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--adolf-spacing-xs);
+      font-size: var(--adolf-text-xs);
+      color: var(--adolf-accent-primary);
+      text-decoration: none;
+      margin-top: var(--adolf-spacing-sm);
+    }
+    
+    .demo-code-link:hover {
+      text-decoration: underline;
+    }
+    
+    /* Тема переключатель */
+    .theme-toggle {
+      position: fixed;
+      top: var(--adolf-spacing-md);
+      right: var(--adolf-spacing-md);
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <!-- Переключатель темы -->
+  <button class="adolf-btn adolf-btn-secondary theme-toggle" onclick="toggleTheme()">
+    🌓 Тема
+  </button>
+  
+  <div class="demo-container">
+    <header class="demo-header">
+      <h1 class="demo-title">⭐ Reputation</h1>
+      <p class="demo-subtitle">UI Reference — Визуальные компоненты управления отзывами</p>
+    </header>
+    
+    <!-- ============================================
+         РАЗДЕЛ 1: СПИСОК ОТЗЫВОВ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">1. Список отзывов</h2>
+      <p class="demo-description">
+        Основной список новых отзывов с фильтрацией по тональности и маркетплейсам.
+      </p>
+      
+      <div class="adolf-reputation">
+        <div class="adolf-rep-list">
+          <!-- Заголовок -->
+          <div class="adolf-rep-list-header">
+            <h3 class="adolf-rep-list-title">
+              <span>⭐</span>
+              <span>Новые отзывы</span>
+              <span class="adolf-rep-list-count">12</span>
+            </h3>
+            <span class="adolf-rep-new-badge">+5 новых</span>
+          </div>
+          
+          <!-- Фильтры -->
+          <div class="adolf-rep-filters">
+            <div class="adolf-rep-filter-group">
+              <span class="adolf-rep-filter-label">Тональность:</span>
+              <span class="adolf-rep-filter-chip active">Все</span>
+              <span class="adolf-rep-filter-chip positive">🟢 Позитив</span>
+              <span class="adolf-rep-filter-chip neutral">🟡 Нейтр.</span>
+              <span class="adolf-rep-filter-chip negative">🔴 Негатив</span>
+            </div>
+            <div class="adolf-rep-filter-group">
+              <span class="adolf-rep-filter-label">МП:</span>
+              <span class="adolf-rep-filter-chip active">Все</span>
+              <span class="adolf-rep-filter-chip">WB</span>
+              <span class="adolf-rep-filter-chip">Ozon</span>
+              <span class="adolf-rep-filter-chip">YM</span>
+            </div>
+          </div>
+          
+          <!-- Отзыв 1 - Негативный, непрочитанный -->
+          <div class="adolf-rep-review-card unread">
+            <div class="adolf-rep-sentiment-indicator negative"></div>
+            <div class="adolf-rep-review-content">
+              <div class="adolf-rep-review-header">
+                <div class="adolf-rep-review-rating">
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                </div>
+                <span class="adolf-rep-review-date">15.01.2026, 14:32</span>
+              </div>
+              <p class="adolf-rep-review-text">
+                Платье пришло совсем не того цвета, что на фото! На картинке был насыщенный синий, а в реальности какой-то блёклый серо-голубой. Очень разочарована, придётся возвращать.
+              </p>
+              <div class="adolf-rep-review-meta">
+                <span class="adolf-rep-review-sku">OM-12345</span>
+                <span class="adolf-rep-mp-badge wb">WB</span>
+                <span>Платье женское летнее</span>
+              </div>
+            </div>
+            <div class="adolf-rep-review-status">
+              <span class="adolf-rep-sentiment-badge negative">🔴 Негатив</span>
+              <span class="adolf-badge adolf-badge-pending">новый</span>
+            </div>
+          </div>
+          
+          <!-- Отзыв 2 - Позитивный -->
+          <div class="adolf-rep-review-card">
+            <div class="adolf-rep-sentiment-indicator positive"></div>
+            <div class="adolf-rep-review-content">
+              <div class="adolf-rep-review-header">
+                <div class="adolf-rep-review-rating">
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                </div>
+                <span class="adolf-rep-review-date">15.01.2026, 11:20</span>
+              </div>
+              <p class="adolf-rep-review-text">
+                Отличное качество! Дочке очень понравилось платье, носит с удовольствием. Ткань приятная, швы ровные. Буду заказывать ещё!
+              </p>
+              <div class="adolf-rep-review-meta">
+                <span class="adolf-rep-review-sku">OK-555</span>
+                <span class="adolf-rep-mp-badge ozon">OZ</span>
+                <span>Платье детское</span>
+              </div>
+            </div>
+            <div class="adolf-rep-review-status">
+              <span class="adolf-rep-sentiment-badge positive">🟢 Позитив</span>
+              <span class="adolf-badge adolf-badge-pending">новый</span>
+            </div>
+          </div>
+          
+          <!-- Отзыв 3 - Нейтральный -->
+          <div class="adolf-rep-review-card">
+            <div class="adolf-rep-sentiment-indicator neutral"></div>
+            <div class="adolf-rep-review-content">
+              <div class="adolf-rep-review-header">
+                <div class="adolf-rep-review-rating">
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                </div>
+                <span class="adolf-rep-review-date">14.01.2026, 19:45</span>
+              </div>
+              <p class="adolf-rep-review-text">
+                Блузка нормальная, но размер немного маловат. Взяла М, а сидит как S. В остальном без претензий.
+              </p>
+              <div class="adolf-rep-review-meta">
+                <span class="adolf-rep-review-sku">OM-789</span>
+                <span class="adolf-rep-mp-badge ym">YM</span>
+                <span>Блузка женская</span>
+              </div>
+            </div>
+            <div class="adolf-rep-review-status">
+              <span class="adolf-rep-sentiment-badge neutral">🟡 Нейтр.</span>
+              <span class="adolf-badge adolf-badge-approved">отвечен</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <a href="https://github.com/Sign25/Docs/tree/main/reputation" 
+         class="demo-code-link" target="_blank">
+        📄 Документация модуля Reputation →
+      </a>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 2: БЕЙДЖИ ТОНАЛЬНОСТИ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">2. Индикаторы тональности</h2>
+      <p class="demo-description">
+        Визуальные элементы для отображения результатов AI-анализа тональности.
+      </p>
+      
+      <div class="adolf-reputation" style="background: var(--adolf-bg-primary); padding: var(--adolf-spacing-lg); border-radius: var(--adolf-radius-lg);">
+        <div style="display: flex; flex-wrap: wrap; gap: var(--adolf-spacing-lg);">
+          <!-- Позитив -->
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-sm); align-items: center;">
+            <span class="adolf-rep-sentiment-badge positive">🟢 Позитив</span>
+            <div style="display: flex; align-items: center; gap: var(--adolf-spacing-xs);">
+              <div class="adolf-rep-sentiment-indicator positive" style="width: 4px; height: 32px;"></div>
+              <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Линия</span>
+            </div>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Рейтинг 4-5 ⭐</span>
+          </div>
+          
+          <!-- Нейтрал -->
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-sm); align-items: center;">
+            <span class="adolf-rep-sentiment-badge neutral">🟡 Нейтрал</span>
+            <div style="display: flex; align-items: center; gap: var(--adolf-spacing-xs);">
+              <div class="adolf-rep-sentiment-indicator neutral" style="width: 4px; height: 32px;"></div>
+              <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Линия</span>
+            </div>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Рейтинг 3 ⭐</span>
+          </div>
+          
+          <!-- Негатив -->
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-sm); align-items: center;">
+            <span class="adolf-rep-sentiment-badge negative">🔴 Негатив</span>
+            <div style="display: flex; align-items: center; gap: var(--adolf-spacing-xs);">
+              <div class="adolf-rep-sentiment-indicator negative" style="width: 4px; height: 32px;"></div>
+              <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Линия</span>
+            </div>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Рейтинг 1-2 ⭐</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 3: ДЕТАЛИ ОТЗЫВА
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">3. Детали отзыва с AI-анализом</h2>
+      <p class="demo-description">
+        Полная информация об отзыве, включая AI-анализ и сгенерированный ответ.
+      </p>
+      
+      <div class="adolf-reputation">
+        <div class="adolf-rep-detail">
+          <!-- Заголовок -->
+          <div class="adolf-rep-detail-header">
+            <span style="font-size: var(--adolf-text-2xl);">⭐</span>
+            <h2 class="adolf-rep-detail-title">Отзыв #45678</h2>
+          </div>
+          
+          <!-- Тело -->
+          <div class="adolf-rep-detail-body">
+            <!-- Мета -->
+            <div class="adolf-rep-detail-meta">
+              <div class="adolf-rep-detail-meta-item">
+                <span class="adolf-rep-detail-meta-label">Артикул:</span>
+                <span class="adolf-rep-detail-meta-value"><code style="background: var(--adolf-bg-tertiary); padding: 0.125rem 0.375rem; border-radius: var(--adolf-radius-sm);">OM-12345</code></span>
+              </div>
+              <div class="adolf-rep-detail-meta-item">
+                <span class="adolf-rep-detail-meta-label">Товар:</span>
+                <span class="adolf-rep-detail-meta-value">Платье женское летнее</span>
+              </div>
+              <div class="adolf-rep-detail-meta-item">
+                <span class="adolf-rep-detail-meta-label">МП:</span>
+                <span class="adolf-rep-mp-badge wb">WB</span>
+              </div>
+              <div class="adolf-rep-detail-meta-item">
+                <span class="adolf-rep-detail-meta-label">Дата:</span>
+                <span class="adolf-rep-detail-meta-value">15.01.2026, 14:32</span>
+              </div>
+              <div class="adolf-rep-detail-meta-item">
+                <span class="adolf-rep-sentiment-badge negative">🔴 Негатив</span>
+              </div>
+            </div>
+            
+            <!-- Текст отзыва -->
+            <div class="adolf-rep-detail-review">
+              <div class="adolf-rep-detail-review-label">
+                <span>💬</span>
+                <span>Текст отзыва</span>
+                <div class="adolf-rep-review-rating" style="margin-left: auto;">
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                  <span class="adolf-rep-star empty">★</span>
+                </div>
+              </div>
+              <p class="adolf-rep-detail-review-text">
+                Платье пришло совсем не того цвета, что на фото! На картинке был насыщенный синий, а в реальности какой-то блёклый серо-голубой. Очень разочарована, придётся возвращать. Ожидала большего от этого магазина.
+              </p>
+            </div>
+            
+            <!-- AI-анализ -->
+            <div class="adolf-rep-ai-analysis">
+              <div class="adolf-rep-ai-analysis-title">
+                <span>🤖</span>
+                <span>AI-анализ</span>
+              </div>
+              <div class="adolf-rep-ai-analysis-grid">
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Тональность</span>
+                  <span class="adolf-rep-ai-analysis-value">Негативная (87%)</span>
+                </div>
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Тема</span>
+                  <span class="adolf-rep-ai-analysis-value">Несоответствие цвета</span>
+                </div>
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Приоритет</span>
+                  <span class="adolf-rep-ai-analysis-value">🔴 Высокий</span>
+                </div>
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Требует действия</span>
+                  <span class="adolf-rep-ai-analysis-value">Да (возврат)</span>
+                </div>
+              </div>
+              
+              <div style="margin-top: var(--adolf-spacing-md);">
+                <span class="adolf-rep-ai-analysis-label">Ключевые слова:</span>
+                <div class="adolf-rep-keywords" style="margin-top: var(--adolf-spacing-xs);">
+                  <span class="adolf-rep-keyword problem">цвет не соответствует</span>
+                  <span class="adolf-rep-keyword problem">блёклый</span>
+                  <span class="adolf-rep-keyword problem">разочарована</span>
+                  <span class="adolf-rep-keyword problem">возвращать</span>
+                </div>
+              </div>
+            </div>
+            
+            <hr class="adolf-divider">
+            
+            <!-- Сгенерированный ответ -->
+            <div class="adolf-rep-response">
+              <div class="adolf-rep-response-header">
+                <div class="adolf-rep-response-label">
+                  <span>✍️</span>
+                  <span>Сгенерированный ответ</span>
+                </div>
+                <span class="adolf-badge adolf-badge-pending">черновик</span>
+              </div>
+              <p class="adolf-rep-response-text">
+                Здравствуйте! Благодарим за обратную связь и приносим искренние извинения за доставленные неудобства. Понимаем ваше разочарование — расхождение цвета на фото и в реальности недопустимо. Мы уже передали информацию в отдел контроля качества для проверки фотоматериалов. Пожалуйста, оформите возврат через личный кабинет — обработаем в приоритетном порядке. Будем рады видеть вас снова!
+              </p>
+              <div class="adolf-rep-response-counter">248 / 500 символов</div>
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="adolf-rep-actions">
+              <button class="adolf-btn adolf-btn-approve-response">✓ Отправить</button>
+              <button class="adolf-btn adolf-btn-edit-response">✏️ Редактировать</button>
+              <button class="adolf-btn adolf-btn-regenerate-response">🔄 Заново</button>
+              <button class="adolf-btn adolf-btn-skip">⏭️ Пропустить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 4: ПОЗИТИВНЫЙ ОТЗЫВ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">4. Позитивный отзыв</h2>
+      <p class="demo-description">
+        Пример отображения позитивного отзыва с AI-анализом.
+      </p>
+      
+      <div class="adolf-reputation">
+        <div class="adolf-rep-detail">
+          <div class="adolf-rep-detail-body">
+            <!-- Текст отзыва -->
+            <div class="adolf-rep-detail-review" style="border-left: 4px solid var(--sentiment-positive);">
+              <div class="adolf-rep-detail-review-label">
+                <span>💬</span>
+                <span>Текст отзыва</span>
+                <div class="adolf-rep-review-rating" style="margin-left: auto;">
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                  <span class="adolf-rep-star">★</span>
+                </div>
+              </div>
+              <p class="adolf-rep-detail-review-text">
+                Отличное качество! Дочке очень понравилось платье, носит с удовольствием. Ткань приятная, швы ровные. Размер подошёл идеально. Буду заказывать ещё!
+              </p>
+            </div>
+            
+            <!-- AI-анализ -->
+            <div class="adolf-rep-ai-analysis" style="border-left-color: var(--sentiment-positive);">
+              <div class="adolf-rep-ai-analysis-title">
+                <span>🤖</span>
+                <span>AI-анализ</span>
+              </div>
+              <div class="adolf-rep-ai-analysis-grid">
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Тональность</span>
+                  <span class="adolf-rep-ai-analysis-value" style="color: var(--sentiment-positive);">Позитивная (95%)</span>
+                </div>
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Темы</span>
+                  <span class="adolf-rep-ai-analysis-value">Качество, размер</span>
+                </div>
+                <div class="adolf-rep-ai-analysis-item">
+                  <span class="adolf-rep-ai-analysis-label">Приоритет</span>
+                  <span class="adolf-rep-ai-analysis-value">🟢 Низкий</span>
+                </div>
+              </div>
+              
+              <div style="margin-top: var(--adolf-spacing-md);">
+                <span class="adolf-rep-ai-analysis-label">Ключевые слова:</span>
+                <div class="adolf-rep-keywords" style="margin-top: var(--adolf-spacing-xs);">
+                  <span class="adolf-rep-keyword praise">отличное качество</span>
+                  <span class="adolf-rep-keyword praise">ткань приятная</span>
+                  <span class="adolf-rep-keyword praise">швы ровные</span>
+                  <span class="adolf-rep-keyword praise">размер подошёл</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 5: СТАТИСТИКА
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">5. Статистика отзывов</h2>
+      <p class="demo-description">
+        Метрики и распределение отзывов по тональности.
+      </p>
+      
+      <div class="adolf-reputation">
+        <!-- Средний рейтинг -->
+        <div class="adolf-rep-avg-rating" style="margin-bottom: var(--adolf-spacing-lg);">
+          <div class="adolf-rep-avg-rating-value">4.2</div>
+          <div>
+            <div class="adolf-rep-avg-rating-stars">
+              <span class="adolf-rep-star">★</span>
+              <span class="adolf-rep-star">★</span>
+              <span class="adolf-rep-star">★</span>
+              <span class="adolf-rep-star">★</span>
+              <span class="adolf-rep-star empty">★</span>
+            </div>
+            <div class="adolf-rep-avg-rating-count">На основе 1 245 отзывов</div>
+          </div>
+        </div>
+        
+        <!-- Распределение -->
+        <div style="background: var(--adolf-bg-primary); padding: var(--adolf-spacing-md); border-radius: var(--adolf-radius-lg); margin-bottom: var(--adolf-spacing-lg);">
+          <div style="font-size: var(--adolf-text-sm); font-weight: var(--adolf-font-semibold); margin-bottom: var(--adolf-spacing-sm);">Распределение по тональности</div>
+          <div class="adolf-rep-sentiment-distribution">
+            <div class="adolf-rep-sentiment-segment positive" style="flex: 68;"></div>
+            <div class="adolf-rep-sentiment-segment neutral" style="flex: 20;"></div>
+            <div class="adolf-rep-sentiment-segment negative" style="flex: 12;"></div>
+          </div>
+          <div class="adolf-rep-sentiment-legend">
+            <div class="adolf-rep-sentiment-legend-item">
+              <div class="adolf-rep-sentiment-legend-dot positive"></div>
+              <span>Позитив: 68%</span>
+            </div>
+            <div class="adolf-rep-sentiment-legend-item">
+              <div class="adolf-rep-sentiment-legend-dot neutral"></div>
+              <span>Нейтрал: 20%</span>
+            </div>
+            <div class="adolf-rep-sentiment-legend-item">
+              <div class="adolf-rep-sentiment-legend-dot negative"></div>
+              <span>Негатив: 12%</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Метрики -->
+        <div class="adolf-rep-stats">
+          <div class="adolf-rep-stat-card">
+            <div class="adolf-rep-stat-value">1 245</div>
+            <div class="adolf-rep-stat-label">Всего отзывов</div>
+          </div>
+          <div class="adolf-rep-stat-card">
+            <div class="adolf-rep-stat-value">12</div>
+            <div class="adolf-rep-stat-label">Новых сегодня</div>
+          </div>
+          <div class="adolf-rep-stat-card">
+            <div class="adolf-rep-stat-value positive">847</div>
+            <div class="adolf-rep-stat-label">Позитивных</div>
+          </div>
+          <div class="adolf-rep-stat-card">
+            <div class="adolf-rep-stat-value negative">149</div>
+            <div class="adolf-rep-stat-label">Негативных</div>
+          </div>
+          <div class="adolf-rep-stat-card">
+            <div class="adolf-rep-stat-value">92%</div>
+            <div class="adolf-rep-stat-label">Отвечено</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 6: ПУСТОЙ СПИСОК
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">6. Пустой список</h2>
+      <p class="demo-description">
+        Отображение при отсутствии новых отзывов.
+      </p>
+      
+      <div class="adolf-reputation">
+        <div class="adolf-rep-list">
+          <div class="adolf-rep-list-header">
+            <h3 class="adolf-rep-list-title">
+              <span>⭐</span>
+              <span>Новые отзывы</span>
+            </h3>
+          </div>
+          <div class="adolf-rep-empty">
+            <div class="adolf-rep-empty-icon">✨</div>
+            <p class="adolf-rep-empty-text">Все отзывы обработаны!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 7: ВСЕ КНОПКИ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">7. Все кнопки модуля</h2>
+      <p class="demo-description">
+        Полный набор кнопок действий Reputation.
+      </p>
+      
+      <div class="adolf-reputation" style="background: var(--adolf-bg-primary); padding: var(--adolf-spacing-lg); border-radius: var(--adolf-radius-lg);">
+        <h4 style="margin: 0 0 var(--adolf-spacing-md) 0; color: var(--adolf-text-secondary); font-size: var(--adolf-text-sm);">Действия с ответом</h4>
+        <div class="adolf-btn-group" style="margin-top: 0;">
+          <button class="adolf-btn adolf-btn-approve-response">✓ Отправить</button>
+          <button class="adolf-btn adolf-btn-edit-response">✏️ Редактировать</button>
+          <button class="adolf-btn adolf-btn-regenerate-response">🔄 Заново</button>
+          <button class="adolf-btn adolf-btn-skip">⏭️ Пропустить</button>
+        </div>
+        
+        <h4 style="margin: var(--adolf-spacing-lg) 0 var(--adolf-spacing-md) 0; color: var(--adolf-text-secondary); font-size: var(--adolf-text-sm);">Навигация</h4>
+        <div class="adolf-btn-group" style="margin-top: 0;">
+          <button class="adolf-btn adolf-btn-primary">⭐ Новые отзывы</button>
+          <button class="adolf-btn adolf-btn-secondary">📊 Статистика</button>
+          <button class="adolf-btn adolf-btn-secondary">📜 История</button>
+          <button class="adolf-btn adolf-btn-ghost">🔗 Открыть на МП</button>
+        </div>
+        
+        <h4 style="margin: var(--adolf-spacing-lg) 0 var(--adolf-spacing-md) 0; color: var(--adolf-text-secondary); font-size: var(--adolf-text-sm);">Фильтры тональности</h4>
+        <div class="adolf-btn-group" style="margin-top: 0;">
+          <span class="adolf-rep-filter-chip active">Все</span>
+          <span class="adolf-rep-filter-chip positive">🟢 Позитив</span>
+          <span class="adolf-rep-filter-chip neutral">🟡 Нейтрал</span>
+          <span class="adolf-rep-filter-chip negative">🔴 Негатив</span>
+        </div>
+      </div>
+    </section>
+    
+  </div>
+  
+  <script>
+    // Переключение темы
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+    
+    // Интерактивность для фильтров
+    document.querySelectorAll('.adolf-rep-filter-chip').forEach(chip => {
+      chip.addEventListener('click', function() {
+        // Найти группу и сбросить active в ней
+        const group = this.closest('.adolf-rep-filter-group');
+        if (group) {
+          group.querySelectorAll('.adolf-rep-filter-chip').forEach(c => c.classList.remove('active'));
+        }
+        this.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
