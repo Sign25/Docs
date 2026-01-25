@@ -18,6 +18,8 @@ erDiagram
         timestamp last_activity
         string current_task
         jsonb metrics
+        int salary_equivalent
+        numeric fte_coefficient
         timestamp created_at
         timestamp updated_at
     }
@@ -54,6 +56,10 @@ CREATE TABLE office_agent_status (
     last_activity TIMESTAMP WITH TIME ZONE,
     current_task VARCHAR(255),
     metrics JSONB DEFAULT '{}',
+    -- Экономия на ФОТ
+    salary_equivalent INTEGER DEFAULT 60000,  -- Зарплата эквивалентной должности (руб/мес)
+    fte_coefficient NUMERIC(3,2) DEFAULT 1.0, -- Коэффициент занятости (1.0 = полная ставка)
+    --
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -107,11 +113,11 @@ CREATE INDEX idx_history_recorded_at
 
 ## Примеры agent_id
 
-| agent_id | parent_module | display_name |
-|----------|---------------|--------------|
-| watcher_price_monitor | watcher | Мониторинг цен |
-| watcher_night_agent | watcher | Ночной агент |
-| watcher_competitor_scan | watcher | Сканер конкурентов |
+| agent_id | parent_module | display_name | salary_equivalent | fte_coefficient |
+|----------|---------------|--------------|-------------------|-----------------|
+| watcher_price_monitor | watcher | Мониторинг цен | 60000 | 1.0 |
+| watcher_night_agent | watcher | Ночной агент | 60000 | 0.5 |
+| watcher_competitor_scan | watcher | Сканер конкурентов | 60000 | 1.0 |
 | reputation_wb_responder | reputation | Ответы WB |
 | reputation_ozon_responder | reputation | Ответы Ozon |
 | knowledge_rag_processor | knowledge | RAG процессор |
@@ -182,9 +188,11 @@ CREATE TRIGGER trg_agent_status_history
 
 ```sql
 INSERT INTO office_agent_status 
-    (agent_id, parent_module, display_name, brand, status, current_task, metrics, last_activity)
+    (agent_id, parent_module, display_name, brand, status, current_task, metrics, 
+     salary_equivalent, fte_coefficient, last_activity)
 VALUES 
-    ('watcher_night_agent', 'watcher', 'Ночной агент', 'ohana_market', 'ok', 'Сканирование', '{}', NOW())
+    ('watcher_night_agent', 'watcher', 'Ночной агент', 'ohana_market', 'ok', 'Сканирование', '{}',
+     60000, 0.5, NOW())
 ON CONFLICT (agent_id) 
 DO UPDATE SET
     status = EXCLUDED.status,
@@ -193,3 +201,14 @@ DO UPDATE SET
     last_activity = EXCLUDED.last_activity,
     updated_at = NOW();
 ```
+
+## Расчёт экономии
+
+Общая экономия на ФОТ (руб/мес):
+
+```sql
+SELECT SUM(salary_equivalent * fte_coefficient) AS total_savings
+FROM office_agent_status;
+```
+
+Пример: 8 агентов × 60 000 ₽ × 1.0 = 480 000 ₽/мес
