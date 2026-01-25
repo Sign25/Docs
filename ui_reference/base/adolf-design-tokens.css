@@ -1,0 +1,182 @@
+/**
+ * ADOLF Design Tokens
+ * Базовые CSS-переменные для всех модулей
+ * Совместимы с Tailwind CSS Open WebUI
+ * 
+ * Версия: 1.0
+ * Дата: Январь 2026
+ */
+
+:root {
+  /* ========================================
+     ЦВЕТОВАЯ ПАЛИТРА - СВЕТЛАЯ ТЕМА
+     ======================================== */
+  
+  /* Основные цвета фона */
+  --adolf-bg-primary: #FFFFFF;
+  --adolf-bg-secondary: #F9FAFB;
+  --adolf-bg-tertiary: #F3F4F6;
+  --adolf-bg-hover: #E5E7EB;
+  
+  /* Текст */
+  --adolf-text-primary: #1F2937;
+  --adolf-text-secondary: #6B7280;
+  --adolf-text-tertiary: #9CA3AF;
+  --adolf-text-inverse: #FFFFFF;
+  
+  /* Границы */
+  --adolf-border-default: #E5E7EB;
+  --adolf-border-strong: #D1D5DB;
+  --adolf-border-focus: #3B82F6;
+  
+  /* Акцентные цвета */
+  --adolf-accent-primary: #3B82F6;
+  --adolf-accent-primary-hover: #2563EB;
+  --adolf-accent-primary-light: #DBEAFE;
+  
+  /* Семантические цвета */
+  --adolf-success: #10B981;
+  --adolf-success-light: #D1FAE5;
+  --adolf-success-dark: #059669;
+  
+  --adolf-warning: #F59E0B;
+  --adolf-warning-light: #FEF3C7;
+  --adolf-warning-dark: #D97706;
+  
+  --adolf-error: #EF4444;
+  --adolf-error-light: #FEE2E2;
+  --adolf-error-dark: #DC2626;
+  
+  --adolf-info: #3B82F6;
+  --adolf-info-light: #DBEAFE;
+  --adolf-info-dark: #2563EB;
+
+  /* ========================================
+     ЦВЕТА МОДУЛЕЙ
+     ======================================== */
+  
+  --adolf-module-content: #8B5CF6;
+  --adolf-module-content-light: #EDE9FE;
+  
+  --adolf-module-cfo: #059669;
+  --adolf-module-cfo-light: #D1FAE5;
+  
+  --adolf-module-reputation: #F97316;
+  --adolf-module-reputation-light: #FFEDD5;
+  
+  --adolf-module-watcher: #0EA5E9;
+  --adolf-module-watcher-light: #E0F2FE;
+  
+  --adolf-module-knowledge: #6366F1;
+  --adolf-module-knowledge-light: #E0E7FF;
+  
+  --adolf-module-marketing: #EC4899;
+  --adolf-module-marketing-light: #FCE7F3;
+  
+  --adolf-module-scout: #D97706;
+  --adolf-module-scout-light: #FEF3C7;
+  
+  --adolf-module-lex: #6B7280;
+  --adolf-module-lex-light: #F3F4F6;
+
+  /* ========================================
+     ТИПОГРАФИКА
+     ======================================== */
+  
+  --adolf-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --adolf-font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  
+  --adolf-text-xs: 0.75rem;
+  --adolf-text-sm: 0.875rem;
+  --adolf-text-base: 1rem;
+  --adolf-text-lg: 1.125rem;
+  --adolf-text-xl: 1.25rem;
+  --adolf-text-2xl: 1.5rem;
+  
+  --adolf-font-normal: 400;
+  --adolf-font-medium: 500;
+  --adolf-font-semibold: 600;
+  --adolf-font-bold: 700;
+
+  /* ========================================
+     ОТСТУПЫ И РАЗМЕРЫ
+     ======================================== */
+  
+  --adolf-spacing-xs: 0.25rem;
+  --adolf-spacing-sm: 0.5rem;
+  --adolf-spacing-md: 1rem;
+  --adolf-spacing-lg: 1.5rem;
+  --adolf-spacing-xl: 2rem;
+  
+  --adolf-radius-sm: 0.25rem;
+  --adolf-radius-md: 0.375rem;
+  --adolf-radius-lg: 0.5rem;
+  --adolf-radius-xl: 0.75rem;
+  --adolf-radius-full: 9999px;
+
+  /* ========================================
+     ТЕНИ
+     ======================================== */
+  
+  --adolf-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --adolf-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --adolf-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+
+  /* ========================================
+     АНИМАЦИИ
+     ======================================== */
+  
+  --adolf-transition-fast: 150ms ease;
+  --adolf-transition-normal: 200ms ease;
+  --adolf-transition-slow: 300ms ease;
+}
+
+/* ========================================
+   ТЁМНАЯ ТЕМА
+   ======================================== */
+
+[data-theme="dark"],
+.dark {
+  --adolf-bg-primary: #1F2937;
+  --adolf-bg-secondary: #374151;
+  --adolf-bg-tertiary: #4B5563;
+  --adolf-bg-hover: #6B7280;
+  
+  --adolf-text-primary: #F9FAFB;
+  --adolf-text-secondary: #D1D5DB;
+  --adolf-text-tertiary: #9CA3AF;
+  --adolf-text-inverse: #1F2937;
+  
+  --adolf-border-default: #4B5563;
+  --adolf-border-strong: #6B7280;
+  --adolf-border-focus: #60A5FA;
+  
+  --adolf-accent-primary: #60A5FA;
+  --adolf-accent-primary-hover: #3B82F6;
+  --adolf-accent-primary-light: #1E3A5F;
+  
+  --adolf-success: #34D399;
+  --adolf-success-light: #064E3B;
+  
+  --adolf-warning: #FBBF24;
+  --adolf-warning-light: #78350F;
+  
+  --adolf-error: #F87171;
+  --adolf-error-light: #7F1D1D;
+  
+  --adolf-info: #60A5FA;
+  --adolf-info-light: #1E3A5F;
+  
+  --adolf-module-content-light: #2E1065;
+  --adolf-module-cfo-light: #064E3B;
+  --adolf-module-reputation-light: #7C2D12;
+  --adolf-module-watcher-light: #0C4A6E;
+  --adolf-module-knowledge-light: #312E81;
+  --adolf-module-marketing-light: #831843;
+  --adolf-module-scout-light: #78350F;
+  --adolf-module-lex-light: #374151;
+  
+  --adolf-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --adolf-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  --adolf-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+}
