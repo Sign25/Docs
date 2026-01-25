@@ -1,0 +1,586 @@
+/**
+ * ADOLF Content Factory - Module Styles
+ * Специфичные стили для модуля генерации контента
+ * 
+ * Зависимости: 
+ *   - adolf-design-tokens.css
+ *   - adolf-components.css
+ * 
+ * Версия: 1.0
+ */
+
+/* ========================================
+   ЦВЕТА МОДУЛЯ
+   ======================================== */
+
+.adolf-content-factory {
+  --module-color: var(--adolf-module-content);
+  --module-color-light: var(--adolf-module-content-light);
+}
+
+/* ========================================
+   РЕЗУЛЬТАТ ГЕНЕРАЦИИ
+   ======================================== */
+
+.adolf-cf-result {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-border-default);
+  overflow: hidden;
+}
+
+.adolf-cf-result-header {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background-color: var(--module-color-light);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cf-result-icon {
+  font-size: var(--adolf-text-2xl);
+}
+
+.adolf-cf-result-title {
+  font-size: var(--adolf-text-xl);
+  font-weight: var(--adolf-font-bold);
+  color: var(--adolf-text-primary);
+  margin: 0;
+}
+
+.adolf-cf-result-body {
+  padding: var(--adolf-spacing-lg);
+}
+
+/* ========================================
+   ЧЕРНОВИК КОНТЕНТА
+   ======================================== */
+
+.adolf-cf-draft {
+  margin-bottom: var(--adolf-spacing-lg);
+}
+
+.adolf-cf-draft-section {
+  margin-bottom: var(--adolf-spacing-lg);
+}
+
+.adolf-cf-draft-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--adolf-spacing-sm);
+}
+
+.adolf-cf-draft-label-text {
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.adolf-cf-draft-counter {
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-tertiary);
+  font-family: var(--adolf-font-mono);
+}
+
+.adolf-cf-draft-counter.warning {
+  color: var(--adolf-warning);
+}
+
+.adolf-cf-draft-counter.error {
+  color: var(--adolf-error);
+}
+
+.adolf-cf-draft-content {
+  background-color: var(--adolf-bg-secondary);
+  border: 1px solid var(--adolf-border-default);
+  border-radius: var(--adolf-radius-md);
+  padding: var(--adolf-spacing-md);
+}
+
+.adolf-cf-draft-text {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-primary);
+  line-height: 1.7;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Название товара */
+.adolf-cf-product-title {
+  font-size: var(--adolf-text-base);
+  font-weight: var(--adolf-font-medium);
+  line-height: 1.5;
+}
+
+/* Описание товара */
+.adolf-cf-product-description {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ========================================
+   SEO ТЕГИ
+   ======================================== */
+
+.adolf-cf-seo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adolf-spacing-sm);
+}
+
+.adolf-cf-seo-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  font-size: var(--adolf-text-sm);
+  font-family: var(--adolf-font-mono);
+  background-color: var(--module-color-light);
+  color: var(--module-color);
+  border-radius: var(--adolf-radius-full);
+  transition: all var(--adolf-transition-fast);
+}
+
+.adolf-cf-seo-tag:hover {
+  background-color: var(--module-color);
+  color: var(--adolf-text-inverse);
+}
+
+/* ========================================
+   ВАЛИДАЦИЯ КОНТЕНТА
+   ======================================== */
+
+.adolf-cf-validation {
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-md);
+  padding: var(--adolf-spacing-md);
+}
+
+.adolf-cf-validation-title {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-semibold);
+  margin-bottom: var(--adolf-spacing-sm);
+}
+
+.adolf-cf-validation-title.success {
+  color: var(--adolf-success);
+}
+
+.adolf-cf-validation-title.warning {
+  color: var(--adolf-warning);
+}
+
+.adolf-cf-validation-title.error {
+  color: var(--adolf-error);
+}
+
+.adolf-cf-validation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.adolf-cf-validation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-xs) 0;
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+}
+
+.adolf-cf-validation-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.adolf-cf-validation-icon.success { color: var(--adolf-success); }
+.adolf-cf-validation-icon.warning { color: var(--adolf-warning); }
+.adolf-cf-validation-icon.error { color: var(--adolf-error); }
+
+/* ========================================
+   СПИСОК ЧЕРНОВИКОВ
+   ======================================== */
+
+.adolf-cf-draft-list {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-border-default);
+  overflow: hidden;
+}
+
+.adolf-cf-draft-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background-color: var(--module-color-light);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cf-draft-list-title {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-lg);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  margin: 0;
+}
+
+.adolf-cf-draft-list-count {
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-normal);
+  color: var(--adolf-text-secondary);
+}
+
+/* Таблица черновиков */
+.adolf-cf-drafts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adolf-cf-drafts-table th,
+.adolf-cf-drafts-table td {
+  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
+  text-align: left;
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cf-drafts-table th {
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: var(--adolf-bg-secondary);
+}
+
+.adolf-cf-drafts-table td {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-primary);
+}
+
+.adolf-cf-drafts-table tbody tr {
+  cursor: pointer;
+  transition: background-color var(--adolf-transition-fast);
+}
+
+.adolf-cf-drafts-table tbody tr:hover {
+  background-color: var(--adolf-bg-hover);
+}
+
+.adolf-cf-draft-id {
+  font-family: var(--adolf-font-mono);
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-secondary);
+}
+
+/* Маркетплейс иконки */
+.adolf-cf-mp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 20px;
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-bold);
+  border-radius: var(--adolf-radius-sm);
+}
+
+.adolf-cf-mp-badge.wb {
+  background-color: #CB11AB;
+  color: white;
+}
+
+.adolf-cf-mp-badge.ozon {
+  background-color: #005BFF;
+  color: white;
+}
+
+.adolf-cf-mp-badge.ym {
+  background-color: #FFCC00;
+  color: #1A1A1A;
+}
+
+/* ========================================
+   ТЗ ДЛЯ ДИЗАЙНЕРА (Visual Prompt)
+   ======================================== */
+
+.adolf-cf-visual-prompt {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-border-default);
+  overflow: hidden;
+}
+
+.adolf-cf-visual-prompt-header {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background-color: var(--adolf-warning-light);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cf-visual-prompt-body {
+  padding: var(--adolf-spacing-lg);
+}
+
+.adolf-cf-visual-prompt-section {
+  margin-bottom: var(--adolf-spacing-lg);
+}
+
+.adolf-cf-visual-prompt-section:last-child {
+  margin-bottom: 0;
+}
+
+.adolf-cf-visual-prompt-title {
+  font-size: var(--adolf-text-base);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  margin: 0 0 var(--adolf-spacing-sm) 0;
+}
+
+/* Проблемы */
+.adolf-cf-problems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.adolf-cf-problem-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-sm) 0;
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-primary);
+}
+
+.adolf-cf-problem-icon {
+  color: var(--adolf-error);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Рекомендации */
+.adolf-cf-recommendation {
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-md);
+  padding: var(--adolf-spacing-md);
+  margin-bottom: var(--adolf-spacing-sm);
+}
+
+.adolf-cf-recommendation:last-child {
+  margin-bottom: 0;
+}
+
+.adolf-cf-recommendation-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-bold);
+  background-color: var(--module-color);
+  color: var(--adolf-text-inverse);
+  border-radius: var(--adolf-radius-full);
+  margin-right: var(--adolf-spacing-sm);
+}
+
+.adolf-cf-recommendation-title {
+  display: inline;
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+}
+
+.adolf-cf-recommendation-text {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+  margin-top: var(--adolf-spacing-sm);
+  line-height: 1.6;
+}
+
+.adolf-cf-recommendation-list {
+  list-style: disc;
+  margin: var(--adolf-spacing-sm) 0 0 var(--adolf-spacing-lg);
+  padding: 0;
+}
+
+.adolf-cf-recommendation-list li {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+  padding: var(--adolf-spacing-xs) 0;
+}
+
+/* ========================================
+   КНОПКИ ДЕЙСТВИЙ МОДУЛЯ
+   ======================================== */
+
+.adolf-cf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adolf-spacing-sm);
+  padding-top: var(--adolf-spacing-md);
+  border-top: 1px solid var(--adolf-border-default);
+  margin-top: var(--adolf-spacing-lg);
+}
+
+/* Специфичные кнопки Content Factory */
+.adolf-btn-approve {
+  background-color: var(--adolf-success);
+  color: var(--adolf-text-inverse);
+  border-color: var(--adolf-success);
+}
+
+.adolf-btn-approve:hover:not(:disabled) {
+  background-color: var(--adolf-success-dark);
+  border-color: var(--adolf-success-dark);
+}
+
+.adolf-btn-edit {
+  background-color: var(--adolf-warning);
+  color: var(--adolf-text-inverse);
+  border-color: var(--adolf-warning);
+}
+
+.adolf-btn-edit:hover:not(:disabled) {
+  background-color: var(--adolf-warning-dark);
+  border-color: var(--adolf-warning-dark);
+}
+
+.adolf-btn-visual-prompt {
+  background-color: var(--module-color);
+  color: var(--adolf-text-inverse);
+  border-color: var(--module-color);
+}
+
+.adolf-btn-visual-prompt:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.adolf-btn-regenerate {
+  background-color: transparent;
+  color: var(--adolf-text-secondary);
+  border-color: var(--adolf-border-default);
+}
+
+.adolf-btn-regenerate:hover:not(:disabled) {
+  background-color: var(--adolf-bg-hover);
+  color: var(--adolf-text-primary);
+}
+
+/* ========================================
+   СТАТИСТИКА ГЕНЕРАЦИЙ
+   ======================================== */
+
+.adolf-cf-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--adolf-spacing-md);
+}
+
+.adolf-cf-stat-card {
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-md);
+  padding: var(--adolf-spacing-md);
+  text-align: center;
+}
+
+.adolf-cf-stat-value {
+  font-size: var(--adolf-text-2xl);
+  font-weight: var(--adolf-font-bold);
+  color: var(--module-color);
+}
+
+.adolf-cf-stat-label {
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-secondary);
+  margin-top: var(--adolf-spacing-xs);
+}
+
+/* ========================================
+   СОСТОЯНИЯ ЗАГРУЗКИ
+   ======================================== */
+
+.adolf-cf-generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--adolf-spacing-2xl);
+  text-align: center;
+}
+
+.adolf-cf-generating-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--adolf-border-default);
+  border-top-color: var(--module-color);
+  border-radius: 50%;
+  animation: adolf-spin 1s linear infinite;
+  margin-bottom: var(--adolf-spacing-md);
+}
+
+.adolf-cf-generating-text {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+}
+
+.adolf-cf-generating-progress {
+  width: 200px;
+  height: 4px;
+  background-color: var(--adolf-border-default);
+  border-radius: var(--adolf-radius-full);
+  margin-top: var(--adolf-spacing-md);
+  overflow: hidden;
+}
+
+.adolf-cf-generating-progress-bar {
+  height: 100%;
+  background-color: var(--module-color);
+  animation: adolf-progress 2s ease-in-out infinite;
+}
+
+@keyframes adolf-progress {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+
+/* ========================================
+   АДАПТИВНОСТЬ
+   ======================================== */
+
+@media (max-width: 768px) {
+  .adolf-cf-result-body,
+  .adolf-cf-visual-prompt-body {
+    padding: var(--adolf-spacing-md);
+  }
+  
+  .adolf-cf-actions {
+    flex-direction: column;
+  }
+  
+  .adolf-cf-actions .adolf-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .adolf-cf-drafts-table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .adolf-cf-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
