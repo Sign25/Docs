@@ -1,0 +1,887 @@
+/**
+ * ADOLF CFO - Module Styles
+ * Специфичные стили для модуля финансовой аналитики
+ * 
+ * Зависимости: 
+ *   - adolf-design-tokens.css
+ *   - adolf-components.css
+ * 
+ * Версия: 1.0
+ */
+
+/* ========================================
+   ЦВЕТА МОДУЛЯ
+   ======================================== */
+
+.adolf-cfo {
+  --module-color: var(--adolf-module-cfo);
+  --module-color-light: var(--adolf-module-cfo-light);
+  
+  /* ABC-анализ */
+  --abc-a: #10B981;
+  --abc-a-light: #D1FAE5;
+  --abc-b: #3B82F6;
+  --abc-b-light: #DBEAFE;
+  --abc-c: #F59E0B;
+  --abc-c-light: #FEF3C7;
+  --abc-d: #EF4444;
+  --abc-d-light: #FEE2E2;
+}
+
+/* ========================================
+   ОТЧЁТ P&L
+   ======================================== */
+
+.adolf-cfo-report {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-border-default);
+  overflow: hidden;
+}
+
+.adolf-cfo-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background-color: var(--module-color-light);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cfo-report-title {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-xl);
+  font-weight: var(--adolf-font-bold);
+  color: var(--adolf-text-primary);
+  margin: 0;
+}
+
+.adolf-cfo-report-icon {
+  font-size: var(--adolf-text-2xl);
+}
+
+.adolf-cfo-report-period {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+  background-color: var(--adolf-bg-primary);
+  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
+  border-radius: var(--adolf-radius-md);
+}
+
+.adolf-cfo-report-body {
+  padding: var(--adolf-spacing-lg);
+}
+
+/* ========================================
+   ТАБЛИЦА P&L
+   ======================================== */
+
+.adolf-cfo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--adolf-text-sm);
+}
+
+.adolf-cfo-table th,
+.adolf-cfo-table td {
+  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cfo-table th {
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-tertiary);
+  text-transform: uppercase;
+  font-size: var(--adolf-text-xs);
+  letter-spacing: 0.05em;
+  background-color: var(--adolf-bg-secondary);
+  text-align: left;
+}
+
+.adolf-cfo-table th.text-right,
+.adolf-cfo-table td.text-right {
+  text-align: right;
+}
+
+.adolf-cfo-table tbody tr {
+  transition: background-color var(--adolf-transition-fast);
+}
+
+.adolf-cfo-table tbody tr:hover {
+  background-color: var(--adolf-bg-hover);
+}
+
+/* Итоговая строка */
+.adolf-cfo-table tr.total {
+  background-color: var(--adolf-bg-secondary);
+  font-weight: var(--adolf-font-semibold);
+}
+
+.adolf-cfo-table tr.total td {
+  border-top: 2px solid var(--adolf-border-strong);
+}
+
+/* Числовые значения */
+.adolf-cfo-value {
+  font-family: var(--adolf-font-mono);
+  font-weight: var(--adolf-font-medium);
+}
+
+.adolf-cfo-value.positive {
+  color: var(--adolf-success);
+}
+
+.adolf-cfo-value.negative {
+  color: var(--adolf-error);
+}
+
+.adolf-cfo-value.neutral {
+  color: var(--adolf-text-primary);
+}
+
+/* Процент маржи */
+.adolf-cfo-margin {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--adolf-spacing-xs);
+  font-family: var(--adolf-font-mono);
+  font-size: var(--adolf-text-sm);
+}
+
+.adolf-cfo-margin.high {
+  color: var(--adolf-success);
+}
+
+.adolf-cfo-margin.medium {
+  color: var(--adolf-warning);
+}
+
+.adolf-cfo-margin.low {
+  color: var(--adolf-error);
+}
+
+/* ========================================
+   ИТОГОВАЯ СВОДКА
+   ======================================== */
+
+.adolf-cfo-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adolf-spacing-md);
+  padding: var(--adolf-spacing-md);
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-md);
+  margin-top: var(--adolf-spacing-lg);
+}
+
+.adolf-cfo-summary-item {
+  flex: 1;
+  min-width: 150px;
+}
+
+.adolf-cfo-summary-label {
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--adolf-spacing-xs);
+}
+
+.adolf-cfo-summary-value {
+  font-size: var(--adolf-text-xl);
+  font-weight: var(--adolf-font-bold);
+  font-family: var(--adolf-font-mono);
+  color: var(--adolf-text-primary);
+}
+
+.adolf-cfo-summary-value.profit {
+  color: var(--adolf-success);
+}
+
+.adolf-cfo-summary-value.loss {
+  color: var(--adolf-error);
+}
+
+/* ========================================
+   ABC-АНАЛИЗ
+   ======================================== */
+
+.adolf-cfo-abc {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-border-default);
+  overflow: hidden;
+}
+
+.adolf-cfo-abc-header {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background-color: var(--module-color-light);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cfo-abc-body {
+  padding: var(--adolf-spacing-lg);
+}
+
+/* Таблица ABC */
+.adolf-cfo-abc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--adolf-spacing-lg);
+}
+
+.adolf-cfo-abc-table th,
+.adolf-cfo-abc-table td {
+  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cfo-abc-table th {
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-tertiary);
+  text-transform: uppercase;
+  font-size: var(--adolf-text-xs);
+  letter-spacing: 0.05em;
+  background-color: var(--adolf-bg-secondary);
+  text-align: left;
+}
+
+.adolf-cfo-abc-table th.text-right,
+.adolf-cfo-abc-table td.text-right {
+  text-align: right;
+}
+
+.adolf-cfo-abc-table th.text-center,
+.adolf-cfo-abc-table td.text-center {
+  text-align: center;
+}
+
+/* ABC классы */
+.adolf-cfo-abc-class {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: var(--adolf-text-base);
+  font-weight: var(--adolf-font-bold);
+  border-radius: var(--adolf-radius-md);
+}
+
+.adolf-cfo-abc-class.class-a {
+  background-color: var(--abc-a-light);
+  color: var(--abc-a);
+}
+
+.adolf-cfo-abc-class.class-b {
+  background-color: var(--abc-b-light);
+  color: var(--abc-b);
+}
+
+.adolf-cfo-abc-class.class-c {
+  background-color: var(--abc-c-light);
+  color: var(--abc-c);
+}
+
+.adolf-cfo-abc-class.class-d {
+  background-color: var(--abc-d-light);
+  color: var(--abc-d);
+}
+
+/* ABC бейджи для легенды */
+.adolf-cfo-abc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--adolf-spacing-xs);
+  padding: 0.25rem 0.75rem;
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-medium);
+  border-radius: var(--adolf-radius-full);
+}
+
+.adolf-cfo-abc-badge.class-a {
+  background-color: var(--abc-a-light);
+  color: var(--abc-a);
+}
+
+.adolf-cfo-abc-badge.class-b {
+  background-color: var(--abc-b-light);
+  color: var(--abc-b);
+}
+
+.adolf-cfo-abc-badge.class-c {
+  background-color: var(--abc-c-light);
+  color: var(--abc-c);
+}
+
+.adolf-cfo-abc-badge.class-d {
+  background-color: var(--abc-d-light);
+  color: var(--abc-d);
+}
+
+/* Визуализация распределения ABC */
+.adolf-cfo-abc-distribution {
+  display: flex;
+  height: 24px;
+  border-radius: var(--adolf-radius-md);
+  overflow: hidden;
+  margin-bottom: var(--adolf-spacing-md);
+}
+
+.adolf-cfo-abc-distribution-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-semibold);
+  color: white;
+  transition: flex var(--adolf-transition-normal);
+}
+
+.adolf-cfo-abc-distribution-segment.class-a {
+  background-color: var(--abc-a);
+}
+
+.adolf-cfo-abc-distribution-segment.class-b {
+  background-color: var(--abc-b);
+}
+
+.adolf-cfo-abc-distribution-segment.class-c {
+  background-color: var(--abc-c);
+}
+
+.adolf-cfo-abc-distribution-segment.class-d {
+  background-color: var(--abc-d);
+}
+
+/* Легенда ABC */
+.adolf-cfo-abc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adolf-spacing-md);
+  margin-top: var(--adolf-spacing-md);
+}
+
+.adolf-cfo-abc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+}
+
+.adolf-cfo-abc-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--adolf-radius-full);
+}
+
+.adolf-cfo-abc-legend-dot.class-a { background-color: var(--abc-a); }
+.adolf-cfo-abc-legend-dot.class-b { background-color: var(--abc-b); }
+.adolf-cfo-abc-legend-dot.class-c { background-color: var(--abc-c); }
+.adolf-cfo-abc-legend-dot.class-d { background-color: var(--abc-d); }
+
+.adolf-cfo-abc-legend-text {
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-secondary);
+}
+
+/* ========================================
+   УБЫТОЧНЫЕ ПОЗИЦИИ
+   ======================================== */
+
+.adolf-cfo-losers {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-error);
+  overflow: hidden;
+}
+
+.adolf-cfo-losers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background-color: var(--adolf-error-light);
+  border-bottom: 1px solid var(--adolf-error);
+}
+
+.adolf-cfo-losers-title {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-lg);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-error);
+  margin: 0;
+}
+
+.adolf-cfo-losers-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-bold);
+  background-color: var(--adolf-error);
+  color: white;
+  border-radius: var(--adolf-radius-full);
+}
+
+.adolf-cfo-losers-body {
+  padding: var(--adolf-spacing-lg);
+}
+
+/* Карточка убыточной позиции */
+.adolf-cfo-loser-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--adolf-spacing-md);
+  padding: var(--adolf-spacing-md);
+  background-color: var(--adolf-bg-secondary);
+  border: 1px solid var(--adolf-border-default);
+  border-left: 4px solid var(--adolf-error);
+  border-radius: var(--adolf-radius-md);
+  margin-bottom: var(--adolf-spacing-sm);
+}
+
+.adolf-cfo-loser-card:last-child {
+  margin-bottom: 0;
+}
+
+.adolf-cfo-loser-info {
+  flex: 1;
+}
+
+.adolf-cfo-loser-sku {
+  font-family: var(--adolf-font-mono);
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-tertiary);
+  margin-bottom: var(--adolf-spacing-xs);
+}
+
+.adolf-cfo-loser-name {
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  margin: 0 0 var(--adolf-spacing-xs) 0;
+}
+
+.adolf-cfo-loser-meta {
+  display: flex;
+  gap: var(--adolf-spacing-md);
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-secondary);
+}
+
+.adolf-cfo-loser-loss {
+  text-align: right;
+}
+
+.adolf-cfo-loser-loss-value {
+  font-size: var(--adolf-text-lg);
+  font-weight: var(--adolf-font-bold);
+  font-family: var(--adolf-font-mono);
+  color: var(--adolf-error);
+}
+
+.adolf-cfo-loser-loss-label {
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-tertiary);
+}
+
+/* ========================================
+   AI-ИНСАЙТЫ
+   ======================================== */
+
+.adolf-cfo-insights {
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-lg);
+  border: 1px solid var(--adolf-border-default);
+  overflow: hidden;
+}
+
+.adolf-cfo-insights-header {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  background: linear-gradient(135deg, var(--module-color-light), var(--adolf-info-light));
+  border-bottom: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cfo-insights-title {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-lg);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  margin: 0;
+}
+
+.adolf-cfo-insights-body {
+  padding: var(--adolf-spacing-lg);
+}
+
+/* Карточка инсайта */
+.adolf-cfo-insight-card {
+  display: flex;
+  gap: var(--adolf-spacing-md);
+  padding: var(--adolf-spacing-md);
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-md);
+  margin-bottom: var(--adolf-spacing-md);
+}
+
+.adolf-cfo-insight-card:last-child {
+  margin-bottom: 0;
+}
+
+.adolf-cfo-insight-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--adolf-text-xl);
+  background-color: var(--adolf-bg-primary);
+  border-radius: var(--adolf-radius-md);
+}
+
+.adolf-cfo-insight-content {
+  flex: 1;
+}
+
+.adolf-cfo-insight-title {
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  margin: 0 0 var(--adolf-spacing-xs) 0;
+}
+
+.adolf-cfo-insight-text {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.adolf-cfo-insight-impact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--adolf-spacing-xs);
+  margin-top: var(--adolf-spacing-sm);
+  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-medium);
+  border-radius: var(--adolf-radius-sm);
+}
+
+.adolf-cfo-insight-impact.positive {
+  background-color: var(--adolf-success-light);
+  color: var(--adolf-success-dark);
+}
+
+.adolf-cfo-insight-impact.negative {
+  background-color: var(--adolf-error-light);
+  color: var(--adolf-error-dark);
+}
+
+.adolf-cfo-insight-impact.neutral {
+  background-color: var(--adolf-bg-tertiary);
+  color: var(--adolf-text-secondary);
+}
+
+/* ========================================
+   КАРТОЧКИ МЕТРИК
+   ======================================== */
+
+.adolf-cfo-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--adolf-spacing-md);
+}
+
+.adolf-cfo-metric-card {
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-md);
+  padding: var(--adolf-spacing-md);
+  text-align: center;
+  border: 1px solid var(--adolf-border-default);
+}
+
+.adolf-cfo-metric-icon {
+  font-size: var(--adolf-text-2xl);
+  margin-bottom: var(--adolf-spacing-sm);
+}
+
+.adolf-cfo-metric-value {
+  font-size: var(--adolf-text-2xl);
+  font-weight: var(--adolf-font-bold);
+  font-family: var(--adolf-font-mono);
+  color: var(--module-color);
+}
+
+.adolf-cfo-metric-value.positive {
+  color: var(--adolf-success);
+}
+
+.adolf-cfo-metric-value.negative {
+  color: var(--adolf-error);
+}
+
+.adolf-cfo-metric-label {
+  font-size: var(--adolf-text-xs);
+  color: var(--adolf-text-secondary);
+  margin-top: var(--adolf-spacing-xs);
+}
+
+.adolf-cfo-metric-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-medium);
+  margin-top: var(--adolf-spacing-xs);
+}
+
+.adolf-cfo-metric-change.up {
+  color: var(--adolf-success);
+}
+
+.adolf-cfo-metric-change.down {
+  color: var(--adolf-error);
+}
+
+/* ========================================
+   ПЕРЕКЛЮЧАТЕЛЬ ОТЧЁТОВ
+   ======================================== */
+
+.adolf-cfo-tabs {
+  display: flex;
+  gap: var(--adolf-spacing-xs);
+  padding: var(--adolf-spacing-sm);
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-lg);
+  margin-bottom: var(--adolf-spacing-lg);
+}
+
+.adolf-cfo-tab {
+  flex: 1;
+  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
+  font-size: var(--adolf-text-sm);
+  font-weight: var(--adolf-font-medium);
+  color: var(--adolf-text-secondary);
+  background-color: transparent;
+  border: none;
+  border-radius: var(--adolf-radius-md);
+  cursor: pointer;
+  transition: all var(--adolf-transition-fast);
+  text-align: center;
+}
+
+.adolf-cfo-tab:hover {
+  color: var(--adolf-text-primary);
+  background-color: var(--adolf-bg-hover);
+}
+
+.adolf-cfo-tab.active {
+  color: var(--module-color);
+  background-color: var(--adolf-bg-primary);
+  box-shadow: var(--adolf-shadow-sm);
+}
+
+/* ========================================
+   ФИЛЬТРЫ ПЕРИОДА
+   ======================================== */
+
+.adolf-cfo-period-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--adolf-spacing-sm);
+}
+
+.adolf-cfo-period-btn {
+  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-medium);
+  color: var(--adolf-text-secondary);
+  background-color: var(--adolf-bg-secondary);
+  border: 1px solid var(--adolf-border-default);
+  border-radius: var(--adolf-radius-sm);
+  cursor: pointer;
+  transition: all var(--adolf-transition-fast);
+}
+
+.adolf-cfo-period-btn:hover {
+  border-color: var(--module-color);
+  color: var(--module-color);
+}
+
+.adolf-cfo-period-btn.active {
+  background-color: var(--module-color);
+  border-color: var(--module-color);
+  color: white;
+}
+
+/* ========================================
+   МАРКЕТПЛЕЙС БЕЙДЖИ
+   ======================================== */
+
+.adolf-cfo-mp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.125rem 0.5rem;
+  font-size: var(--adolf-text-xs);
+  font-weight: var(--adolf-font-bold);
+  border-radius: var(--adolf-radius-sm);
+}
+
+.adolf-cfo-mp-badge.wb {
+  background-color: #CB11AB;
+  color: white;
+}
+
+.adolf-cfo-mp-badge.ozon {
+  background-color: #005BFF;
+  color: white;
+}
+
+.adolf-cfo-mp-badge.ym {
+  background-color: #FFCC00;
+  color: #1A1A1A;
+}
+
+/* ========================================
+   КНОПКИ ДЕЙСТВИЙ МОДУЛЯ
+   ======================================== */
+
+.adolf-cfo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adolf-spacing-sm);
+  padding-top: var(--adolf-spacing-md);
+  border-top: 1px solid var(--adolf-border-default);
+  margin-top: var(--adolf-spacing-lg);
+}
+
+/* Специфичные кнопки CFO */
+.adolf-btn-export {
+  background-color: var(--module-color);
+  color: var(--adolf-text-inverse);
+  border-color: var(--module-color);
+}
+
+.adolf-btn-export:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.adolf-btn-insights {
+  background-color: var(--adolf-info);
+  color: var(--adolf-text-inverse);
+  border-color: var(--adolf-info);
+}
+
+.adolf-btn-insights:hover:not(:disabled) {
+  background-color: var(--adolf-info-dark);
+}
+
+/* ========================================
+   ДОСТУП ОГРАНИЧЕН
+   ======================================== */
+
+.adolf-cfo-restricted {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--adolf-spacing-2xl);
+  text-align: center;
+  background-color: var(--adolf-bg-secondary);
+  border-radius: var(--adolf-radius-lg);
+}
+
+.adolf-cfo-restricted-icon {
+  font-size: 48px;
+  margin-bottom: var(--adolf-spacing-md);
+  opacity: 0.5;
+}
+
+.adolf-cfo-restricted-title {
+  font-size: var(--adolf-text-base);
+  font-weight: var(--adolf-font-semibold);
+  color: var(--adolf-text-primary);
+  margin: 0 0 var(--adolf-spacing-sm) 0;
+}
+
+.adolf-cfo-restricted-text {
+  font-size: var(--adolf-text-sm);
+  color: var(--adolf-text-secondary);
+  margin: 0;
+}
+
+/* ========================================
+   АДАПТИВНОСТЬ
+   ======================================== */
+
+@media (max-width: 768px) {
+  .adolf-cfo-report-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--adolf-spacing-sm);
+  }
+  
+  .adolf-cfo-report-body {
+    padding: var(--adolf-spacing-md);
+  }
+  
+  .adolf-cfo-table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .adolf-cfo-summary {
+    flex-direction: column;
+  }
+  
+  .adolf-cfo-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .adolf-cfo-tabs {
+    flex-wrap: wrap;
+  }
+  
+  .adolf-cfo-tab {
+    flex: none;
+    width: calc(50% - var(--adolf-spacing-xs));
+  }
+  
+  .adolf-cfo-loser-card {
+    flex-direction: column;
+  }
+  
+  .adolf-cfo-loser-loss {
+    text-align: left;
+    margin-top: var(--adolf-spacing-sm);
+  }
+  
+  .adolf-cfo-actions {
+    flex-direction: column;
+  }
+  
+  .adolf-cfo-actions .adolf-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
