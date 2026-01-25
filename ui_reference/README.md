@@ -11,18 +11,40 @@ ui_reference/
 │   ├── adolf-design-tokens.css  # CSS-переменные (цвета, шрифты, отступы)
 │   └── adolf-components.css     # Базовые компоненты (кнопки, карточки, таблицы)
 │
-├── content_factory/             # Модуль Content Factory
+├── content_factory/             # ✅ Модуль Content Factory
 │   ├── content-factory.css      # Стили модуля
 │   └── index.html               # Демо всех компонентов
 │
-├── cfo/                         # Модуль CFO (планируется)
-├── reputation/                  # Модуль Reputation (планируется)
-├── watcher/                     # Модуль Watcher (планируется)
-├── knowledge/                   # Модуль Knowledge (планируется)
-├── marketing/                   # Модуль Marketing (планируется)
-├── scout/                       # Модуль Scout (планируется)
-└── lex/                         # Модуль Lex (планируется)
+├── knowledge/                   # ✅ Модуль Knowledge
+│   ├── knowledge.css            # Стили модуля
+│   └── index.html               # Демо всех компонентов
+│
+├── cfo/                         # ✅ Модуль CFO
+│   ├── cfo.css                  # Стили модуля
+│   └── index.html               # Демо всех компонентов
+│
+├── reputation/                  # ✅ Модуль Reputation
+│   ├── reputation.css           # Стили модуля
+│   └── index.html               # Демо всех компонентов
+│
+├── watcher/                     # 📋 Планируется
+├── marketing/                   # 📋 Планируется
+├── scout/                       # 📋 Планируется
+└── lex/                         # 📋 Планируется
 ```
+
+## Статус модулей
+
+| Модуль | Статус | Компоненты |
+|--------|--------|------------|
+| **Content Factory** | ✅ Готов | Результат генерации, список черновиков, ТЗ дизайнеру, валидация |
+| **Knowledge** | ✅ Готов | RAG-ответ, источники, загрузка документов, модерация, каталог |
+| **CFO** | ✅ Готов | P&L таблицы, ABC-анализ, убыточные SKU, AI-инсайты, метрики |
+| **Reputation** | ✅ Готов | Список отзывов, AI-анализ, генерация ответов, статистика |
+| Watcher | 📋 План | — |
+| Marketing | 📋 План | — |
+| Scout | 📋 План | — |
+| Lex | 📋 План | — |
 
 ## Быстрый старт
 
@@ -33,8 +55,11 @@ ui_reference/
 <link rel="stylesheet" href="ui_reference/base/adolf-design-tokens.css">
 <link rel="stylesheet" href="ui_reference/base/adolf-components.css">
 
-<!-- Стили модуля -->
+<!-- Стили модуля (выберите нужный) -->
 <link rel="stylesheet" href="ui_reference/content_factory/content-factory.css">
+<link rel="stylesheet" href="ui_reference/knowledge/knowledge.css">
+<link rel="stylesheet" href="ui_reference/cfo/cfo.css">
+<link rel="stylesheet" href="ui_reference/reputation/reputation.css">
 ```
 
 ### 2. Просмотр демо
@@ -44,11 +69,27 @@ ui_reference/
 ```bash
 # Локально
 open ui_reference/content_factory/index.html
+open ui_reference/knowledge/index.html
+open ui_reference/cfo/index.html
+open ui_reference/reputation/index.html
 
 # Или запустите простой сервер
 python -m http.server 8000
-# Затем откройте http://localhost:8000/ui_reference/content_factory/
+# Затем откройте http://localhost:8000/ui_reference/{module}/
 ```
+
+## Цвета модулей
+
+| Модуль | Цвет | CSS-переменная |
+|--------|------|----------------|
+| Content Factory | 🟣 `#8B5CF6` | `--adolf-module-content` |
+| Knowledge | 🔵 `#3B82F6` | `--adolf-module-knowledge` |
+| CFO | 🟢 `#10B981` | `--adolf-module-cfo` |
+| Reputation | 🟠 `#F97316` | `--adolf-module-reputation` |
+| Watcher | 🔴 `#EF4444` | `--adolf-module-watcher` |
+| Marketing | 🩷 `#EC4899` | `--adolf-module-marketing` |
+| Scout | 🩵 `#06B6D4` | `--adolf-module-scout` |
+| Lex | 🟤 `#78716C` | `--adolf-module-lex` |
 
 ## Использование с Tailwind CSS
 
@@ -66,7 +107,9 @@ module.exports = {
         'adolf-error': 'var(--adolf-error)',
         // Модули
         'adolf-content': 'var(--adolf-module-content)',
+        'adolf-knowledge': 'var(--adolf-module-knowledge)',
         'adolf-cfo': 'var(--adolf-module-cfo)',
+        'adolf-reputation': 'var(--adolf-module-reputation)',
         // ...
       }
     }
@@ -84,19 +127,78 @@ module.exports = {
 
 <!-- Тёмная тема -->
 <body class="dark">...</body>
-<!-- или -->
-<body data-theme="dark">...</body>
 ```
+
+Переключение программно:
+
+```javascript
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+}
+```
+
+## Компоненты по модулям
+
+### Content Factory
+
+| Компонент | CSS-класс | Описание |
+|-----------|-----------|----------|
+| Результат генерации | `.adolf-cf-result` | Карточка с контентом и валидацией |
+| Список черновиков | `.adolf-cf-draft-list` | Таблица драфтов |
+| ТЗ для дизайнера | `.adolf-cf-visual-prompt` | Задание на визуалы |
+| SEO-теги | `.adolf-cf-seo-tags` | Ключевые слова |
+| Валидация | `.adolf-cf-validation` | Проверка контента |
+
+### Knowledge
+
+| Компонент | CSS-класс | Описание |
+|-----------|-----------|----------|
+| Результат RAG | `.adolf-kb-result` | Ответ с источниками |
+| Карточка источника | `.adolf-kb-source-card` | Документ с релевантностью |
+| Загрузка документа | `.adolf-kb-upload` | Dropzone + форма |
+| Модерация | `.adolf-kb-moderation` | Очередь на проверку |
+| Каталог | `.adolf-kb-docs-list` | Список документов |
+| Категории | `.adolf-kb-category-badge` | policy/guide/faq/process/template |
+
+### CFO
+
+| Компонент | CSS-класс | Описание |
+|-----------|-----------|----------|
+| P&L таблица | `.adolf-cfo-table` | Отчёт о прибылях/убытках |
+| Сводка | `.adolf-cfo-summary` | Итоговые метрики |
+| ABC-анализ | `.adolf-cfo-abc` | Классификация товаров |
+| ABC-классы | `.adolf-cfo-abc-class` | Бейджи A/B/C/D |
+| Убыточные SKU | `.adolf-cfo-losers` | Список класса D |
+| AI-инсайты | `.adolf-cfo-insights` | Рекомендации |
+| Метрики | `.adolf-cfo-metrics` | Карточки KPI |
+
+### Reputation
+
+| Компонент | CSS-класс | Описание |
+|-----------|-----------|----------|
+| Список отзывов | `.adolf-rep-list` | Карточки с фильтрами |
+| Карточка отзыва | `.adolf-rep-review-card` | Компактный вид |
+| Детали отзыва | `.adolf-rep-detail` | Полная информация |
+| Тональность | `.adolf-rep-sentiment-badge` | positive/neutral/negative |
+| AI-анализ | `.adolf-rep-ai-analysis` | Результат анализа |
+| Ключевые слова | `.adolf-rep-keyword` | problem/praise теги |
+| Ответ | `.adolf-rep-response` | Сгенерированный текст |
+| Статистика | `.adolf-rep-stats` | Метрики отзывов |
 
 ## Связь с документацией
 
-| Компонент | CSS-класс | Python-код |
-|-----------|-----------|------------|
-| Результат генерации | `.adolf-cf-result` | [content_factory_4_open_webui](../content_factory/) |
-| Список черновиков | `.adolf-cf-draft-list` | `tool_list_drafts()` |
-| ТЗ для дизайнера | `.adolf-cf-visual-prompt` | `tool_generate_visual_prompt()` |
-| Кнопки действий | `.adolf-cf-actions` | Event Emitter |
+| Модуль | Документация | Python Pipeline |
+|--------|--------------|-----------------|
+| Content Factory | [content_factory/](../content_factory/) | `adolf_content_factory_4_open_webui` |
+| Knowledge | [knowledge/](../knowledge/) | `adolf_knowledge_4_open_webui` |
+| CFO | [cfo/](../cfo/) | `adolf_cfo_4_open_webui` |
+| Reputation | [reputation/](../reputation/) | `adolf_reputation_4_open_webui` |
 
 ## Версии
 
-- **1.0** (Январь 2026) — Content Factory
+| Версия | Дата | Изменения |
+|--------|------|-----------|
+| **1.0** | Январь 2026 | Content Factory |
+| **1.1** | Январь 2026 | + Knowledge |
+| **1.2** | Январь 2026 | + CFO |
+| **1.3** | Январь 2026 | + Reputation |
