@@ -20,10 +20,10 @@
 		{$i18n.t(`A new version (v{{LATEST_VERSION}}) is now available.`, {
 			LATEST_VERSION: version.latest
 		})}
-
-		<a href="https://github.com/open-webui/open-webui/releases" target="_blank" class="underline">
-			{$i18n.t('Update for the latest features and improvements.')}</a
-		>
+		<br />
+		<span class="text-xs opacity-80">
+			{$i18n.t('Update for the latest features and improvements.')}
+		</span>
 	</div>
 
 	<div class=" shrink-0 pr-1">

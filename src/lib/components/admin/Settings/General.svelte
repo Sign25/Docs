@@ -145,16 +145,13 @@
 									</Tooltip>
 
 									{#if $config?.features?.enable_version_update_check}
-										<a
-											href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}"
-											target="_blank"
-										>
+										<span class="text-gray-500 dark:text-gray-400">
 											{updateAvailable === null
 												? $i18n.t('Checking for updates...')
 												: updateAvailable
 													? `(v${version.latest} ${$i18n.t('available!')})`
 													: $i18n.t('(latest)')}
-										</a>
+										</span>
 									{/if}
 								</div>
 
@@ -183,41 +180,14 @@
 						</div>
 					</div>
 
-					<div class="mb-2.5">
-						<div class="flex w-full justify-between items-center">
-							<div class="text-xs pr-2">
-								<div class="">
-									{$i18n.t('Help')}
-								</div>
-								<div class=" text-xs text-gray-500">
-									{$i18n.t('Discover how to use Adolf and seek support.')}
-								</div>
-							</div>
-
-							<a
-								class="flex-shrink-0 text-xs font-medium underline"
-								href="https://docs.openwebui.com/"
-								target="_blank"
-							>
-								{$i18n.t('Documentation')}
-							</a>
-						</div>
-
-					</div>
-
-					<div class="mb-2.5">
-						<div class="flex w-full justify-between items-center">
-							<div class="text-xs pr-2">
-								<div class="">
-									{$i18n.t('License')}
-								</div>
-
-								{#if $config?.license_metadata}
-									<a
-										href="https://docs.openwebui.com/enterprise"
-										target="_blank"
-										class="text-gray-500 mt-0.5"
-									>
+					{#if $config?.license_metadata}
+						<div class="mb-2.5">
+							<div class="flex w-full justify-between items-center">
+								<div class="text-xs pr-2">
+									<div class="">
+										{$i18n.t('License')}
+									</div>
+									<div class="text-gray-500 mt-0.5">
 										<span class=" capitalize text-black dark:text-white"
 											>{$config?.license_metadata?.type}
 											license</span
@@ -230,24 +200,18 @@
 										<span class=" font-medium text-black dark:text-white"
 											>{$config?.license_metadata?.seats ?? 'Unlimited'} users.</span
 										>
-									</a>
+									</div>
 									{#if $config?.license_metadata?.html}
 										<div class="mt-0.5">
 											{@html DOMPurify.sanitize($config?.license_metadata?.html)}
 										</div>
 									{/if}
-								{:else}
-									<a
-										class=" text-xs hover:underline"
-										href="https://docs.openwebui.com/enterprise"
-										target="_blank"
-									>
-										<span class="text-gray-500">
-											{$i18n.t(
-												'Upgrade to a licensed plan for enhanced capabilities, including custom theming and branding, and dedicated support.'
-											)}
-										</span>
-									</a>
+								</div>
+							</div>
+						</div>
+					{/if}
+
+					<div class="mb-2.5 hidden">
 								{/if}
 							</div>
 
@@ -380,14 +344,7 @@
 								/>
 
 								<div class="mt-2 text-xs text-gray-400 dark:text-gray-500">
-									<!-- https://docs.openwebui.com/getting-started/advanced-topics/api-endpoints -->
-									<a
-										href="https://docs.openwebui.com/getting-started/api-endpoints"
-										target="_blank"
-										class=" text-gray-300 font-medium underline"
-									>
-										{$i18n.t('To learn more about available endpoints, visit our documentation.')}
-									</a>
+									{$i18n.t('Enter allowed API endpoints (comma-separated).')}
 								</div>
 							</div>
 						{/if}
@@ -421,14 +378,7 @@
 								>
 									<div>
 										<span class=" font-medium">{$i18n.t('Warning')}:</span>
-										<span
-											><a
-												href="https://docs.openwebui.com/getting-started/env-configuration#jwt_expires_in"
-												target="_blank"
-												class=" underline"
-												>{$i18n.t('No expiration can pose security risks.')}
-											</a></span
-										>
+										<span>{$i18n.t('No expiration can pose security risks.')}</span>
 									</div>
 								</div>
 							</div>
