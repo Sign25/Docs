@@ -32,6 +32,9 @@
 		error?: string;
 	} | null = null;
 
+	// Модальное окно "Далее"
+	let showNextModal = false;
+
 	// Маркетплейсы
 	const marketplaces = [
 		{ id: 'wb', name: 'Wildberries', color: '#CB11AB' },
@@ -115,10 +118,9 @@
 		toast.success(`${label} скопировано`);
 	}
 
-	async function approveDraft() {
+	async function goToNext() {
 		if (!draft?.id) return;
-		toast.success('Черновик утверждён');
-		if (draft) draft.status = 'approved';
+		showNextModal = true;
 	}
 
 	async function regenerate() {
@@ -150,6 +152,52 @@
 <svelte:head>
 	<title>Content Factory | Adolf</title>
 </svelte:head>
+
+<!-- Модальное окно "Далее" (заглушка) -->
+{#if showNextModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" on:click={() => showNextModal = false}>
+		<div class="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" on:click|stopPropagation>
+			<!-- Заголовок -->
+			<div class="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+				<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+					Следующий шаг
+				</h2>
+				<button
+					type="button"
+					on:click={() => showNextModal = false}
+					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+					aria-label="Закрыть"
+				>
+					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+					</svg>
+				</button>
+			</div>
+
+			<!-- Содержимое (заглушка) -->
+			<div class="p-6">
+				<div class="text-center py-12">
+					<div class="w-20 h-20 mx-auto mb-6 bg-violet-100 dark:bg-violet-900/30 rounded-2xl flex items-center justify-center">
+						<span class="text-4xl">🚧</span>
+					</div>
+					<h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+						В разработке
+					</h3>
+					<p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+						Функционал следующего шага находится в разработке и скоро будет доступен
+					</p>
+					<button
+						type="button"
+						on:click={() => showNextModal = false}
+						class="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl transition text-sm"
+					>
+						Понятно
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <div class="flex flex-col w-full h-full overflow-y-auto">
 	<div class="max-w-4xl w-full mx-auto px-4 py-8 md:py-12">
@@ -355,11 +403,14 @@
 									{draft.title?.length || 0} / {draft.titleMaxLength || 100} символов
 								</span>
 							</div>
-							<div class="bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-								<p class="text-sm text-gray-900 dark:text-gray-100 font-medium leading-relaxed">
-									{draft.title}
-								</p>
-							</div>
+							<textarea
+								bind:value={draft.title}
+								rows="2"
+								class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
+									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+									focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
+									transition text-sm font-medium leading-relaxed resize-none"
+							></textarea>
 						</div>
 
 						<!-- Описание -->
@@ -372,11 +423,14 @@
 									{draft.description?.length || 0} символов
 								</span>
 							</div>
-							<div class="bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-700 rounded-xl p-4 max-h-48 overflow-y-auto">
-								<p class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">
-									{draft.description}
-								</p>
-							</div>
+							<textarea
+								bind:value={draft.description}
+								rows="10"
+								class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
+									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+									focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
+									transition text-sm whitespace-pre-wrap leading-relaxed resize-y"
+							></textarea>
 						</div>
 
 						<!-- SEO-теги -->
@@ -434,24 +488,10 @@
 						<div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
 							<button
 								type="button"
-								on:click={approveDraft}
-								class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition text-sm flex items-center gap-2"
-							>
-								✓ Утвердить
-							</button>
-							<button
-								type="button"
-								on:click={() => toast.info('Редактирование пока не доступно')}
-								class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition text-sm flex items-center gap-2"
-							>
-								✏️ Исправить
-							</button>
-							<button
-								type="button"
-								on:click={() => toast.info('ТЗ для дизайнера пока не доступно')}
+								on:click={goToNext}
 								class="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl transition text-sm flex items-center gap-2"
 							>
-								📸 ТЗ дизайнеру
+								Далее →
 							</button>
 							<button
 								type="button"
@@ -503,22 +543,6 @@
 			</button>
 		{/if}
 
-		<!-- Пустое состояние -->
-		{#if !draft && !isLoading}
-			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-12">
-				<div class="text-center">
-					<div class="w-16 h-16 mx-auto mb-4 bg-violet-100 dark:bg-violet-900/30 rounded-2xl flex items-center justify-center">
-						<span class="text-3xl">📝</span>
-					</div>
-					<h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-						Генерация контента
-					</h3>
-					<p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-						Введите ссылку на товар или артикул, выберите маркетплейс и нажмите «Сгенерировать контент»
-					</p>
-				</div>
-			</div>
-		{/if}
 
 	</div>
 </div>
