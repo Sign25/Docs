@@ -348,14 +348,7 @@
 							</div>
 
 							<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-								{$i18n.t('Trouble accessing Ollama?')}
-								<a
-									class=" text-gray-300 font-medium underline"
-									href="https://github.com/open-webui/open-webui#troubleshooting"
-									target="_blank"
-								>
-									{$i18n.t('Click here for help.')}
-								</a>
+								{$i18n.t('Trouble accessing Ollama? Contact your administrator for assistance.')}
 							</div>
 						</div>
 					{/if}

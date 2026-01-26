@@ -61,16 +61,13 @@
 						</Tooltip>
 
 						{#if $config?.features?.enable_version_update_check}
-							<a
-								href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}"
-								target="_blank"
-							>
+							<span class="text-gray-500 dark:text-gray-400">
 								{updateAvailable === null
 									? $i18n.t('Checking for updates...')
 									: updateAvailable
 										? `(v${version.latest} ${$i18n.t('available!')})`
 										: $i18n.t('(latest)')}
-							</a>
+							</span>
 						{/if}
 					</div>
 
@@ -135,19 +132,8 @@
 					href="https://ohana-lab.com"
 					target="_blank"
 					class="underline">Ohana Lab</a
-				> <a href="https://github.com/open-webui/open-webui/blob/main/LICENSE" target="_blank"
-					>All rights reserved.</a
-				>
+				>. All rights reserved.
 </pre>
-		</div>
-
-		<div class="mt-2 text-xs text-gray-400 dark:text-gray-500">
-			{$i18n.t('Created by')}
-			<a
-				class=" text-gray-500 dark:text-gray-300 font-medium"
-				href="https://github.com/tjbck"
-				target="_blank">Timothy J. Baek</a
-			>
 		</div>
 	</div>
 </div>
