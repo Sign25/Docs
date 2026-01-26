@@ -1,12 +1,15 @@
 // Service Worker for PWA - ADOLF
-const CACHE_NAME = 'adolf-pwa-v9';
+const CACHE_NAME = 'adolf-pwa-v10';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
 	'/',
+	'/static/favicon.ico',
 	'/static/favicon.svg',
 	'/static/favicon.png',
 	'/static/favicon-dark.png',
+	'/static/favicon-96x96.png',
+	'/static/apple-touch-icon.png',
 	'/static/splash.png',
 	'/static/splash-dark.png',
 	'/static/web-app-manifest-192x192.png',
