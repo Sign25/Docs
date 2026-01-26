@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { user } from '$lib/stores';
+	import { user, showSidebar, mobile } from '$lib/stores';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
 	const i18n = getContext('i18n');
@@ -147,6 +147,13 @@
 		if (status === 'warning') return '⚠';
 		return '✗';
 	}
+
+	// Закрытие сайдбара на мобильных при клике
+	const handlePageClick = () => {
+		if ($mobile && $showSidebar) {
+			showSidebar.set(false);
+		}
+	};
 </script>
 
 <svelte:head>
@@ -199,7 +206,15 @@
 	</div>
 {/if}
 
-<div class="flex flex-col w-full h-full overflow-y-auto">
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<div
+	class="w-full h-full flex flex-col overflow-x-hidden overflow-y-auto transition-all duration-300 {$showSidebar
+		? 'md:max-w-[calc(100%-var(--sidebar-width))] md:ml-[var(--sidebar-width)]'
+		: ''}"
+	on:click={handlePageClick}
+	role="main"
+>
 	<div class="max-w-4xl w-full mx-auto px-4 py-8 md:py-12">
 
 		<!-- Заголовок модуля -->
