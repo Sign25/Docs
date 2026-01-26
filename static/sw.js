@@ -1,23 +1,23 @@
 // Service Worker for PWA - ADOLF
-const CACHE_NAME = 'adolf-pwa-v10';
+const CACHE_NAME = 'adolf-pwa-v11';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
 	'/',
-	'/static/favicon.ico',
-	'/static/favicon.svg',
-	'/static/favicon.png',
-	'/static/favicon-dark.png',
-	'/static/favicon-96x96.png',
-	'/static/apple-touch-icon.png',
-	'/static/splash.png',
-	'/static/splash-dark.png',
-	'/static/web-app-manifest-192x192.png',
-	'/static/web-app-manifest-512x512.png',
+	'/static/favicon.ico?v=5',
+	'/static/favicon.svg?v=5',
+	'/static/favicon.png?v=5',
+	'/static/favicon-dark.png?v=5',
+	'/static/favicon-96x96.png?v=5',
+	'/static/apple-touch-icon.png?v=5',
+	'/static/splash.png?v=5',
+	'/static/splash-dark.png?v=5',
+	'/static/web-app-manifest-192x192.png?v=5',
+	'/static/web-app-manifest-512x512.png?v=5',
 	'/static/content-factory-icon.svg'
 ];
 
-// Install - cache static assets
+// Install - cache static assets and activate immediately
 self.addEventListener('install', (event) => {
 	console.log('[SW] Installing:', CACHE_NAME);
 	event.waitUntil(
@@ -30,7 +30,7 @@ self.addEventListener('install', (event) => {
 	);
 });
 
-// Activate - clean old caches
+// Activate - clean ALL old caches and take control immediately
 self.addEventListener('activate', (event) => {
 	console.log('[SW] Activating:', CACHE_NAME);
 	event.waitUntil(
@@ -47,7 +47,7 @@ self.addEventListener('activate', (event) => {
 	);
 });
 
-// Fetch - Network first, fallback to cache
+// Fetch - Network first for everything, cache as fallback
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
 	const url = new URL(request.url);
@@ -57,7 +57,7 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// Skip API calls and websockets - always network
+	// Skip API calls and websockets - always network only
 	if (url.pathname.startsWith('/api/') ||
 		url.pathname.startsWith('/ws/') ||
 		url.pathname.startsWith('/oauth/') ||
@@ -65,46 +65,12 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// For static assets - cache first, then network
-	if (url.pathname.startsWith('/static/') ||
-		url.pathname.endsWith('.png') ||
-		url.pathname.endsWith('.svg') ||
-		url.pathname.endsWith('.ico') ||
-		url.pathname.endsWith('.woff2')) {
-		event.respondWith(
-			caches.match(request).then((cached) => {
-				if (cached) {
-					// Return cached, but also update cache in background
-					fetch(request).then((response) => {
-						if (response.ok) {
-							caches.open(CACHE_NAME).then((cache) => {
-								cache.put(request, response);
-							});
-						}
-					}).catch(() => {});
-					return cached;
-				}
-				// Not in cache - fetch and cache
-				return fetch(request).then((response) => {
-					if (response.ok) {
-						const clone = response.clone();
-						caches.open(CACHE_NAME).then((cache) => {
-							cache.put(request, clone);
-						});
-					}
-					return response;
-				});
-			})
-		);
-		return;
-	}
-
-	// For pages - network first, fallback to cache
+	// Network first for EVERYTHING - ensures fresh content
 	event.respondWith(
 		fetch(request)
 			.then((response) => {
-				// Cache successful page responses
-				if (response.ok && request.mode === 'navigate') {
+				// Cache successful responses
+				if (response.ok) {
 					const clone = response.clone();
 					caches.open(CACHE_NAME).then((cache) => {
 						cache.put(request, clone);
@@ -128,9 +94,14 @@ self.addEventListener('fetch', (event) => {
 	);
 });
 
-// Handle messages
+// Handle messages - force update
 self.addEventListener('message', (event) => {
 	if (event.data === 'skipWaiting') {
 		self.skipWaiting();
+	}
+	if (event.data === 'clearCache') {
+		caches.keys().then((names) => {
+			names.forEach((name) => caches.delete(name));
+		});
 	}
 });
