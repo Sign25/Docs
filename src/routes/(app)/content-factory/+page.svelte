@@ -1,155 +1,186 @@
 <script lang="ts">
-	import { onMount, getContext } from 'svelte';
+	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { user, showSidebar, mobile } from '$lib/stores';
+	import { showSidebar, mobile } from '$lib/stores';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
-	// Состояние формы
-	let productInput = '';
-	let selectedMarketplace: 'wb' | 'ozon' | 'ym' = 'wb';
-	let isLoading = false;
-	let loadingProgress = 0;
+	// Текущий шаг: 1 - ввод данных, 2 - карточка товара
+	let currentStep: 1 | 2 = 1;
 
-	// Результат генерации
-	let draft: {
-		id?: string;
-		sku?: string;
-		marketplace?: string;
-		status?: 'pending' | 'approved' | 'published' | 'rejected';
-		title?: string;
-		titleMaxLength?: number;
-		description?: string;
-		seoTags?: string[];
-		validation?: {
-			passed: boolean;
-			items: Array<{
-				status: 'success' | 'warning' | 'error';
-				message: string;
-			}>;
-		};
-		error?: string;
+	// Режим ввода: 'sku' или 'link'
+	let inputMode: 'sku' | 'link' = 'sku';
+
+	// Поля формы
+	let skuInput = '';
+	let linkInput = '';
+	let selectedMarketplace: 'wb' | 'ozon' | 'ym' = 'wb';
+
+	// Данные товара (шаг 2)
+	let productData: {
+		marketplace: 'wb' | 'ozon' | 'ym';
+		sku: string;
+		photos: string[];
+		title: string;
+		description: string;
 	} | null = null;
 
-	// Модальное окно "Далее"
-	let showNextModal = false;
+	// Индекс текущей фотографии в галерее
+	let currentPhotoIndex = 0;
+
+	// Состояние загрузки
+	let isLoading = false;
+	let isGenerating = false;
 
 	// Маркетплейсы
 	const marketplaces = [
-		{ id: 'wb', name: 'Wildberries', color: '#CB11AB' },
-		{ id: 'ozon', name: 'Ozon', color: '#005BFF' },
-		{ id: 'ym', name: 'Яндекс.Маркет', color: '#FFCC00' }
+		{ id: 'wb', name: 'Wildberries', short: 'WB', color: '#CB11AB' },
+		{ id: 'ozon', name: 'Ozon', short: 'Ozon', color: '#005BFF' },
+		{ id: 'ym', name: 'Яндекс.Маркет', short: 'Я.М', color: '#FFCC00' }
 	];
 
-	// Лимиты по маркетплейсам
-	const titleLimits = { wb: 100, ozon: 200, ym: 150 };
+	// Определение маркетплейса по ссылке
+	function detectMarketplace(url: string): 'wb' | 'ozon' | 'ym' | null {
+		const lower = url.toLowerCase();
+		if (lower.includes('wildberries.ru') || lower.includes('wb.ru')) return 'wb';
+		if (lower.includes('ozon.ru')) return 'ozon';
+		if (lower.includes('market.yandex.ru') || lower.includes('ya.ru')) return 'ym';
+		return null;
+	}
 
-	async function generateContent() {
-		if (!productInput.trim()) {
-			toast.error('Введите ссылку или артикул товара');
-			return;
+	// Извлечение артикула из ссылки
+	function extractSkuFromUrl(url: string): string | null {
+		// WB: /catalog/123456789/
+		const wbMatch = url.match(/wildberries\.ru\/catalog\/(\d+)/i);
+		if (wbMatch) return wbMatch[1];
+
+		// Ozon: /product/name-123456789/
+		const ozonMatch = url.match(/ozon\.ru\/product\/[^\/]*-(\d+)/i);
+		if (ozonMatch) return ozonMatch[1];
+
+		// YM: /product--name/123456789
+		const ymMatch = url.match(/market\.yandex\.ru\/product[^\/]*\/(\d+)/i);
+		if (ymMatch) return ymMatch[1];
+
+		// Общий паттерн для чисел
+		const genericMatch = url.match(/(\d{6,})/);
+		if (genericMatch) return genericMatch[1];
+
+		return null;
+	}
+
+	// Обработка нажатия "Далее"
+	async function handleNext() {
+		let sku: string | null = null;
+		let marketplace: 'wb' | 'ozon' | 'ym' = selectedMarketplace;
+
+		if (inputMode === 'sku') {
+			if (!skuInput.trim()) {
+				toast.error('Введите артикул товара');
+				return;
+			}
+			sku = skuInput.trim();
+		} else {
+			if (!linkInput.trim()) {
+				toast.error('Введите ссылку на товар');
+				return;
+			}
+
+			// Определяем маркетплейс из ссылки
+			const detected = detectMarketplace(linkInput);
+			if (!detected) {
+				toast.error('Не удалось определить маркетплейс из ссылки');
+				return;
+			}
+			marketplace = detected;
+
+			// Извлекаем артикул
+			sku = extractSkuFromUrl(linkInput);
+			if (!sku) {
+				toast.error('Не удалось извлечь артикул из ссылки');
+				return;
+			}
 		}
 
+		// Загружаем данные товара
 		isLoading = true;
-		loadingProgress = 0;
-		draft = null;
-
-		// Симуляция прогресса
-		const progressInterval = setInterval(() => {
-			loadingProgress = Math.min(loadingProgress + Math.random() * 15, 90);
-		}, 300);
-
 		try {
-			// TODO: Интеграция с API Content Factory
-			// POST /content/generate
-			await new Promise(resolve => setTimeout(resolve, 2000));
+			// TODO: Заменить на реальный API-запрос
+			// const response = await fetch(`/api/content/product/${marketplace}/${sku}`);
+			// const data = await response.json();
 
-			loadingProgress = 100;
+			// Временные mock-данные для демонстрации
+			await new Promise(resolve => setTimeout(resolve, 800));
 
-			// Извлекаем артикул из ввода
-			const sku = extractSku(productInput);
-
-			draft = {
-				id: 'draft_' + Math.random().toString(36).substr(2, 8),
-				sku: sku || 'OM-12345',
-				marketplace: selectedMarketplace.toUpperCase(),
-				status: 'pending',
-				title: 'Охана Маркет Платье женское летнее миди с цветочным принтом свободного кроя',
-				titleMaxLength: titleLimits[selectedMarketplace],
-				description: `Элегантное летнее платье из натуральной ткани станет незаменимым элементом вашего гардероба. Свободный крой обеспечивает комфорт в жаркую погоду, а яркий цветочный принт добавит образу женственности и романтичности.
-
-• Состав: 95% хлопок, 5% эластан
-• Длина: миди (ниже колена)
-• Рукав: короткий
-• Застёжка: без застёжки
-• Уход: машинная стирка при 30°C
-
-Платье идеально подходит для прогулок, отдыха и повседневной носки. Сочетается с босоножками, кедами и балетками.`,
-				seoTags: ['платье женское', 'летнее платье', 'платье миди', 'цветочный принт', 'хлопок', 'свободный крой'],
-				validation: {
-					passed: true,
-					items: [
-						{ status: 'success', message: 'Название: длина в норме (78 из 100)' },
-						{ status: 'success', message: 'Описание: содержит ключевые слова' },
-						{ status: 'success', message: 'SEO-теги: 6 из 6 уникальных' }
-					]
-				}
+			productData = {
+				marketplace,
+				sku,
+				photos: [
+					'https://via.placeholder.com/400x500/f3f4f6/9ca3af?text=Фото+1',
+					'https://via.placeholder.com/400x500/f3f4f6/9ca3af?text=Фото+2',
+					'https://via.placeholder.com/400x500/f3f4f6/9ca3af?text=Фото+3'
+				],
+				title: `Товар ${sku}`,
+				description: 'Описание товара будет загружено с маркетплейса после подключения API.'
 			};
 
-			toast.success('Контент сгенерирован');
-		} catch (e: any) {
-			draft = { error: e.message || 'Произошла ошибка при генерации' };
-			toast.error('Ошибка генерации');
+			currentPhotoIndex = 0;
+			currentStep = 2;
+		} catch (error) {
+			toast.error('Ошибка загрузки данных товара');
+			console.error('Error loading product:', error);
 		} finally {
-			clearInterval(progressInterval);
 			isLoading = false;
 		}
 	}
 
-	function extractSku(input: string): string | null {
-		// Простое извлечение артикула из URL или текста
-		const match = input.match(/(\d{5,})/);
-		return match ? match[1] : null;
+	// Возврат к шагу 1
+	function handleBack() {
+		currentStep = 1;
+		productData = null;
+		currentPhotoIndex = 0;
 	}
 
-	function copyToClipboard(text: string, label: string) {
-		navigator.clipboard.writeText(text);
-		toast.success(`${label} скопировано`);
+	// Генерация контента
+	async function handleGenerate() {
+		if (!productData) return;
+
+		isGenerating = true;
+		try {
+			// TODO: Заменить на реальный API-запрос
+			// const response = await fetch('/api/content/generate', {
+			//   method: 'POST',
+			//   body: JSON.stringify(productData)
+			// });
+
+			await new Promise(resolve => setTimeout(resolve, 1500));
+			toast.success('Контент сгенерирован! (API будет подключено позже)');
+			console.log('Generate content:', productData);
+		} catch (error) {
+			toast.error('Ошибка генерации контента');
+			console.error('Error generating:', error);
+		} finally {
+			isGenerating = false;
+		}
 	}
 
-	async function goToNext() {
-		if (!draft?.id) return;
-		showNextModal = true;
+	// Навигация по фотографиям
+	function nextPhoto() {
+		if (productData && currentPhotoIndex < productData.photos.length - 1) {
+			currentPhotoIndex++;
+		}
 	}
 
-	async function regenerate() {
-		await generateContent();
+	function prevPhoto() {
+		if (currentPhotoIndex > 0) {
+			currentPhotoIndex--;
+		}
 	}
 
-	function clearAll() {
-		productInput = '';
-		draft = null;
-	}
-
-	function getStatusBadge(status: string) {
-		const badges: Record<string, { label: string; class: string }> = {
-			pending: { label: 'Ожидает', class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-			approved: { label: 'Утверждён', class: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-			published: { label: 'Опубликован', class: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-			rejected: { label: 'Отклонён', class: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' }
-		};
-		return badges[status] || badges.pending;
-	}
-
-	function getValidationIcon(status: string) {
-		if (status === 'success') return '✓';
-		if (status === 'warning') return '⚠';
-		return '✗';
-	}
-
-	// Закрытие сайдбара на мобильных при клике
+	// Закрытие сайдбара на мобильных
 	const handlePageClick = () => {
 		if ($mobile && $showSidebar) {
 			showSidebar.set(false);
@@ -161,454 +192,356 @@
 	<title>Content Factory | Adolf</title>
 </svelte:head>
 
-<!-- Модальное окно "Далее" (заглушка) -->
-{#if showNextModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" on:click={() => showNextModal = false}>
-		<div class="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" on:click|stopPropagation>
-			<!-- Заголовок -->
-			<div class="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-				<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-					Следующий шаг
-				</h2>
-				<button
-					type="button"
-					on:click={() => showNextModal = false}
-					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
-					aria-label="Закрыть"
-				>
-					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-					</svg>
-				</button>
-			</div>
-
-			<!-- Содержимое (заглушка) -->
-			<div class="p-6">
-				<div class="text-center py-12">
-					<div class="w-20 h-20 mx-auto mb-6 bg-violet-100 dark:bg-violet-900/30 rounded-2xl flex items-center justify-center">
-						<span class="text-4xl">🚧</span>
-					</div>
-					<h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-						В разработке
-					</h3>
-					<p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
-						Функционал следующего шага находится в разработке и скоро будет доступен
-					</p>
-					<button
-						type="button"
-						on:click={() => showNextModal = false}
-						class="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl transition text-sm"
-					>
-						Понятно
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
-
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <div
-	class="w-full h-full flex flex-col overflow-x-hidden overflow-y-auto transition-all duration-300 {$showSidebar
+	class="h-screen max-h-[100dvh] w-full flex flex-col overflow-x-hidden overflow-y-auto transition-all duration-300 {$showSidebar
 		? 'md:max-w-[calc(100%-var(--sidebar-width))] md:ml-[var(--sidebar-width)]'
 		: ''}"
 	on:click={handlePageClick}
 	role="main"
 >
-	<div class="max-w-4xl w-full mx-auto px-4 py-8 md:py-12">
+	<div class="flex-1 flex flex-col items-center px-4 pt-12 md:pt-20 pb-8">
+		<!-- Кнопка сайдбара для мобильных -->
+		{#if $mobile && !$showSidebar}
+			<Tooltip content={$i18n.t('Open Sidebar')}>
+				<button
+					class="absolute left-4 top-4 cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition p-1.5 z-10"
+					on:click|stopPropagation={() => showSidebar.set(true)}
+					aria-label="Open Sidebar"
+				>
+					<Sidebar />
+				</button>
+			</Tooltip>
+		{/if}
 
-		<!-- Заголовок модуля -->
-		<div class="mb-8">
-			<div class="flex items-center gap-3 mb-2">
-				{#if $mobile && !$showSidebar}
-					<Tooltip content={$i18n.t('Open Sidebar')}>
-						<button
-							class="cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition p-1.5"
-							on:click={() => {
-								showSidebar.set(true);
-							}}
-							aria-label="Open Sidebar"
-						>
-							<Sidebar />
-						</button>
-					</Tooltip>
-				{/if}
-				<span class="text-2xl">📝</span>
-				<h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-					Content Factory
-				</h1>
+		{#if currentStep === 1}
+			<!-- ШАГ 1: Ввод данных -->
+			<div class="w-full max-w-md">
+
+				<!-- Заголовок -->
+				<div class="text-center mb-8">
+					<div class="flex items-center justify-center gap-3 mb-3">
+						<img
+							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+							class="size-8 dark:invert"
+							alt=""
+						/>
+						<h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+							Content Factory
+						</h1>
+					</div>
+					<p class="text-sm text-gray-500 dark:text-gray-400">
+						Генерация SEO-контента для карточек товаров
+					</p>
+				</div>
+
+			<!-- Карточка формы -->
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+
+				<!-- Переключатель режима (slider/toggle) -->
+				<div class="flex border-b border-gray-200 dark:border-gray-800">
+					<button
+						type="button"
+						on:click={() => inputMode = 'sku'}
+						class="flex-1 py-3.5 text-sm font-medium transition relative
+							{inputMode === 'sku'
+								? 'text-violet-600 dark:text-violet-400'
+								: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+					>
+						Артикул
+						{#if inputMode === 'sku'}
+							<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500"></div>
+						{/if}
+					</button>
+					<button
+						type="button"
+						on:click={() => inputMode = 'link'}
+						class="flex-1 py-3.5 text-sm font-medium transition relative
+							{inputMode === 'link'
+								? 'text-violet-600 dark:text-violet-400'
+								: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+					>
+						Ссылка
+						{#if inputMode === 'link'}
+							<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500"></div>
+						{/if}
+					</button>
+				</div>
+
+				<!-- Контент формы -->
+				<div class="p-5">
+					{#if inputMode === 'sku'}
+						<!-- Режим артикула -->
+						<div class="space-y-4">
+							<!-- Выбор маркетплейса -->
+							<div>
+								<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+									Маркетплейс
+								</label>
+								<div class="grid grid-cols-3 gap-2">
+									{#each marketplaces as mp}
+										<button
+											type="button"
+											on:click={() => selectedMarketplace = mp.id}
+											class="py-2.5 text-sm font-medium rounded-xl border transition
+												{selectedMarketplace === mp.id
+													? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400'
+													: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'}"
+										>
+											{mp.short}
+										</button>
+									{/each}
+								</div>
+							</div>
+
+							<!-- Поле артикула -->
+							<div>
+								<label for="sku-input" class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+									Артикул товара
+								</label>
+								<input
+									type="text"
+									id="sku-input"
+									bind:value={skuInput}
+									placeholder="Например: 123456789"
+									class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
+										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+										placeholder-gray-400 dark:placeholder-gray-500
+										focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
+										transition text-sm"
+									on:keydown={(e) => e.key === 'Enter' && handleNext()}
+								/>
+							</div>
+						</div>
+					{:else}
+						<!-- Режим ссылки -->
+						<div>
+							<label for="link-input" class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+								Ссылка на товар
+							</label>
+							<input
+								type="url"
+								id="link-input"
+								bind:value={linkInput}
+								placeholder="https://www.wildberries.ru/catalog/..."
+								class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
+									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+									placeholder-gray-400 dark:placeholder-gray-500
+									focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
+									transition text-sm"
+								on:keydown={(e) => e.key === 'Enter' && handleNext()}
+							/>
+							<p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+								Маркетплейс определится автоматически
+							</p>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Кнопка "Далее" -->
+				<div class="px-5 pb-5">
+					<button
+						type="button"
+						on:click={handleNext}
+						disabled={(inputMode === 'sku' && !skuInput.trim()) || (inputMode === 'link' && !linkInput.trim()) || isLoading}
+						class="w-full py-3.5 bg-violet-600 hover:bg-violet-700 text-white
+							disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+							font-medium rounded-xl transition text-sm flex items-center justify-center gap-2"
+					>
+						{#if isLoading}
+							<svg class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							Загрузка...
+						{:else}
+							Далее
+						{/if}
+					</button>
+				</div>
 			</div>
-			<p class="text-sm text-gray-500 dark:text-gray-400">
-				Генерация SEO-контента для карточек товаров на маркетплейсах
+
+			<!-- Подсказка -->
+			<p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
+				Поддерживаются Wildberries, Ozon и Яндекс.Маркет
 			</p>
 		</div>
 
-		<!-- Форма ввода -->
-		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 mb-6">
-
-			<!-- Выбор маркетплейса -->
-			<div class="mb-4">
-				<label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-					Маркетплейс
-				</label>
-				<div class="flex gap-2">
-					{#each marketplaces as mp}
-						<button
-							type="button"
-							on:click={() => selectedMarketplace = mp.id}
-							class="px-4 py-2 text-sm font-medium rounded-xl border transition
-								{selectedMarketplace === mp.id
-									? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-500'
-									: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'}"
-						>
-							{mp.name}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Ввод ссылки/артикула -->
-			<div class="mb-4">
-				<label for="product-input" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-					Ссылка или артикул товара
-				</label>
-				<input
-					type="text"
-					id="product-input"
-					bind:value={productInput}
-					placeholder="https://www.wildberries.ru/catalog/12345678 или артикул OM-12345"
-					class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
-						bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
-						placeholder-gray-400 dark:placeholder-gray-500
-						focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
-						transition text-sm"
-					on:keydown={(e) => e.key === 'Enter' && generateContent()}
-					disabled={isLoading}
-				/>
-			</div>
-
-			<!-- Кнопка генерации -->
-			<button
-				type="button"
-				on:click={generateContent}
-				disabled={isLoading || !productInput.trim()}
-				class="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white
-					disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500
-					font-medium rounded-xl transition text-sm flex items-center justify-center gap-2"
-			>
-				{#if isLoading}
-					<svg class="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-					</svg>
-					<span>Генерация...</span>
-				{:else}
-					<span>Сгенерировать контент</span>
-				{/if}
-			</button>
-		</div>
-
-		<!-- Состояние загрузки -->
-		{#if isLoading}
-			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 mb-6">
-				<div class="flex flex-col items-center justify-center text-center">
-					<!-- Анимированный логотип -->
-					<div class="relative w-20 h-20 mb-6">
-						<!-- Внешний пульсирующий круг -->
-						<div class="absolute inset-0 rounded-full bg-violet-500/20 animate-ping"></div>
-						<!-- Вращающееся кольцо -->
-						<div class="absolute inset-2 rounded-full border-4 border-violet-200 dark:border-violet-800 border-t-violet-500 animate-spin"></div>
-						<!-- Центральная иконка -->
-						<div class="absolute inset-0 flex items-center justify-center">
-							<span class="text-2xl animate-pulse">📝</span>
-						</div>
+		{:else if currentStep === 2 && productData}
+			<!-- ШАГ 2: Карточка товара -->
+			<div class="w-full max-w-2xl">
+				<!-- Заголовок с кнопкой назад -->
+				<div class="flex items-center gap-4 mb-6">
+					<button
+						type="button"
+						on:click={handleBack}
+						class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+						aria-label="Назад"
+					>
+						<svg class="size-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+						</svg>
+					</button>
+					<div class="flex items-center gap-2">
+						<img
+							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+							class="size-6 dark:invert"
+							alt=""
+						/>
+						<h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+							Карточка товара
+						</h1>
 					</div>
-
-					<p class="text-base font-medium text-gray-700 dark:text-gray-300 mb-2">
-						Генерация контента
-					</p>
-					<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-						{productInput.length > 40 ? productInput.slice(0, 40) + '...' : productInput}
-					</p>
-
-					<!-- Анимированные точки процесса -->
-					<div class="flex items-center gap-3 mb-4">
-						<div class="flex gap-1">
-							<span class="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
-							<span class="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
-							<span class="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
-						</div>
-					</div>
-
-					<!-- Прогресс-бар с волной -->
-					<div class="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
-						<div
-							class="h-full bg-gradient-to-r from-violet-400 via-violet-500 to-violet-600 transition-all duration-300 ease-out"
-							style="width: {loadingProgress}%"
-						></div>
-						<!-- Блик движущийся -->
-						<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-					</div>
-					<p class="text-xs text-gray-400 dark:text-gray-500 mt-2 font-mono">
-						{Math.round(loadingProgress)}%
-					</p>
-				</div>
-			</div>
-
-			<!-- Skeleton preview -->
-			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden mb-6 opacity-50">
-				<div class="px-5 py-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
-					<div class="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-				</div>
-				<div class="p-5 space-y-4">
-					<div class="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-					<div class="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-					<div class="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-					<div class="h-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-					<div class="flex gap-2">
-						<div class="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-						<div class="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-						<div class="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Результат генерации -->
-		{#if draft && !isLoading}
-			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden mb-6">
-
-				<!-- Заголовок результата -->
-				<div class="flex items-center gap-3 px-5 py-4 bg-violet-50 dark:bg-violet-900/20 border-b border-gray-200 dark:border-gray-800">
-					<span class="text-xl">📝</span>
-					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-						Сгенерированный контент
-					</h2>
+					<span class="ml-auto px-3 py-1 text-xs font-medium rounded-full
+						{productData.marketplace === 'wb' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' : ''}
+						{productData.marketplace === 'ozon' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : ''}
+						{productData.marketplace === 'ym' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}">
+						{marketplaces.find(m => m.id === productData.marketplace)?.name}
+					</span>
 				</div>
 
-				{#if draft.error}
-					<!-- Ошибка -->
-					<div class="p-5">
-						<div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-							<p class="text-sm text-red-600 dark:text-red-400">{draft.error}</p>
-						</div>
-					</div>
-				{:else}
-					<div class="p-5 space-y-5">
+				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+					<div class="flex flex-col md:flex-row">
+						<!-- Фотографии товара -->
+						<div class="md:w-2/5 p-4 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800">
+							<div class="relative aspect-[4/5] bg-gray-100 dark:bg-gray-850 rounded-xl overflow-hidden">
+								{#if productData.photos.length > 0}
+									<img
+										src={productData.photos[currentPhotoIndex]}
+										alt="Фото товара {currentPhotoIndex + 1}"
+										class="w-full h-full object-cover"
+									/>
 
-						<!-- Метаданные -->
-						<div class="flex flex-wrap items-center gap-4 text-sm">
-							<div class="flex items-baseline gap-1">
-								<span class="font-semibold text-gray-500 dark:text-gray-400">Артикул:</span>
-								<span class="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-gray-900 dark:text-gray-100">{draft.sku}</span>
-							</div>
-							<div class="flex items-baseline gap-1">
-								<span class="font-semibold text-gray-500 dark:text-gray-400">Маркетплейс:</span>
-								<span class="text-gray-900 dark:text-gray-100">{draft.marketplace}</span>
-							</div>
-							<div class="flex items-baseline gap-1">
-								<span class="font-semibold text-gray-500 dark:text-gray-400">ID:</span>
-								<span class="font-mono text-gray-500 dark:text-gray-400">{draft.id}</span>
-							</div>
-							{#if draft.status}
-								{@const badge = getStatusBadge(draft.status)}
-								<span class="px-2 py-0.5 text-xs font-medium rounded-full {badge.class}">
-									{badge.label}
-								</span>
-							{/if}
-						</div>
+									<!-- Навигация по фото -->
+									{#if productData.photos.length > 1}
+										<div class="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/50 to-transparent">
+											<div class="flex items-center justify-between">
+												<button
+													type="button"
+													on:click={prevPhoto}
+													disabled={currentPhotoIndex === 0}
+													class="p-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 disabled:opacity-30 transition"
+												>
+													<svg class="size-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+													</svg>
+												</button>
 
-						<hr class="border-gray-200 dark:border-gray-800" />
+												<span class="text-xs text-white font-medium">
+													{currentPhotoIndex + 1} / {productData.photos.length}
+												</span>
 
-						<!-- Название -->
-						<div>
-							<div class="flex items-center justify-between mb-2">
-								<span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-									Название
-								</span>
-								<span class="text-xs font-mono text-gray-400 dark:text-gray-500
-									{(draft.title?.length || 0) > (draft.titleMaxLength || 100) ? 'text-red-500' : ''}">
-									{draft.title?.length || 0} / {draft.titleMaxLength || 100} символов
-								</span>
-							</div>
-							<textarea
-								bind:value={draft.title}
-								rows="2"
-								class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
-									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
-									focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
-									transition text-sm font-medium leading-relaxed resize-none"
-							></textarea>
-						</div>
-
-						<!-- Описание -->
-						<div>
-							<div class="flex items-center justify-between mb-2">
-								<span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-									Описание
-								</span>
-								<span class="text-xs font-mono text-gray-400 dark:text-gray-500">
-									{draft.description?.length || 0} символов
-								</span>
-							</div>
-							<textarea
-								bind:value={draft.description}
-								rows="10"
-								class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
-									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
-									focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
-									transition text-sm whitespace-pre-wrap leading-relaxed resize-y"
-							></textarea>
-						</div>
-
-						<!-- SEO-теги -->
-						{#if draft.seoTags && draft.seoTags.length > 0}
-							<div>
-								<div class="flex items-center justify-between mb-2">
-									<span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-										SEO-теги
-									</span>
-									<span class="text-xs font-mono text-gray-400 dark:text-gray-500">
-										{draft.seoTags.length} тегов
-									</span>
-								</div>
-								<div class="flex flex-wrap gap-2">
-									{#each draft.seoTags as tag}
-										<span class="px-3 py-1.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400
-											text-sm font-mono rounded-full hover:bg-violet-200 dark:hover:bg-violet-900/50 transition cursor-default">
-											{tag}
-										</span>
-									{/each}
-								</div>
-							</div>
-						{/if}
-
-						<hr class="border-gray-200 dark:border-gray-800" />
-
-						<!-- Валидация -->
-						{#if draft.validation}
-							<div class="bg-gray-50 dark:bg-gray-850 rounded-xl p-4">
-								<div class="flex items-center gap-2 mb-3 text-sm font-semibold
-									{draft.validation.passed ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}">
-									{#if draft.validation.passed}
-										✅ Валидация пройдена
-									{:else}
-										⚠️ Валидация с замечаниями
+												<button
+													type="button"
+													on:click={nextPhoto}
+													disabled={currentPhotoIndex === productData.photos.length - 1}
+													class="p-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 disabled:opacity-30 transition"
+												>
+													<svg class="size-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+													</svg>
+												</button>
+											</div>
+										</div>
 									{/if}
-								</div>
-								<ul class="space-y-1">
-									{#each draft.validation.items as item}
-										<li class="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-											<span class="flex-shrink-0
-												{item.status === 'success' ? 'text-green-500' : ''}
-												{item.status === 'warning' ? 'text-amber-500' : ''}
-												{item.status === 'error' ? 'text-red-500' : ''}">
-												{getValidationIcon(item.status)}
-											</span>
-											<span>{item.message}</span>
-										</li>
-									{/each}
-								</ul>
+								{:else}
+									<div class="flex items-center justify-center h-full text-gray-400">
+										<svg class="size-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+										</svg>
+									</div>
+								{/if}
 							</div>
-						{/if}
 
-						<!-- Кнопки действий -->
-						<div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-							<button
-								type="button"
-								on:click={goToNext}
-								class="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl transition text-sm flex items-center gap-2"
-							>
-								Далее →
-							</button>
-							<button
-								type="button"
-								on:click={regenerate}
-								class="px-5 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300
-									hover:bg-gray-100 dark:hover:bg-gray-800 font-medium rounded-xl transition text-sm flex items-center gap-2"
-							>
-								🔄 Заново
-							</button>
+							<!-- Миниатюры фото -->
+							{#if productData.photos.length > 1}
+								<div class="flex gap-2 mt-3 overflow-x-auto pb-1">
+									{#each productData.photos as photo, index}
+										<button
+											type="button"
+											on:click={() => currentPhotoIndex = index}
+											class="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition
+												{currentPhotoIndex === index
+													? 'border-violet-500'
+													: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'}"
+										>
+											<img src={photo} alt="Миниатюра {index + 1}" class="w-full h-full object-cover" />
+										</button>
+									{/each}
+								</div>
+							{/if}
+
+							<p class="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
+								Артикул: {productData.sku}
+							</p>
 						</div>
 
-						<!-- Копирование -->
-						<div class="flex flex-wrap gap-2 text-xs">
+						<!-- Редактируемые поля -->
+						<div class="md:w-3/5 p-5 flex flex-col">
+							<!-- Заголовок товара -->
+							<div class="mb-4">
+								<label for="product-title" class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+									Название товара
+								</label>
+								<input
+									type="text"
+									id="product-title"
+									bind:value={productData.title}
+									placeholder="Введите название товара"
+									class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
+										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+										placeholder-gray-400 dark:placeholder-gray-500
+										focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
+										transition text-sm"
+								/>
+							</div>
+
+							<!-- Описание товара -->
+							<div class="flex-1 mb-5">
+								<label for="product-description" class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+									Описание товара
+								</label>
+								<textarea
+									id="product-description"
+									bind:value={productData.description}
+									placeholder="Введите описание товара"
+									rows="6"
+									class="w-full h-full min-h-[150px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700
+										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+										placeholder-gray-400 dark:placeholder-gray-500
+										focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
+										transition text-sm resize-none"
+								></textarea>
+							</div>
+
+							<!-- Кнопка генерации -->
 							<button
 								type="button"
-								on:click={() => copyToClipboard(draft?.title || '', 'Название')}
-								class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition"
+								on:click={handleGenerate}
+								disabled={isGenerating}
+								class="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white
+									disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+									font-medium rounded-xl transition text-sm flex items-center justify-center gap-2"
 							>
-								📋 Копировать название
-							</button>
-							<span class="text-gray-300 dark:text-gray-700">|</span>
-							<button
-								type="button"
-								on:click={() => copyToClipboard(draft?.description || '', 'Описание')}
-								class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition"
-							>
-								📋 Копировать описание
-							</button>
-							<span class="text-gray-300 dark:text-gray-700">|</span>
-							<button
-								type="button"
-								on:click={() => copyToClipboard(draft?.seoTags?.join(', ') || '', 'Теги')}
-								class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition"
-							>
-								📋 Копировать теги
+								{#if isGenerating}
+									<svg class="animate-spin size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									Генерация...
+								{:else}
+									<!-- Иконка волшебной палочки -->
+									<svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+									</svg>
+									Сгенерировать контент
+								{/if}
 							</button>
 						</div>
 					</div>
-				{/if}
+				</div>
 			</div>
-
-			<!-- Кнопка очистки -->
-			<button
-				type="button"
-				on:click={clearAll}
-				class="w-full py-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition"
-			>
-				Начать заново
-			</button>
 		{/if}
-
-
 	</div>
 </div>
-
-<style>
-	/* Анимация спиннера */
-	.border-3 {
-		border-width: 3px;
-	}
-
-	/* Анимация блика на прогресс-баре */
-	@keyframes shimmer {
-		0% {
-			transform: translateX(-100%);
-		}
-		100% {
-			transform: translateX(100%);
-		}
-	}
-
-	.animate-shimmer {
-		animation: shimmer 1.5s infinite;
-	}
-
-	/* Плавное появление */
-	@keyframes fadeIn {
-		from {
-			opacity: 0;
-			transform: translateY(10px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	.animate-fadeIn {
-		animation: fadeIn 0.3s ease-out;
-	}
-</style>
