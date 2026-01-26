@@ -3,6 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import { user, showSidebar, mobile } from '$lib/stores';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -220,6 +221,19 @@
 		<!-- Заголовок модуля -->
 		<div class="mb-8">
 			<div class="flex items-center gap-3 mb-2">
+				{#if $mobile && !$showSidebar}
+					<Tooltip content={$i18n.t('Open Sidebar')}>
+						<button
+							class="cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition p-1.5"
+							on:click={() => {
+								showSidebar.set(true);
+							}}
+							aria-label="Open Sidebar"
+						>
+							<Sidebar />
+						</button>
+					</Tooltip>
+				{/if}
 				<span class="text-2xl">📝</span>
 				<h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
 					Content Factory
