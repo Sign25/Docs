@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { showSidebar, user } from '$lib/stores';
+	import { showSidebar, user, mobile } from '$lib/stores';
 
 	// Icons
 	import Plus from '$lib/components/icons/Plus.svelte';
@@ -10,6 +10,7 @@
 	import Note from '$lib/components/icons/Note.svelte';
 	import ChevronUp from '$lib/components/icons/ChevronUp.svelte';
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
+	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 
 	// Components
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -253,6 +254,19 @@
 			<div class="flex flex-col gap-1 px-5 pt-4 pb-3">
 				<div class="flex justify-between items-center">
 					<div class="flex items-center md:self-center text-xl font-medium px-0.5 gap-2 shrink-0">
+						{#if $mobile && !$showSidebar}
+							<Tooltip content={$i18n.t('Open Sidebar')}>
+								<button
+									class="cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition p-1.5"
+									on:click={() => {
+										showSidebar.set(true);
+									}}
+									aria-label="Open Sidebar"
+								>
+									<Sidebar />
+								</button>
+							</Tooltip>
+						{/if}
 						<div>Файлы</div>
 						<div class="text-lg font-medium text-gray-500 dark:text-gray-500">
 							{files.length}
