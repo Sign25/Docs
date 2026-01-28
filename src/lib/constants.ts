@@ -4,14 +4,21 @@ import { browser, dev } from '$app/environment';
 export const APP_NAME = 'Adolf';
 
 export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : ``) : '';
-export const WEBUI_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}` : ``) : ``;
-export const WEBUI_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1`;
+// В dev режиме статика раздаётся с того же домена, что и frontend (vite dev server)
+// Только API запросы идут на :8080
+export const WEBUI_BASE_URL = browser ? (dev ? `` : ``) : ``;
+export const WEBUI_API_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}/api/v1` : `/api/v1`) : ``;
 
 export const OLLAMA_API_BASE_URL = `${WEBUI_BASE_URL}/ollama`;
 export const OPENAI_API_BASE_URL = `${WEBUI_BASE_URL}/openai`;
 export const AUDIO_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/audio`;
 export const IMAGES_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/images`;
 export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
+
+// Content Factory API (отдельный бэкенд)
+export const CONTENT_FACTORY_API_BASE_URL = browser
+	? (dev ? 'http://localhost:8001/api/content' : '/api/content')
+	: '';
 
 export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;

@@ -1,10 +1,27 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import type { Plugin } from 'vite';
 
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+// Middleware для редиректа /static/* на /* в dev режиме
+function staticRedirectPlugin(): Plugin {
+	return {
+		name: 'static-redirect',
+		configureServer(server) {
+			server.middlewares.use((req, res, next) => {
+				if (req.url?.startsWith('/static/')) {
+					req.url = req.url.replace('/static/', '/');
+				}
+				next();
+			});
+		}
+	};
+}
+
 export default defineConfig({
 	plugins: [
+		staticRedirectPlugin(),
 		sveltekit(),
 		viteStaticCopy({
 			targets: [
