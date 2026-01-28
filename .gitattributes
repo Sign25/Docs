@@ -47,3 +47,25 @@
 # Misc
 *.env text eol=lf
 *.lock text eol=lf
+
+# Binary files (images, icons, fonts)
+# Prevent git from converting line endings and corrupting binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.webmanifest binary
+
+# Ensure icon files are always treated as binary
+favicon.* binary
+*-icon.* binary
+apple-touch-icon.* binary
+web-app-manifest-*.* binary
+splash.* binary
