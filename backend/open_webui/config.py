@@ -874,6 +874,26 @@ if frontend_loader.exists():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
+# Copy all icon files
+icon_files = [
+    "favicon.svg",
+    "favicon-dark.png",
+    "favicon.ico",
+    "apple-touch-icon.png",
+    "content-factory-icon.svg",
+    "site.webmanifest",
+    "web-app-manifest-192x192.png",
+    "web-app-manifest-512x512.png"
+]
+
+for icon_file in icon_files:
+    frontend_icon = FRONTEND_BUILD_DIR / "static" / icon_file
+    if frontend_icon.exists():
+        try:
+            shutil.copyfile(frontend_icon, STATIC_DIR / icon_file)
+        except Exception as e:
+            logging.error(f"Failed to copy {icon_file}: {e}")
+
 
 ####################################
 # CUSTOM_NAME (Legacy)
