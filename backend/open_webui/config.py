@@ -850,7 +850,7 @@ for file_path in (FRONTEND_BUILD_DIR / "static").glob("**/*"):
         except Exception as e:
             logging.error(f"An error occurred: {e}")
 
-frontend_favicon = FRONTEND_BUILD_DIR / "static" / "favicon.png"
+frontend_favicon = FRONTEND_BUILD_DIR / "favicon.png"
 
 if frontend_favicon.exists():
     try:
@@ -858,7 +858,7 @@ if frontend_favicon.exists():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-frontend_splash = FRONTEND_BUILD_DIR / "static" / "splash.png"
+frontend_splash = FRONTEND_BUILD_DIR / "splash.png"
 
 if frontend_splash.exists():
     try:
@@ -866,7 +866,7 @@ if frontend_splash.exists():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-frontend_loader = FRONTEND_BUILD_DIR / "static" / "loader.js"
+frontend_loader = FRONTEND_BUILD_DIR / "loader.js"
 
 if frontend_loader.exists():
     try:
@@ -874,7 +874,7 @@ if frontend_loader.exists():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-# Copy all icon files
+# Copy all icon files from build root (SvelteKit copies static/ to build/ root)
 icon_files = [
     "favicon.svg",
     "favicon-dark.png",
@@ -887,7 +887,7 @@ icon_files = [
 ]
 
 for icon_file in icon_files:
-    frontend_icon = FRONTEND_BUILD_DIR / "static" / icon_file
+    frontend_icon = FRONTEND_BUILD_DIR / icon_file
     if frontend_icon.exists():
         try:
             shutil.copyfile(frontend_icon, STATIC_DIR / icon_file)
