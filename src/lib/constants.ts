@@ -17,7 +17,7 @@ export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
 
 // Content Factory API (отдельный бэкенд)
 export const CONTENT_FACTORY_API_BASE_URL = browser
-	? (dev ? 'http://localhost:8001/api/content' : '/api/content')
+	? (dev ? 'http://localhost:8001/api/content' : 'https://adolf.su/custom-api/api/content')
 	: '';
 
 export const WEBUI_VERSION = APP_VERSION;
