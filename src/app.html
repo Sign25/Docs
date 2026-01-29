@@ -30,7 +30,7 @@
 				const prefersDarkTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 				if (!localStorage?.theme) {
-					localStorage.theme = 'dark';
+					localStorage.theme = 'system';
 				}
 
 				if (localStorage.theme === 'system') {
