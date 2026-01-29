@@ -7,6 +7,7 @@ export interface ProductData {
 	description: string;
 	media_urls: string[];
 	video_url?: string;
+	validation?: ValidationResult;
 }
 
 export interface GenerateRequest {

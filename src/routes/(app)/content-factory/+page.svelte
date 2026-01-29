@@ -34,6 +34,7 @@
 		photos: string[];
 		title: string;
 		description: string;
+		validation?: ValidationResult;
 	} | null = null;
 
 	// Индекс текущей фотографии в галерее
@@ -127,7 +128,8 @@
 				sku,
 				photos: data.media_urls || [],
 				title: data.title || '',
-				description: data.description || ''
+				description: data.description || '',
+				validation: data.validation
 			};
 
 			currentPhotoIndex = 0;
@@ -175,12 +177,7 @@
 			};
 
 			currentStep = 3;
-
-			if (result.is_valid) {
-				toast.success('Контент успешно сгенерирован!');
-			} else {
-				toast.warning('Контент сгенерирован, но есть замечания валидации');
-			}
+			toast.success('Контент успешно сгенерирован!');
 		} catch (error: any) {
 			toast.error(error.message || 'Ошибка генерации контента');
 			console.error('Error generating:', error);
@@ -209,12 +206,7 @@
 			};
 
 			managerNotes = '';
-
-			if (result.is_valid) {
-				toast.success('Контент перегенерирован!');
-			} else {
-				toast.warning('Контент перегенерирован, но есть замечания');
-			}
+			toast.success('Контент перегенерирован!');
 		} catch (error: any) {
 			toast.error(error.message || 'Ошибка перегенерации');
 			console.error('Error regenerating:', error);
@@ -595,6 +587,46 @@
 								></textarea>
 							</div>
 
+							<!-- Валидация карточки -->
+							{#if productData.validation}
+								<div class="mb-4 sm:mb-5 md:mb-6">
+									<div class="rounded-xl sm:rounded-2xl border-2 p-3 sm:p-4
+										{productData.validation.is_valid
+											? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+											: 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20'}">
+										<div class="flex items-center gap-2 mb-2">
+											{#if productData.validation.is_valid}
+												<svg class="size-4 sm:size-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+												</svg>
+												<span class="text-xs sm:text-sm font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider">
+													Валидация пройдена
+												</span>
+											{:else}
+												<svg class="size-4 sm:size-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+												</svg>
+												<span class="text-xs sm:text-sm font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wider">
+													Есть замечания
+												</span>
+											{/if}
+										</div>
+										{#if productData.validation.issues && productData.validation.issues.length > 0}
+											<ul class="space-y-1.5 sm:space-y-2 mt-2">
+												{#each productData.validation.issues as issue}
+													<li class="flex items-start gap-2 text-xs sm:text-sm text-yellow-700 dark:text-yellow-300">
+														<svg class="size-3.5 sm:size-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+															<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+														</svg>
+														<span><strong class="font-semibold">{issue.field}:</strong> {issue.message}</span>
+													</li>
+												{/each}
+											</ul>
+										{/if}
+									</div>
+								</div>
+							{/if}
+
 							<!-- Кнопка генерации -->
 							<button
 								type="button"
@@ -648,12 +680,6 @@
 							Результат генерации
 						</h1>
 					</div>
-					<span class="ml-auto px-2 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-full whitespace-nowrap
-						{draftData.validation.is_valid
-							? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-							: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}">
-						{draftData.validation.is_valid ? 'Валидация OK' : 'Есть замечания'}
-					</span>
 				</div>
 
 				<div class="grid md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
@@ -729,25 +755,6 @@
 										</span>
 									{/each}
 								</div>
-							</div>
-						{/if}
-
-						<!-- Валидация -->
-						{#if draftData.validation.issues.length > 0}
-							<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6">
-								<h3 class="text-xs sm:text-sm font-semibold text-yellow-800 dark:text-yellow-400 uppercase tracking-wider mb-2 sm:mb-3">
-									Замечания валидации
-								</h3>
-								<ul class="space-y-2 sm:space-y-3">
-									{#each draftData.validation.issues as issue}
-										<li class="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-yellow-700 dark:text-yellow-300">
-											<svg class="size-4 sm:size-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-											</svg>
-											<span><strong class="font-semibold">{issue.field}:</strong> {issue.message}</span>
-										</li>
-									{/each}
-								</ul>
 							</div>
 						{/if}
 
