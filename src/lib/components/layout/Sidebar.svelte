@@ -707,7 +707,7 @@
 
 				<!-- Knowledge кнопка для сжатой панели -->
 				<div class="">
-					<Tooltip content="Knowledge" placement="right">
+					<Tooltip content="База знаний" placement="right">
 						<a
 							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
 							href="/files"
@@ -719,13 +719,13 @@
 								itemClickHandler();
 							}}
 							draggable="false"
-							aria-label="Knowledge"
+							aria-label="База знаний"
 						>
 							<div class=" self-center flex items-center justify-center size-9">
 								<img
 									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg"
-									class="size-5 dark:invert"
-									alt="Knowledge"
+									class="size-5"
+									alt="База знаний"
 								/>
 							</div>
 						</a>
@@ -734,7 +734,7 @@
 
 				<!-- Content Factory кнопка для сжатой панели -->
 				<div class="">
-					<Tooltip content={$i18n.t('Content Factory')} placement="right">
+					<Tooltip content="Контент-Фабрика" placement="right">
 						<a
 							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
 							href="/content-factory"
@@ -923,18 +923,18 @@
 							href="/files"
 							on:click={itemClickHandler}
 							draggable="false"
-							aria-label="Knowledge"
+							aria-label="База знаний"
 						>
 							<div class="self-center">
 								<img
 									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg"
-									class="size-5 dark:invert"
-									alt="Knowledge"
+									class="size-5"
+									alt="База знаний"
 								/>
 							</div>
 
 							<div class="flex self-center translate-y-[0.5px]">
-								<div class=" self-center text-sm font-primary">Knowledge</div>
+								<div class=" self-center text-sm font-primary">База знаний</div>
 							</div>
 						</a>
 					</div>
@@ -947,18 +947,18 @@
 							href="/content-factory"
 							on:click={itemClickHandler}
 							draggable="false"
-							aria-label={$i18n.t('Content Factory')}
+							aria-label="Контент-Фабрика"
 						>
 							<div class="self-center">
 								<img
 									src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
 									class="size-5 dark:invert"
-									alt="Content Factory"
+									alt="Контент-Фабрика"
 								/>
 							</div>
 
 							<div class="flex self-center translate-y-[0.5px]">
-								<div class=" self-center text-sm font-primary">{$i18n.t('Content Factory')}</div>
+								<div class=" self-center text-sm font-primary">Контент-Фабрика</div>
 							</div>
 						</a>
 					</div>

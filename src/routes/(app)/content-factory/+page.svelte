@@ -269,7 +269,7 @@
 </script>
 
 <svelte:head>
-	<title>Content Factory | Adolf</title>
+	<title>Контент-Фабрика | Adolf</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -307,7 +307,7 @@
 							alt=""
 						/>
 						<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">
-							Content Factory
+							Контент-Фабрика
 						</h1>
 					</div>
 					<p class="text-sm sm:text-base md:text-lg text-gray-500 dark:text-gray-400">
