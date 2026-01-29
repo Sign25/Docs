@@ -589,7 +589,7 @@
 
 							<!-- Валидация карточки -->
 							{#if productData.validation}
-								<div class="mb-4 sm:mb-5 md:mb-6">
+								<div class="mt-4 sm:mt-5 md:mt-6 mb-4 sm:mb-5 md:mb-6">
 									<div class="rounded-xl sm:rounded-2xl border-2 p-3 sm:p-4
 										{productData.validation.is_valid
 											? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
