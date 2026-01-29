@@ -1515,8 +1515,6 @@
 		const chatInput = document.getElementById('chat-input');
 		chatInput?.focus();
 
-		saveSessionSelectedModels();
-
 		await sendMessage(history, userMessageId, { newChat: true });
 	};
 
