@@ -55,7 +55,7 @@
 	import { getChannels, createNewChannel } from '$lib/apis/channels';
 	import ChannelModal from './Sidebar/ChannelModal.svelte';
 	import ChannelItem from './Sidebar/ChannelItem.svelte';
-	import PencilSquare from '../icons/PencilSquare.svelte';
+	import Subtitles from '../icons/Subtitles.svelte';
 	import Search from '../icons/Search.svelte';
 	import SearchModal from './SearchModal.svelte';
 	import FolderModal from './Sidebar/Folders/FolderModal.svelte';
@@ -697,7 +697,7 @@
 							aria-label={$i18n.t('New Chat')}
 						>
 							<div class=" self-center flex items-center justify-center size-9">
-								<PencilSquare className="size-4.5" />
+								<Subtitles className="size-4.5" />
 							</div>
 						</a>
 					</Tooltip>
@@ -903,7 +903,7 @@
 							aria-label={$i18n.t('New Chat')}
 						>
 							<div class="self-center">
-								<PencilSquare className=" size-4.5" strokeWidth="2" />
+								<Subtitles className=" size-4.5" strokeWidth="2" />
 							</div>
 
 							<div class="flex flex-1 self-center translate-y-[0.5px]">

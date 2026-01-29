@@ -1,0 +1,40 @@
+<script lang="ts">
+	export let className = 'size-4';
+	export let strokeWidth = '1.5';
+</script>
+
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	fill="none"
+	viewBox="0 0 24 24"
+	stroke-width={strokeWidth}
+	stroke="currentColor"
+	class={className}
+	aria-hidden="true"
+>
+	<path
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		d="M1.24219 16.2783c0 1.1046 0.89543 2 2 2h1.36523v2.8263c0 0.8061 0.90505 1.2809 1.56837 0.8227l5.28241 -3.649h9.2996c1.1046 0 2 -0.8954 2 -2V3.89355c0 -1.10457 -0.8954 -2 -2 -2H3.24219c-1.10457 0 -2 0.89544 -2 2V16.2783Z"
+	/>
+	<path
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		d="M4.80469 12.083h8.28711"
+	/>
+	<path
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		d="M19.084 15.1221h-8.2871"
+	/>
+	<path
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		d="M16.3848 12.083h2.6995"
+	/>
+	<path
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		d="M7.50393 15.1221H4.80444"
+	/>
+</svg>
