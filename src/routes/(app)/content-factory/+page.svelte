@@ -758,6 +758,58 @@
 							</div>
 						{/if}
 
+						<!-- Валидация карточки -->
+						{#if draftData.validation}
+							<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg">
+								<div class="rounded-xl sm:rounded-2xl border-2 p-3 sm:p-4
+									{draftData.validation.is_valid
+										? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+										: 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20'}">
+									<div class="flex items-start gap-2 sm:gap-3">
+										{#if draftData.validation.is_valid}
+											<svg class="size-5 sm:size-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+											</svg>
+										{:else}
+											<svg class="size-5 sm:size-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+											</svg>
+										{/if}
+										<div class="flex-1">
+											<h3 class="text-sm sm:text-base font-bold mb-1 sm:mb-2
+												{draftData.validation.is_valid
+													? 'text-green-900 dark:text-green-100'
+													: 'text-yellow-900 dark:text-yellow-100'}">
+												{#if draftData.validation.is_valid}
+													Валидация пройдена
+												{:else}
+													Требуется внимание
+												{/if}
+											</h3>
+
+											{#if draftData.validation.issues && draftData.validation.issues.length > 0}
+												<ul class="space-y-1 sm:space-y-1.5">
+													{#each draftData.validation.issues as issue}
+														<li class="flex items-start gap-1.5 sm:gap-2 text-xs sm:text-sm
+															{issue.severity === 'error'
+																? 'text-red-700 dark:text-red-300'
+																: 'text-yellow-700 dark:text-yellow-300'}">
+															<span class="font-medium">{issue.field}:</span>
+															<span>{issue.message}</span>
+														</li>
+													{/each}
+												</ul>
+											{:else if draftData.validation.is_valid}
+												<p class="text-xs sm:text-sm text-green-700 dark:text-green-300">
+													Карточка товара соответствует требованиям маркетплейса
+												</p>
+											{/if}
+										</div>
+									</div>
+								</div>
+							</div>
+						{/if}
+
 						<!-- Перегенерация -->
 						<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg">
 							<label for="manager-notes" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">
