@@ -66,13 +66,13 @@
 			class="mt-2 mb-4 text-3xl text-gray-800 dark:text-gray-100 text-left flex items-center gap-4 font-primary"
 		>
 			<div>
-				<div class="capitalize line-clamp-1" in:fade={{ duration: 200 }}>
-					{$i18n.t('Hello, {{name}}', { name: $user?.name })}
+				<div class="line-clamp-1" in:fade={{ duration: 200 }}>
+					Здравствуйте, {$user?.name}
 				</div>
 
 				<div in:fade={{ duration: 200, delay: 200 }}>
 					<div class="text-gray-400 dark:text-gray-500 line-clamp-1 font-normal text-base">
-						{$i18n.t('How can I help you today?')}
+						Чем могу помочь сегодня?
 					</div>
 				</div>
 			</div>
