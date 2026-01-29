@@ -2,17 +2,17 @@
   "name": "Adolf Ohana Market",
   "short_name": "Adolf",
   "description": "Adolf Ohana Market",
-  "version": "1.1.40",
+  "version": "1.1.46",
   "start_url": "/",
   "icons": [
     {
-      "src": "/static/web-app-manifest-192x192.png?v=1.1.40",
+      "src": "/static/web-app-manifest-192x192.png?v=1.1.46",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/static/web-app-manifest-512x512.png?v=1.1.40",
+      "src": "/static/web-app-manifest-512x512.png?v=1.1.46",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

@@ -723,7 +723,7 @@
 						>
 							<div class=" self-center flex items-center justify-center size-9">
 								<img
-									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.42"
+									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.46"
 									class="size-5"
 									alt="База знаний"
 								/>
@@ -927,7 +927,7 @@
 						>
 							<div class="self-center">
 								<img
-									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.42"
+									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.46"
 									class="size-5"
 									alt="База знаний"
 								/>

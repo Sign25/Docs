@@ -570,7 +570,7 @@
 							</div>
 
 							<!-- Описание товара -->
-							<div class="flex-1 mb-4 sm:mb-5 md:mb-6">
+							<div class="mb-4 sm:mb-5 md:mb-6">
 								<label for="product-description" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">
 									Описание товара
 								</label>
@@ -579,7 +579,7 @@
 									bind:value={productData.description}
 									placeholder="Введите описание товара"
 									rows="6"
-									class="w-full h-full min-h-[150px] sm:min-h-[180px] md:min-h-[220px] lg:min-h-[280px] px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
+									class="w-full min-h-[150px] sm:min-h-[180px] md:min-h-[220px] lg:min-h-[280px] px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 										placeholder-gray-400 dark:placeholder-gray-500
 										focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
