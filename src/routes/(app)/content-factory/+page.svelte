@@ -302,7 +302,7 @@
 				<div class="text-center mb-8 sm:mb-10 md:mb-12">
 					<div class="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
 						<img
-							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+							src="{WEBUI_BASE_URL}/static/content-factory-icon.png"
 							class="size-10 sm:size-12 md:size-14 dark:invert"
 							alt=""
 						/>
@@ -464,7 +464,7 @@
 					</button>
 					<div class="flex items-center gap-2 sm:gap-3">
 						<img
-							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+							src="{WEBUI_BASE_URL}/static/content-factory-icon.png"
 							class="size-6 sm:size-8 md:size-10 dark:invert"
 							alt=""
 						/>
@@ -640,7 +640,7 @@
 					</button>
 					<div class="flex items-center gap-2 sm:gap-3">
 						<img
-							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+							src="{WEBUI_BASE_URL}/static/content-factory-icon.png"
 							class="size-6 sm:size-8 md:size-10 dark:invert"
 							alt=""
 						/>
