@@ -724,7 +724,7 @@
 							<div class=" self-center flex items-center justify-center size-9">
 								<img
 									src="{WEBUI_BASE_URL}/static/knowledge-icon.png"
-									class="size-5"
+									class="size-5 dark:invert"
 									alt="Knowledge"
 								/>
 							</div>
@@ -751,7 +751,7 @@
 							<div class=" self-center flex items-center justify-center size-9">
 								<img
 									src="{WEBUI_BASE_URL}/static/content-factory-icon.png"
-									class="size-5"
+									class="size-5 dark:invert"
 									alt="Content Factory"
 								/>
 							</div>
@@ -928,7 +928,7 @@
 							<div class="self-center">
 								<img
 									src="{WEBUI_BASE_URL}/static/knowledge-icon.png"
-									class="size-5"
+									class="size-5 dark:invert"
 									alt="Knowledge"
 								/>
 							</div>
@@ -952,7 +952,7 @@
 							<div class="self-center">
 								<img
 									src="{WEBUI_BASE_URL}/static/content-factory-icon.png"
-									class="size-5"
+									class="size-5 dark:invert"
 									alt="Content Factory"
 								/>
 							</div>
