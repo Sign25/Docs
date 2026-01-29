@@ -723,7 +723,7 @@
 						>
 							<div class=" self-center flex items-center justify-center size-9">
 								<img
-									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg"
+									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.40"
 									class="size-5"
 									alt="База знаний"
 								/>
@@ -750,7 +750,7 @@
 						>
 							<div class=" self-center flex items-center justify-center size-9">
 								<img
-									src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+									src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
 									class="size-5 dark:invert"
 									alt="Content Factory"
 								/>
@@ -927,7 +927,7 @@
 						>
 							<div class="self-center">
 								<img
-									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg"
+									src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.40"
 									class="size-5"
 									alt="База знаний"
 								/>
@@ -951,7 +951,7 @@
 						>
 							<div class="self-center">
 								<img
-									src="{WEBUI_BASE_URL}/static/content-factory-icon.svg"
+									src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
 									class="size-5 dark:invert"
 									alt="Контент-Фабрика"
 								/>
