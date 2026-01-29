@@ -881,6 +881,8 @@ icon_files = [
     "favicon.ico",
     "apple-touch-icon.png",
     "content-factory-icon.svg",
+    "content-factory-icon.png",
+    "knowledge-icon.png",
     "site.webmanifest",
     "web-app-manifest-192x192.png",
     "web-app-manifest-512x512.png"
