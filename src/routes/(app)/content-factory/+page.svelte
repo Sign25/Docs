@@ -297,20 +297,20 @@
 
 		{#if currentStep === 1}
 			<!-- ШАГ 1: Ввод данных -->
-			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-8 sm:mt-12 md:mt-16 lg:mt-20">
+			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
 				<!-- Заголовок -->
-				<div class="text-center mb-8 sm:mb-10 md:mb-12">
-					<div class="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+				<div class="text-center mb-4 sm:mb-6 md:mb-8">
+					<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
 						<img
 							src="{WEBUI_BASE_URL}/static/content-factory-icon.png?v=1.1.40"
-							class="size-10 sm:size-12 md:size-14 dark:invert"
+							class="size-7 sm:size-8 md:size-9 dark:invert"
 							alt=""
 						/>
-						<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">
+						<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
 							Контент-Фабрика
 						</h1>
 					</div>
-					<p class="text-sm sm:text-base md:text-lg text-gray-500 dark:text-gray-400">
+					<p class="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
 						Генерация SEO-контента для карточек товаров
 					</p>
 				</div>
@@ -322,7 +322,7 @@
 						<button
 							type="button"
 							on:click={() => inputMode = 'sku'}
-							class="flex-1 py-3.5 sm:py-4 md:py-5 text-sm sm:text-base md:text-lg font-medium transition relative
+							class="flex-1 py-2.5 sm:py-3 md:py-3.5 text-xs sm:text-sm md:text-base font-medium transition relative
 								{inputMode === 'sku'
 									? 'text-violet-600 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10'
 									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
@@ -335,7 +335,7 @@
 						<button
 							type="button"
 							on:click={() => inputMode = 'link'}
-							class="flex-1 py-3.5 sm:py-4 md:py-5 text-sm sm:text-base md:text-lg font-medium transition relative
+							class="flex-1 py-2.5 sm:py-3 md:py-3.5 text-xs sm:text-sm md:text-base font-medium transition relative
 								{inputMode === 'link'
 									? 'text-violet-600 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10'
 									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
@@ -348,12 +348,12 @@
 					</div>
 
 					<!-- Контент формы -->
-					<div class="p-5 sm:p-6 md:p-8">
+					<div class="p-4 sm:p-5 md:p-6">
 						{#if inputMode === 'sku'}
-							<div class="space-y-5 sm:space-y-6">
+							<div class="space-y-4 sm:space-y-5">
 								<!-- Выбор маркетплейса -->
 								<div role="group" aria-labelledby="marketplace-label">
-									<p id="marketplace-label" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5 sm:mb-3">
+									<p id="marketplace-label" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 sm:mb-2.5">
 										Маркетплейс
 									</p>
 									<div class="grid grid-cols-3 gap-2 sm:gap-3">
@@ -361,7 +361,7 @@
 											<button
 												type="button"
 												on:click={() => selectedMarketplace = mp.id}
-												class="py-2.5 sm:py-3 md:py-4 text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl border-2 transition-all duration-200
+												class="py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold rounded-xl sm:rounded-2xl border-2 transition-all duration-200
 													{selectedMarketplace === mp.id
 														? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 shadow-md shadow-violet-500/20'
 														: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-violet-300 dark:hover:border-violet-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
@@ -374,7 +374,7 @@
 
 								<!-- Поле артикула -->
 								<div>
-									<label for="sku-input" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5 sm:mb-3">
+									<label for="sku-input" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 sm:mb-2.5">
 										Артикул товара
 									</label>
 									<input
@@ -382,18 +382,18 @@
 										id="sku-input"
 										bind:value={skuInput}
 										placeholder="Например: 123456789"
-										class="w-full px-4 sm:px-5 py-3.5 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
+										class="w-full px-3 sm:px-4 py-2.5 sm:py-3 md:py-3.5 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 											bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 											placeholder-gray-400 dark:placeholder-gray-500
 											focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
-											transition-all duration-200 text-base sm:text-lg"
+											transition-all duration-200 text-sm sm:text-base"
 										on:keydown={(e) => e.key === 'Enter' && handleNext()}
 									/>
 								</div>
 							</div>
 						{:else}
 							<div>
-								<label for="link-input" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5 sm:mb-3">
+								<label for="link-input" class="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 sm:mb-2.5">
 									Ссылка на товар
 								</label>
 								<input
@@ -401,11 +401,11 @@
 									id="link-input"
 									bind:value={linkInput}
 									placeholder="https://www.wildberries.ru/catalog/..."
-									class="w-full px-4 sm:px-5 py-3.5 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
+									class="w-full px-3 sm:px-4 py-2.5 sm:py-3 md:py-3.5 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 										placeholder-gray-400 dark:placeholder-gray-500
 										focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
-										transition-all duration-200 text-base sm:text-lg"
+										transition-all duration-200 text-sm sm:text-base"
 									on:keydown={(e) => e.key === 'Enter' && handleNext()}
 								/>
 								<p class="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-2.5 sm:mt-3">
@@ -416,14 +416,14 @@
 					</div>
 
 					<!-- Кнопка "Далее" -->
-					<div class="px-5 sm:px-6 md:px-8 pb-5 sm:pb-6 md:pb-8">
+					<div class="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6">
 						<button
 							type="button"
 							on:click={handleNext}
 							disabled={(inputMode === 'sku' && !skuInput.trim()) || (inputMode === 'link' && !linkInput.trim()) || isLoading}
-							class="w-full py-3.5 sm:py-4 md:py-5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white
+							class="w-full py-2.5 sm:py-3 md:py-3.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white
 								disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
-								font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3
+								font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-3
 								shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 disabled:shadow-none"
 						>
 							{#if isLoading}
@@ -465,10 +465,10 @@
 					<div class="flex items-center gap-2 sm:gap-3">
 						<img
 							src="{WEBUI_BASE_URL}/static/content-factory-icon.png?v=1.1.40"
-							class="size-6 sm:size-8 md:size-10 dark:invert"
+							class="size-5 sm:size-6 md:size-7 dark:invert"
 							alt=""
 						/>
-						<h1 class="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100">
+						<h1 class="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">
 							Карточка товара
 						</h1>
 					</div>
@@ -600,9 +600,9 @@
 								type="button"
 								on:click={handleGenerate}
 								disabled={isGenerating}
-								class="w-full py-3.5 sm:py-4 md:py-5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white
+								class="w-full py-2.5 sm:py-3 md:py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white
 									disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
-									font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 sm:gap-3
+									font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 sm:gap-3
 									shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 disabled:shadow-none"
 							>
 								{#if isGenerating}
@@ -641,10 +641,10 @@
 					<div class="flex items-center gap-2 sm:gap-3">
 						<img
 							src="{WEBUI_BASE_URL}/static/content-factory-icon.png?v=1.1.40"
-							class="size-6 sm:size-8 md:size-10 dark:invert"
+							class="size-5 sm:size-6 md:size-7 dark:invert"
 							alt=""
 						/>
-						<h1 class="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100">
+						<h1 class="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">
 							Результат генерации
 						</h1>
 					</div>
