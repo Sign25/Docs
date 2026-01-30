@@ -3,10 +3,9 @@
  * Специфичные стили для модуля финансовой аналитики
  * 
  * Зависимости: 
- *   - adolf-design-tokens.css
- *   - adolf-components.css
+ *   - ant-design-variables.css
  * 
- * Версия: 1.0
+ * Версия: 2.0 (Ant Design)
  */
 
 /* ========================================
@@ -14,18 +13,19 @@
    ======================================== */
 
 .adolf-cfo {
-  --module-color: var(--adolf-module-cfo);
-  --module-color-light: var(--adolf-module-cfo-light);
+  --module-color: var(--ant-green-6);
+  --module-color-light: var(--ant-green-1);
+  --module-color-dark: var(--ant-green-7);
   
   /* ABC-анализ */
-  --abc-a: #10B981;
-  --abc-a-light: #D1FAE5;
-  --abc-b: #3B82F6;
-  --abc-b-light: #DBEAFE;
-  --abc-c: #F59E0B;
-  --abc-c-light: #FEF3C7;
-  --abc-d: #EF4444;
-  --abc-d-light: #FEE2E2;
+  --abc-a: var(--ant-green-6);
+  --abc-a-light: var(--ant-green-1);
+  --abc-b: var(--ant-blue-6);
+  --abc-b-light: var(--ant-blue-1);
+  --abc-c: var(--ant-gold-6);
+  --abc-c-light: var(--ant-gold-1);
+  --abc-d: var(--ant-red-6);
+  --abc-d-light: var(--ant-red-1);
 }
 
 /* ========================================
@@ -33,9 +33,9 @@
    ======================================== */
 
 .adolf-cfo-report {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius-lg);
+  border: 1px solid var(--ant-color-border);
   overflow: hidden;
 }
 
@@ -43,36 +43,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  gap: var(--ant-padding-sm);
+  padding: var(--ant-padding) var(--ant-padding-lg);
   background-color: var(--module-color-light);
-  border-bottom: 1px solid var(--adolf-border-default);
+  border-bottom: 1px solid var(--ant-color-border);
 }
 
 .adolf-cfo-report-title {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xl);
-  font-weight: var(--adolf-font-bold);
-  color: var(--adolf-text-primary);
+  gap: var(--ant-padding-sm);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
   margin: 0;
 }
 
 .adolf-cfo-report-icon {
-  font-size: var(--adolf-text-2xl);
+  font-size: var(--ant-font-size-xl);
 }
 
 .adolf-cfo-report-period {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-secondary);
-  background-color: var(--adolf-bg-primary);
-  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
-  border-radius: var(--adolf-radius-md);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
+  background-color: var(--ant-color-bg-container);
+  padding: var(--ant-padding-xxs) var(--ant-padding-sm);
+  border-radius: var(--ant-border-radius);
 }
 
 .adolf-cfo-report-body {
-  padding: var(--adolf-spacing-lg);
+  padding: var(--ant-padding-lg);
 }
 
 /* ========================================
@@ -82,22 +82,22 @@
 .adolf-cfo-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--adolf-text-sm);
+  font-size: var(--ant-font-size);
 }
 
 .adolf-cfo-table th,
 .adolf-cfo-table td {
-  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
-  border-bottom: 1px solid var(--adolf-border-default);
+  padding: var(--ant-padding-sm) var(--ant-padding);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 
 .adolf-cfo-table th {
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-tertiary);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text-tertiary);
   text-transform: uppercase;
-  font-size: var(--adolf-text-xs);
+  font-size: var(--ant-font-size-sm);
   letter-spacing: 0.05em;
-  background-color: var(--adolf-bg-secondary);
+  background-color: var(--ant-color-bg-layout);
   text-align: left;
 }
 
@@ -107,60 +107,60 @@
 }
 
 .adolf-cfo-table tbody tr {
-  transition: background-color var(--adolf-transition-fast);
+  transition: background-color var(--ant-motion-duration-fast);
 }
 
 .adolf-cfo-table tbody tr:hover {
-  background-color: var(--adolf-bg-hover);
+  background-color: var(--ant-color-fill-quaternary);
 }
 
 /* Итоговая строка */
 .adolf-cfo-table tr.total {
-  background-color: var(--adolf-bg-secondary);
-  font-weight: var(--adolf-font-semibold);
+  background-color: var(--ant-color-bg-layout);
+  font-weight: var(--ant-font-weight-strong);
 }
 
 .adolf-cfo-table tr.total td {
-  border-top: 2px solid var(--adolf-border-strong);
+  border-top: 2px solid var(--ant-color-border);
 }
 
 /* Числовые значения */
 .adolf-cfo-value {
-  font-family: var(--adolf-font-mono);
-  font-weight: var(--adolf-font-medium);
+  font-family: var(--ant-font-family-code);
+  font-weight: 500;
 }
 
 .adolf-cfo-value.positive {
-  color: var(--adolf-success);
+  color: var(--ant-color-success);
 }
 
 .adolf-cfo-value.negative {
-  color: var(--adolf-error);
+  color: var(--ant-color-error);
 }
 
 .adolf-cfo-value.neutral {
-  color: var(--adolf-text-primary);
+  color: var(--ant-color-text);
 }
 
 /* Процент маржи */
 .adolf-cfo-margin {
   display: inline-flex;
   align-items: center;
-  gap: var(--adolf-spacing-xs);
-  font-family: var(--adolf-font-mono);
-  font-size: var(--adolf-text-sm);
+  gap: var(--ant-padding-xxs);
+  font-family: var(--ant-font-family-code);
+  font-size: var(--ant-font-size-sm);
 }
 
 .adolf-cfo-margin.high {
-  color: var(--adolf-success);
+  color: var(--ant-color-success);
 }
 
 .adolf-cfo-margin.medium {
-  color: var(--adolf-warning);
+  color: var(--ant-color-warning);
 }
 
 .adolf-cfo-margin.low {
-  color: var(--adolf-error);
+  color: var(--ant-color-error);
 }
 
 /* ========================================
@@ -170,11 +170,11 @@
 .adolf-cfo-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adolf-spacing-md);
-  padding: var(--adolf-spacing-md);
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-md);
-  margin-top: var(--adolf-spacing-lg);
+  gap: var(--ant-padding);
+  padding: var(--ant-padding);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius);
+  margin-top: var(--ant-margin-lg);
 }
 
 .adolf-cfo-summary-item {
@@ -183,26 +183,26 @@
 }
 
 .adolf-cfo-summary-label {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: var(--adolf-spacing-xs);
+  margin-bottom: var(--ant-margin-xxs);
 }
 
 .adolf-cfo-summary-value {
-  font-size: var(--adolf-text-xl);
-  font-weight: var(--adolf-font-bold);
-  font-family: var(--adolf-font-mono);
-  color: var(--adolf-text-primary);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  font-family: var(--ant-font-family-code);
+  color: var(--ant-color-text);
 }
 
 .adolf-cfo-summary-value.profit {
-  color: var(--adolf-success);
+  color: var(--ant-color-success);
 }
 
 .adolf-cfo-summary-value.loss {
-  color: var(--adolf-error);
+  color: var(--ant-color-error);
 }
 
 /* ========================================
@@ -210,56 +210,23 @@
    ======================================== */
 
 .adolf-cfo-abc {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius-lg);
+  border: 1px solid var(--ant-color-border);
   overflow: hidden;
 }
 
 .adolf-cfo-abc-header {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  gap: var(--ant-padding-sm);
+  padding: var(--ant-padding) var(--ant-padding-lg);
   background-color: var(--module-color-light);
-  border-bottom: 1px solid var(--adolf-border-default);
+  border-bottom: 1px solid var(--ant-color-border);
 }
 
 .adolf-cfo-abc-body {
-  padding: var(--adolf-spacing-lg);
-}
-
-/* Таблица ABC */
-.adolf-cfo-abc-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: var(--adolf-spacing-lg);
-}
-
-.adolf-cfo-abc-table th,
-.adolf-cfo-abc-table td {
-  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
-  border-bottom: 1px solid var(--adolf-border-default);
-}
-
-.adolf-cfo-abc-table th {
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-tertiary);
-  text-transform: uppercase;
-  font-size: var(--adolf-text-xs);
-  letter-spacing: 0.05em;
-  background-color: var(--adolf-bg-secondary);
-  text-align: left;
-}
-
-.adolf-cfo-abc-table th.text-right,
-.adolf-cfo-abc-table td.text-right {
-  text-align: right;
-}
-
-.adolf-cfo-abc-table th.text-center,
-.adolf-cfo-abc-table td.text-center {
-  text-align: center;
+  padding: var(--ant-padding-lg);
 }
 
 /* ABC классы */
@@ -269,9 +236,9 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  font-size: var(--adolf-text-base);
-  font-weight: var(--adolf-font-bold);
-  border-radius: var(--adolf-radius-md);
+  font-size: var(--ant-font-size);
+  font-weight: var(--ant-font-weight-strong);
+  border-radius: var(--ant-border-radius);
 }
 
 .adolf-cfo-abc-class.class-a {
@@ -298,11 +265,11 @@
 .adolf-cfo-abc-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--adolf-spacing-xs);
-  padding: 0.25rem 0.75rem;
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-medium);
-  border-radius: var(--adolf-radius-full);
+  gap: var(--ant-padding-xxs);
+  padding: 2px var(--ant-padding-sm);
+  font-size: var(--ant-font-size-sm);
+  font-weight: 500;
+  border-radius: var(--ant-border-radius-sm);
 }
 
 .adolf-cfo-abc-badge.class-a {
@@ -329,19 +296,19 @@
 .adolf-cfo-abc-distribution {
   display: flex;
   height: 24px;
-  border-radius: var(--adolf-radius-md);
+  border-radius: var(--ant-border-radius);
   overflow: hidden;
-  margin-bottom: var(--adolf-spacing-md);
+  margin-bottom: var(--ant-margin);
 }
 
 .adolf-cfo-abc-distribution-segment {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-semibold);
+  font-size: var(--ant-font-size-sm);
+  font-weight: var(--ant-font-weight-strong);
   color: white;
-  transition: flex var(--adolf-transition-normal);
+  transition: flex var(--ant-motion-duration-mid);
 }
 
 .adolf-cfo-abc-distribution-segment.class-a {
@@ -364,20 +331,20 @@
 .adolf-cfo-abc-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adolf-spacing-md);
-  margin-top: var(--adolf-spacing-md);
+  gap: var(--ant-padding);
+  margin-top: var(--ant-margin);
 }
 
 .adolf-cfo-abc-legend-item {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
+  gap: var(--ant-padding-xs);
 }
 
 .adolf-cfo-abc-legend-dot {
   width: 12px;
   height: 12px;
-  border-radius: var(--adolf-radius-full);
+  border-radius: 50%;
 }
 
 .adolf-cfo-abc-legend-dot.class-a { background-color: var(--abc-a); }
@@ -386,8 +353,8 @@
 .adolf-cfo-abc-legend-dot.class-d { background-color: var(--abc-d); }
 
 .adolf-cfo-abc-legend-text {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-secondary);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
 }
 
 /* ========================================
@@ -395,9 +362,9 @@
    ======================================== */
 
 .adolf-cfo-losers {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-error);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius-lg);
+  border: 1px solid var(--ant-color-error);
   overflow: hidden;
 }
 
@@ -405,19 +372,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  background-color: var(--adolf-error-light);
-  border-bottom: 1px solid var(--adolf-error);
+  gap: var(--ant-padding-sm);
+  padding: var(--ant-padding) var(--ant-padding-lg);
+  background-color: var(--ant-red-1);
+  border-bottom: 1px solid var(--ant-color-error);
 }
 
 .adolf-cfo-losers-title {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-lg);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-error);
+  gap: var(--ant-padding-sm);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-error);
   margin: 0;
 }
 
@@ -427,29 +394,29 @@
   justify-content: center;
   min-width: 24px;
   height: 24px;
-  padding: 0 var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-bold);
-  background-color: var(--adolf-error);
+  padding: 0 var(--ant-padding-xs);
+  font-size: var(--ant-font-size-sm);
+  font-weight: var(--ant-font-weight-strong);
+  background-color: var(--ant-color-error);
   color: white;
-  border-radius: var(--adolf-radius-full);
+  border-radius: 12px;
 }
 
 .adolf-cfo-losers-body {
-  padding: var(--adolf-spacing-lg);
+  padding: var(--ant-padding-lg);
 }
 
 /* Карточка убыточной позиции */
 .adolf-cfo-loser-card {
   display: flex;
   align-items: flex-start;
-  gap: var(--adolf-spacing-md);
-  padding: var(--adolf-spacing-md);
-  background-color: var(--adolf-bg-secondary);
-  border: 1px solid var(--adolf-border-default);
-  border-left: 4px solid var(--adolf-error);
-  border-radius: var(--adolf-radius-md);
-  margin-bottom: var(--adolf-spacing-sm);
+  gap: var(--ant-padding);
+  padding: var(--ant-padding);
+  background-color: var(--ant-color-bg-layout);
+  border: 1px solid var(--ant-color-border);
+  border-left: 4px solid var(--ant-color-error);
+  border-radius: var(--ant-border-radius);
+  margin-bottom: var(--ant-margin-sm);
 }
 
 .adolf-cfo-loser-card:last-child {
@@ -461,24 +428,24 @@
 }
 
 .adolf-cfo-loser-sku {
-  font-family: var(--adolf-font-mono);
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
-  margin-bottom: var(--adolf-spacing-xs);
+  font-family: var(--ant-font-family-code);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-tertiary);
+  margin-bottom: var(--ant-margin-xxs);
 }
 
 .adolf-cfo-loser-name {
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
-  margin: 0 0 var(--adolf-spacing-xs) 0;
+  font-size: var(--ant-font-size);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
+  margin: 0 0 var(--ant-margin-xxs) 0;
 }
 
 .adolf-cfo-loser-meta {
   display: flex;
-  gap: var(--adolf-spacing-md);
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-secondary);
+  gap: var(--ant-padding);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
 }
 
 .adolf-cfo-loser-loss {
@@ -486,15 +453,15 @@
 }
 
 .adolf-cfo-loser-loss-value {
-  font-size: var(--adolf-text-lg);
-  font-weight: var(--adolf-font-bold);
-  font-family: var(--adolf-font-mono);
-  color: var(--adolf-error);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  font-family: var(--ant-font-family-code);
+  color: var(--ant-color-error);
 }
 
 .adolf-cfo-loser-loss-label {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-tertiary);
 }
 
 /* ========================================
@@ -502,43 +469,43 @@
    ======================================== */
 
 .adolf-cfo-insights {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius-lg);
+  border: 1px solid var(--ant-color-border);
   overflow: hidden;
 }
 
 .adolf-cfo-insights-header {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  background: linear-gradient(135deg, var(--module-color-light), var(--adolf-info-light));
-  border-bottom: 1px solid var(--adolf-border-default);
+  gap: var(--ant-padding-sm);
+  padding: var(--ant-padding) var(--ant-padding-lg);
+  background: linear-gradient(135deg, var(--module-color-light), var(--ant-blue-1));
+  border-bottom: 1px solid var(--ant-color-border);
 }
 
 .adolf-cfo-insights-title {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-lg);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
+  gap: var(--ant-padding-sm);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
   margin: 0;
 }
 
 .adolf-cfo-insights-body {
-  padding: var(--adolf-spacing-lg);
+  padding: var(--ant-padding-lg);
 }
 
 /* Карточка инсайта */
 .adolf-cfo-insight-card {
   display: flex;
-  gap: var(--adolf-spacing-md);
-  padding: var(--adolf-spacing-md);
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-md);
-  margin-bottom: var(--adolf-spacing-md);
+  gap: var(--ant-padding);
+  padding: var(--ant-padding);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius);
+  margin-bottom: var(--ant-margin);
 }
 
 .adolf-cfo-insight-card:last-child {
@@ -552,9 +519,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--adolf-text-xl);
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-md);
+  font-size: var(--ant-font-size-xl);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius);
 }
 
 .adolf-cfo-insight-content {
@@ -562,15 +529,15 @@
 }
 
 .adolf-cfo-insight-title {
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
-  margin: 0 0 var(--adolf-spacing-xs) 0;
+  font-size: var(--ant-font-size);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
+  margin: 0 0 var(--ant-margin-xxs) 0;
 }
 
 .adolf-cfo-insight-text {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-secondary);
+  font-size: var(--ant-font-size);
+  color: var(--ant-color-text-secondary);
   line-height: 1.6;
   margin: 0;
 }
@@ -578,27 +545,27 @@
 .adolf-cfo-insight-impact {
   display: inline-flex;
   align-items: center;
-  gap: var(--adolf-spacing-xs);
-  margin-top: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-medium);
-  border-radius: var(--adolf-radius-sm);
+  gap: var(--ant-padding-xxs);
+  margin-top: var(--ant-margin-sm);
+  padding: var(--ant-padding-xxs) var(--ant-padding-xs);
+  font-size: var(--ant-font-size-sm);
+  font-weight: 500;
+  border-radius: var(--ant-border-radius-sm);
 }
 
 .adolf-cfo-insight-impact.positive {
-  background-color: var(--adolf-success-light);
-  color: var(--adolf-success-dark);
+  background-color: var(--ant-green-1);
+  color: var(--ant-green-7);
 }
 
 .adolf-cfo-insight-impact.negative {
-  background-color: var(--adolf-error-light);
-  color: var(--adolf-error-dark);
+  background-color: var(--ant-red-1);
+  color: var(--ant-red-7);
 }
 
 .adolf-cfo-insight-impact.neutral {
-  background-color: var(--adolf-bg-tertiary);
-  color: var(--adolf-text-secondary);
+  background-color: var(--ant-gray-3);
+  color: var(--ant-gray-7);
 }
 
 /* ========================================
@@ -608,58 +575,58 @@
 .adolf-cfo-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--adolf-spacing-md);
+  gap: var(--ant-padding);
 }
 
 .adolf-cfo-metric-card {
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-md);
-  padding: var(--adolf-spacing-md);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius);
+  padding: var(--ant-padding);
   text-align: center;
-  border: 1px solid var(--adolf-border-default);
+  border: 1px solid var(--ant-color-border);
 }
 
 .adolf-cfo-metric-icon {
-  font-size: var(--adolf-text-2xl);
-  margin-bottom: var(--adolf-spacing-sm);
+  font-size: var(--ant-font-size-xl);
+  margin-bottom: var(--ant-margin-xs);
 }
 
 .adolf-cfo-metric-value {
-  font-size: var(--adolf-text-2xl);
-  font-weight: var(--adolf-font-bold);
-  font-family: var(--adolf-font-mono);
+  font-size: var(--ant-font-size-xl);
+  font-weight: var(--ant-font-weight-strong);
+  font-family: var(--ant-font-family-code);
   color: var(--module-color);
 }
 
 .adolf-cfo-metric-value.positive {
-  color: var(--adolf-success);
+  color: var(--ant-color-success);
 }
 
 .adolf-cfo-metric-value.negative {
-  color: var(--adolf-error);
+  color: var(--ant-color-error);
 }
 
 .adolf-cfo-metric-label {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-secondary);
-  margin-top: var(--adolf-spacing-xs);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
+  margin-top: var(--ant-margin-xxs);
 }
 
 .adolf-cfo-metric-change {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-medium);
-  margin-top: var(--adolf-spacing-xs);
+  font-size: var(--ant-font-size-sm);
+  font-weight: 500;
+  margin-top: var(--ant-margin-xxs);
 }
 
 .adolf-cfo-metric-change.up {
-  color: var(--adolf-success);
+  color: var(--ant-color-success);
 }
 
 .adolf-cfo-metric-change.down {
-  color: var(--adolf-error);
+  color: var(--ant-color-error);
 }
 
 /* ========================================
@@ -668,36 +635,36 @@
 
 .adolf-cfo-tabs {
   display: flex;
-  gap: var(--adolf-spacing-xs);
-  padding: var(--adolf-spacing-sm);
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-lg);
-  margin-bottom: var(--adolf-spacing-lg);
+  gap: var(--ant-padding-xxs);
+  padding: var(--ant-padding-xs);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius-lg);
+  margin-bottom: var(--ant-margin-lg);
 }
 
 .adolf-cfo-tab {
   flex: 1;
-  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-medium);
-  color: var(--adolf-text-secondary);
+  padding: var(--ant-padding-xs) var(--ant-padding);
+  font-size: var(--ant-font-size);
+  font-weight: 500;
+  color: var(--ant-color-text-secondary);
   background-color: transparent;
   border: none;
-  border-radius: var(--adolf-radius-md);
+  border-radius: var(--ant-border-radius);
   cursor: pointer;
-  transition: all var(--adolf-transition-fast);
+  transition: all var(--ant-motion-duration-fast);
   text-align: center;
 }
 
 .adolf-cfo-tab:hover {
-  color: var(--adolf-text-primary);
-  background-color: var(--adolf-bg-hover);
+  color: var(--ant-color-text);
+  background-color: var(--ant-color-fill-quaternary);
 }
 
 .adolf-cfo-tab.active {
   color: var(--module-color);
-  background-color: var(--adolf-bg-primary);
-  box-shadow: var(--adolf-shadow-sm);
+  background-color: var(--ant-color-bg-container);
+  box-shadow: var(--ant-box-shadow);
 }
 
 /* ========================================
@@ -707,19 +674,19 @@
 .adolf-cfo-period-filter {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
+  gap: var(--ant-padding-xs);
 }
 
 .adolf-cfo-period-btn {
-  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-medium);
-  color: var(--adolf-text-secondary);
-  background-color: var(--adolf-bg-secondary);
-  border: 1px solid var(--adolf-border-default);
-  border-radius: var(--adolf-radius-sm);
+  padding: var(--ant-padding-xxs) var(--ant-padding-xs);
+  font-size: var(--ant-font-size-sm);
+  font-weight: 500;
+  color: var(--ant-color-text-secondary);
+  background-color: var(--ant-color-bg-layout);
+  border: 1px solid var(--ant-color-border);
+  border-radius: var(--ant-border-radius-sm);
   cursor: pointer;
-  transition: all var(--adolf-transition-fast);
+  transition: all var(--ant-motion-duration-fast);
 }
 
 .adolf-cfo-period-btn:hover {
@@ -741,10 +708,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.125rem 0.5rem;
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-bold);
-  border-radius: var(--adolf-radius-sm);
+  padding: 2px var(--ant-padding-xs);
+  font-size: var(--ant-font-size-sm);
+  font-weight: var(--ant-font-weight-strong);
+  border-radius: var(--ant-border-radius-sm);
 }
 
 .adolf-cfo-mp-badge.wb {
@@ -769,31 +736,31 @@
 .adolf-cfo-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adolf-spacing-sm);
-  padding-top: var(--adolf-spacing-md);
-  border-top: 1px solid var(--adolf-border-default);
-  margin-top: var(--adolf-spacing-lg);
+  gap: var(--ant-padding-xs);
+  padding-top: var(--ant-padding);
+  border-top: 1px solid var(--ant-color-border-secondary);
+  margin-top: var(--ant-margin-lg);
 }
 
 /* Специфичные кнопки CFO */
 .adolf-btn-export {
   background-color: var(--module-color);
-  color: var(--adolf-text-inverse);
+  color: white;
   border-color: var(--module-color);
 }
 
 .adolf-btn-export:hover:not(:disabled) {
-  filter: brightness(0.9);
+  background-color: var(--module-color-dark);
 }
 
 .adolf-btn-insights {
-  background-color: var(--adolf-info);
-  color: var(--adolf-text-inverse);
-  border-color: var(--adolf-info);
+  background-color: var(--ant-color-info);
+  color: white;
+  border-color: var(--ant-color-info);
 }
 
 .adolf-btn-insights:hover:not(:disabled) {
-  background-color: var(--adolf-info-dark);
+  background-color: var(--ant-blue-7);
 }
 
 /* ========================================
@@ -805,28 +772,28 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--adolf-spacing-2xl);
+  padding: var(--ant-padding-xl);
   text-align: center;
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-lg);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius-lg);
 }
 
 .adolf-cfo-restricted-icon {
   font-size: 48px;
-  margin-bottom: var(--adolf-spacing-md);
+  margin-bottom: var(--ant-margin);
   opacity: 0.5;
 }
 
 .adolf-cfo-restricted-title {
-  font-size: var(--adolf-text-base);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
-  margin: 0 0 var(--adolf-spacing-sm) 0;
+  font-size: var(--ant-font-size);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
+  margin: 0 0 var(--ant-margin-xs) 0;
 }
 
 .adolf-cfo-restricted-text {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-secondary);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
   margin: 0;
 }
 
@@ -838,11 +805,11 @@
   .adolf-cfo-report-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--adolf-spacing-sm);
+    gap: var(--ant-padding-xs);
   }
   
   .adolf-cfo-report-body {
-    padding: var(--adolf-spacing-md);
+    padding: var(--ant-padding);
   }
   
   .adolf-cfo-table {
@@ -864,7 +831,7 @@
   
   .adolf-cfo-tab {
     flex: none;
-    width: calc(50% - var(--adolf-spacing-xs));
+    width: calc(50% - var(--ant-padding-xxs));
   }
   
   .adolf-cfo-loser-card {
@@ -873,7 +840,7 @@
   
   .adolf-cfo-loser-loss {
     text-align: left;
-    margin-top: var(--adolf-spacing-sm);
+    margin-top: var(--ant-margin-sm);
   }
   
   .adolf-cfo-actions {
