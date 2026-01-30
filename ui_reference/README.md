@@ -2,210 +2,231 @@
 
 Визуальный референс интерфейса системы ADOLF для разработчиков Open WebUI.
 
-## Документация
+**Design System:** Ant Design 5.0  
+**Источник:** [Figma Ant Design Open Source](https://www.figma.com/community/file/831698976089873405)
 
-| Документ | Описание |
-|----------|----------|
-| **[DESIGN_BRIEF.md](DESIGN_BRIEF.md)** | Полный UI/UX бриф: принципы, wireframes, спецификации |
-| **README.md** | Этот файл — быстрый старт и навигация |
+---
 
 ## Структура
 
 ```
 ui_reference/
-├── README.md                    # Этот файл
-├── base/                        # Базовые стили (общие для всех модулей)
-│   ├── adolf-design-tokens.css  # CSS-переменные (цвета, шрифты, отступы)
-│   └── adolf-components.css     # Базовые компоненты (кнопки, карточки, таблицы)
+├── README.md                          # Этот файл
+├── base/                              # 🎨 Базовая дизайн-система (Ant Design)
+│   ├── README.md                      # Документация дизайн-системы
+│   ├── ant-design-variables.css       # CSS-переменные
+│   ├── ant-design-tokens.json         # Design tokens (JSON)
+│   └── images/                        # Визуальные референсы
+│       ├── button.png
+│       ├── colors.png
+│       └── components-overview.png
 │
-├── content_factory/             # ✅ Модуль Content Factory
-│   ├── content-factory.css      # Стили модуля
-│   └── index.html               # Демо всех компонентов
+├── content_factory/                   # ✅ Модуль Content Factory
+│   ├── content-factory.css
+│   └── index.html
 │
-├── knowledge/                   # ✅ Модуль Knowledge
-│   ├── knowledge.css            # Стили модуля
-│   └── index.html               # Демо всех компонентов
+├── knowledge/                         # ✅ Модуль Knowledge
+│   ├── knowledge.css
+│   └── index.html
 │
-├── cfo/                         # ✅ Модуль CFO
-│   ├── cfo.css                  # Стили модуля
-│   └── index.html               # Демо всех компонентов
+├── cfo/                               # ✅ Модуль CFO
+│   ├── cfo.css
+│   └── index.html
 │
-├── reputation/                  # ✅ Модуль Reputation
-│   ├── reputation.css           # Стили модуля
-│   └── index.html               # Демо всех компонентов
+├── reputation/                        # ✅ Модуль Reputation
+│   ├── reputation.css
+│   └── index.html
 │
-├── watcher/                     # 📋 Планируется
-├── marketing/                   # 📋 Планируется
-├── scout/                       # 📋 Планируется
-└── lex/                         # 📋 Планируется
+├── watcher/                           # 📋 Планируется
+├── marketing/                         # 📋 Планируется
+├── scout/                             # 📋 Планируется
+└── lex/                               # 📋 Планируется
 ```
+
+---
 
 ## Статус модулей
 
 | Модуль | Статус | Компоненты |
 |--------|--------|------------|
-| **Content Factory** | ✅ Готов | Результат генерации, список черновиков, ТЗ дизайнеру, валидация |
-| **Knowledge** | ✅ Готов | RAG-ответ, источники, загрузка документов, модерация, каталог |
-| **CFO** | ✅ Готов | P&L таблицы, ABC-анализ, убыточные SKU, AI-инсайты, метрики |
-| **Reputation** | ✅ Готов | Список отзывов, AI-анализ, генерация ответов, статистика |
+| **Base (Ant Design)** | ✅ Готов | Цвета, типографика, отступы, компоненты |
+| **Content Factory** | ✅ Готов | Результат генерации, черновики, ТЗ дизайнеру |
+| **Knowledge** | ✅ Готов | RAG-ответ, источники, загрузка, модерация |
+| **CFO** | ✅ Готов | P&L таблицы, ABC-анализ, AI-инсайты |
+| **Reputation** | ✅ Готов | Отзывы, AI-анализ, генерация ответов |
 | Watcher | 📋 План | — |
 | Marketing | 📋 План | — |
 | Scout | 📋 План | — |
 | Lex | 📋 План | — |
+
+---
 
 ## Быстрый старт
 
 ### 1. Подключение стилей
 
 ```html
-<!-- Базовые стили (обязательно) -->
-<link rel="stylesheet" href="ui_reference/base/adolf-design-tokens.css">
-<link rel="stylesheet" href="ui_reference/base/adolf-components.css">
+<!-- Базовые стили Ant Design -->
+<link rel="stylesheet" href="ui_reference/base/ant-design-variables.css">
 
-<!-- Стили модуля (выберите нужный) -->
+<!-- Стили модуля -->
 <link rel="stylesheet" href="ui_reference/content_factory/content-factory.css">
-<link rel="stylesheet" href="ui_reference/knowledge/knowledge.css">
-<link rel="stylesheet" href="ui_reference/cfo/cfo.css">
-<link rel="stylesheet" href="ui_reference/reputation/reputation.css">
 ```
 
-### 2. Просмотр демо
+### 2. Использование переменных
 
-Откройте `index.html` в браузере для просмотра всех компонентов модуля:
+```css
+.my-card {
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border);
+  border-radius: var(--ant-border-radius-lg);
+  padding: var(--ant-padding-lg);
+  box-shadow: var(--ant-box-shadow);
+}
 
-```bash
-# Локально
-open ui_reference/content_factory/index.html
-open ui_reference/knowledge/index.html
-open ui_reference/cfo/index.html
-open ui_reference/reputation/index.html
-
-# Или запустите простой сервер
-python -m http.server 8000
-# Затем откройте http://localhost:8000/ui_reference/{module}/
-```
-
-## Цвета модулей
-
-| Модуль | Цвет | CSS-переменная |
-|--------|------|----------------|
-| Content Factory | 🟣 `#8B5CF6` | `--adolf-module-content` |
-| Knowledge | 🔵 `#3B82F6` | `--adolf-module-knowledge` |
-| CFO | 🟢 `#10B981` | `--adolf-module-cfo` |
-| Reputation | 🟠 `#F97316` | `--adolf-module-reputation` |
-| Watcher | 🔴 `#EF4444` | `--adolf-module-watcher` |
-| Marketing | 🩷 `#EC4899` | `--adolf-module-marketing` |
-| Scout | 🩵 `#06B6D4` | `--adolf-module-scout` |
-| Lex | 🟤 `#78716C` | `--adolf-module-lex` |
-
-## Использование с Tailwind CSS
-
-Стили совместимы с Tailwind CSS. CSS-переменные можно использовать в Tailwind-конфиге:
-
-```javascript
-// tailwind.config.js
-module.exports = {
-  theme: {
-    extend: {
-      colors: {
-        'adolf-primary': 'var(--adolf-accent-primary)',
-        'adolf-success': 'var(--adolf-success)',
-        'adolf-warning': 'var(--adolf-warning)',
-        'adolf-error': 'var(--adolf-error)',
-        // Модули
-        'adolf-content': 'var(--adolf-module-content)',
-        'adolf-knowledge': 'var(--adolf-module-knowledge)',
-        'adolf-cfo': 'var(--adolf-module-cfo)',
-        'adolf-reputation': 'var(--adolf-module-reputation)',
-        // ...
-      }
-    }
-  }
+.my-button {
+  background: var(--ant-color-primary);
+  color: #fff;
+  height: var(--ant-control-height);
+  padding: 0 var(--ant-padding);
+  border-radius: var(--ant-border-radius);
 }
 ```
+
+---
+
+## Цветовая палитра
+
+### Семантические цвета
+
+| Назначение | Цвет | CSS-переменная |
+|------------|------|----------------|
+| Primary | `#1890ff` | `--ant-color-primary` |
+| Success | `#52c41a` | `--ant-color-success` |
+| Warning | `#faad14` | `--ant-color-warning` |
+| Error | `#f5222d` | `--ant-color-error` |
+| Info | `#1890ff` | `--ant-color-info` |
+
+### Цветовые палитры (10 оттенков)
+
+- **Blue** (Primary): `--ant-blue-1` ... `--ant-blue-10`
+- **Red**: `--ant-red-1` ... `--ant-red-10`
+- **Green**: `--ant-green-1` ... `--ant-green-10`
+- **Gold**: `--ant-gold-1` ... `--ant-gold-10`
+- **Purple**: `--ant-purple-1` ... `--ant-purple-10`
+
+[Полная документация цветов →](base/README.md)
+
+---
+
+## Типографика
+
+```css
+--ant-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+--ant-font-size-sm: 12px;
+--ant-font-size: 14px;      /* Default */
+--ant-font-size-lg: 16px;
+--ant-font-size-xl: 20px;
+```
+
+---
+
+## Отступы
+
+| Токен | Размер | Padding | Margin |
+|-------|--------|---------|--------|
+| XXS | 4px | `--ant-padding-xxs` | `--ant-margin-xxs` |
+| XS | 8px | `--ant-padding-xs` | `--ant-margin-xs` |
+| SM | 12px | `--ant-padding-sm` | `--ant-margin-sm` |
+| Default | 16px | `--ant-padding` | `--ant-margin` |
+| LG | 24px | `--ant-padding-lg` | `--ant-margin-lg` |
+| XL | 32px | `--ant-padding-xl` | `--ant-margin-xl` |
+
+---
 
 ## Темы
 
-Поддерживается светлая и тёмная тема:
+### Светлая тема (по умолчанию)
 
 ```html
-<!-- Светлая тема (по умолчанию) -->
 <body>...</body>
-
-<!-- Тёмная тема -->
-<body class="dark">...</body>
 ```
 
-Переключение программно:
+### Тёмная тема
+
+```html
+<body data-theme="dark">...</body>
+```
+
+### Переключение
 
 ```javascript
 function toggleTheme() {
-  document.body.classList.toggle('dark');
+  const body = document.body;
+  const isDark = body.getAttribute('data-theme') === 'dark';
+  body.setAttribute('data-theme', isDark ? '' : 'dark');
 }
 ```
 
-## Компоненты по модулям
+---
+
+## Компоненты модулей
 
 ### Content Factory
 
-| Компонент | CSS-класс | Описание |
-|-----------|-----------|----------|
-| Результат генерации | `.adolf-cf-result` | Карточка с контентом и валидацией |
-| Список черновиков | `.adolf-cf-draft-list` | Таблица драфтов |
-| ТЗ для дизайнера | `.adolf-cf-visual-prompt` | Задание на визуалы |
-| SEO-теги | `.adolf-cf-seo-tags` | Ключевые слова |
-| Валидация | `.adolf-cf-validation` | Проверка контента |
+| Компонент | CSS-класс |
+|-----------|-----------|
+| Результат генерации | `.adolf-cf-result` |
+| Список черновиков | `.adolf-cf-draft-list` |
+| ТЗ для дизайнера | `.adolf-cf-visual-prompt` |
+| SEO-теги | `.adolf-cf-seo-tags` |
 
 ### Knowledge
 
-| Компонент | CSS-класс | Описание |
-|-----------|-----------|----------|
-| Результат RAG | `.adolf-kb-result` | Ответ с источниками |
-| Карточка источника | `.adolf-kb-source-card` | Документ с релевантностью |
-| Загрузка документа | `.adolf-kb-upload` | Dropzone + форма |
-| Модерация | `.adolf-kb-moderation` | Очередь на проверку |
-| Каталог | `.adolf-kb-docs-list` | Список документов |
-| Категории | `.adolf-kb-category-badge` | policy/guide/faq/process/template |
+| Компонент | CSS-класс |
+|-----------|-----------|
+| Результат RAG | `.adolf-kb-result` |
+| Карточка источника | `.adolf-kb-source-card` |
+| Загрузка документа | `.adolf-kb-upload` |
+| Модерация | `.adolf-kb-moderation` |
 
 ### CFO
 
-| Компонент | CSS-класс | Описание |
-|-----------|-----------|----------|
-| P&L таблица | `.adolf-cfo-table` | Отчёт о прибылях/убытках |
-| Сводка | `.adolf-cfo-summary` | Итоговые метрики |
-| ABC-анализ | `.adolf-cfo-abc` | Классификация товаров |
-| ABC-классы | `.adolf-cfo-abc-class` | Бейджи A/B/C/D |
-| Убыточные SKU | `.adolf-cfo-losers` | Список класса D |
-| AI-инсайты | `.adolf-cfo-insights` | Рекомендации |
-| Метрики | `.adolf-cfo-metrics` | Карточки KPI |
+| Компонент | CSS-класс |
+|-----------|-----------|
+| P&L таблица | `.adolf-cfo-table` |
+| ABC-анализ | `.adolf-cfo-abc` |
+| Убыточные SKU | `.adolf-cfo-losers` |
+| AI-инсайты | `.adolf-cfo-insights` |
 
 ### Reputation
 
-| Компонент | CSS-класс | Описание |
-|-----------|-----------|----------|
-| Список отзывов | `.adolf-rep-list` | Карточки с фильтрами |
-| Карточка отзыва | `.adolf-rep-review-card` | Компактный вид |
-| Детали отзыва | `.adolf-rep-detail` | Полная информация |
-| Тональность | `.adolf-rep-sentiment-badge` | positive/neutral/negative |
-| AI-анализ | `.adolf-rep-ai-analysis` | Результат анализа |
-| Ключевые слова | `.adolf-rep-keyword` | problem/praise теги |
-| Ответ | `.adolf-rep-response` | Сгенерированный текст |
-| Статистика | `.adolf-rep-stats` | Метрики отзывов |
+| Компонент | CSS-класс |
+|-----------|-----------|
+| Список отзывов | `.adolf-rep-list` |
+| Карточка отзыва | `.adolf-rep-review-card` |
+| AI-анализ | `.adolf-rep-ai-analysis` |
+| Ответ | `.adolf-rep-response` |
 
-## Связь с документацией
+---
 
-| Модуль | Документация | Python Pipeline |
-|--------|--------------|-----------------|
-| Content Factory | [content_factory/](../content_factory/) | `adolf_content_factory_4_open_webui` |
-| Knowledge | [knowledge/](../knowledge/) | `adolf_knowledge_4_open_webui` |
-| CFO | [cfo/](../cfo/) | `adolf_cfo_4_open_webui` |
-| Reputation | [reputation/](../reputation/) | `adolf_reputation_4_open_webui` |
+## Ресурсы
+
+| Ресурс | Ссылка |
+|--------|--------|
+| Ant Design | https://ant.design/ |
+| Figma Community | https://www.figma.com/community/file/831698976089873405 |
+| Design Tokens | [base/ant-design-tokens.json](base/ant-design-tokens.json) |
+| CSS Variables | [base/ant-design-variables.css](base/ant-design-variables.css) |
+
+---
 
 ## Версии
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
-| **1.0** | Январь 2026 | Content Factory |
-| **1.1** | Январь 2026 | + Knowledge |
-| **1.2** | Январь 2026 | + CFO |
+| **2.0** | Январь 2026 | Переход на Ant Design 5.0 |
 | **1.3** | Январь 2026 | + Reputation |
+| **1.2** | Январь 2026 | + CFO |
+| **1.1** | Январь 2026 | + Knowledge |
+| **1.0** | Январь 2026 | Content Factory |
