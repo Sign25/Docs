@@ -1,394 +1,63 @@
-/**
- * ADOLF Knowledge - Module Styles
- * Специфичные стили для модуля базы знаний (RAG)
- * 
- * Зависимости: 
- *   - adolf-design-tokens.css
- *   - adolf-components.css
- * 
- * Версия: 1.0
- */
-
-/* ========================================
-   ЦВЕТА МОДУЛЯ
-   ======================================== */
-
-.adolf-knowledge {
-  --module-color: var(--adolf-module-knowledge);
-  --module-color-light: var(--adolf-module-knowledge-light);
-}
-
-/* ========================================
-   РЕЗУЛЬТАТ ПОИСКА (RAG Response)
-   ======================================== */
-
-.adolf-kb-result {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
-  overflow: hidden;
-}
-
-.adolf-kb-result-header {
-  display: flex;
-  align-items: center;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  background-color: var(--module-color-light);
-  border-bottom: 1px solid var(--adolf-border-default);
-}
-
-.adolf-kb-result-icon {
-  font-size: var(--adolf-text-2xl);
-}
-
-.adolf-kb-result-title {
-  font-size: var(--adolf-text-xl);
-  font-weight: var(--adolf-font-bold);
-  color: var(--adolf-text-primary);
-  margin: 0;
-}
-
-.adolf-kb-result-body {
-  padding: var(--adolf-spacing-lg);
-}
-
-/* ========================================
-   ЗАПРОС ПОЛЬЗОВАТЕЛЯ
-   ======================================== */
-
-.adolf-kb-query {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md);
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-md);
-  margin-bottom: var(--adolf-spacing-lg);
-}
-
-.adolf-kb-query-icon {
-  font-size: var(--adolf-text-lg);
-  color: var(--adolf-text-tertiary);
-}
-
-.adolf-kb-query-text {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-secondary);
-  font-style: italic;
-  margin: 0;
-}
-
-/* ========================================
-   ОТВЕТ AI
-   ======================================== */
-
-.adolf-kb-answer {
-  margin-bottom: var(--adolf-spacing-lg);
-}
-
-.adolf-kb-answer-label {
-  display: flex;
-  align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--module-color);
-  margin-bottom: var(--adolf-spacing-sm);
-}
-
-.adolf-kb-answer-text {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-primary);
-  line-height: 1.7;
-  margin: 0;
-}
-
-.adolf-kb-answer-text p {
-  margin: 0 0 var(--adolf-spacing-md) 0;
-}
-
-.adolf-kb-answer-text p:last-child {
-  margin-bottom: 0;
-}
-
-.adolf-kb-answer-text ul,
-.adolf-kb-answer-text ol {
-  margin: var(--adolf-spacing-sm) 0;
-  padding-left: var(--adolf-spacing-lg);
-}
-
-.adolf-kb-answer-text li {
-  margin-bottom: var(--adolf-spacing-xs);
-}
-
-.adolf-kb-answer-text strong {
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
-}
-
-/* Цитата из документа */
-.adolf-kb-quote {
-  border-left: 3px solid var(--module-color);
-  padding-left: var(--adolf-spacing-md);
-  margin: var(--adolf-spacing-md) 0;
-  color: var(--adolf-text-secondary);
-  font-style: italic;
-}
-
-/* ========================================
-   ИСТОЧНИКИ (Sources)
-   ======================================== */
-
-.adolf-kb-sources {
-  margin-top: var(--adolf-spacing-lg);
-}
-
-.adolf-kb-sources-title {
-  display: flex;
-  align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-secondary);
-  margin-bottom: var(--adolf-spacing-md);
-}
-
-.adolf-kb-sources-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--adolf-spacing-sm);
-}
-
-/* Карточка источника */
-.adolf-kb-source-card {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--adolf-spacing-md);
-  padding: var(--adolf-spacing-md);
-  background-color: var(--adolf-bg-secondary);
-  border: 1px solid var(--adolf-border-default);
-  border-radius: var(--adolf-radius-md);
-  transition: all var(--adolf-transition-fast);
-  cursor: pointer;
-}
-
-.adolf-kb-source-card:hover {
-  border-color: var(--module-color);
-  box-shadow: var(--adolf-shadow-sm);
-}
-
-.adolf-kb-source-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--adolf-text-xl);
-  background-color: var(--module-color-light);
-  border-radius: var(--adolf-radius-md);
-}
-
-.adolf-kb-source-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.adolf-kb-source-name {
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
-  margin: 0 0 var(--adolf-spacing-xs) 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.adolf-kb-source-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
-}
-
-.adolf-kb-source-meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.adolf-kb-source-relevance {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--adolf-spacing-xs);
-}
-
-.adolf-kb-relevance-bar {
-  width: 60px;
-  height: 4px;
-  background-color: var(--adolf-border-default);
-  border-radius: var(--adolf-radius-full);
-  overflow: hidden;
-}
-
-.adolf-kb-relevance-fill {
-  height: 100%;
-  background-color: var(--module-color);
-  border-radius: var(--adolf-radius-full);
-}
-
-.adolf-kb-relevance-text {
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--module-color);
-  min-width: 32px;
-  text-align: right;
-}
-
-/* ========================================
-   КАТЕГОРИИ ДОКУМЕНТОВ
-   ======================================== */
-
-.adolf-kb-category-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.5rem;
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-medium);
-  border-radius: var(--adolf-radius-full);
-}
-
-.adolf-kb-category-policy {
-  background-color: #DBEAFE;
-  color: #1E40AF;
-}
-
-.adolf-kb-category-guide {
-  background-color: #D1FAE5;
-  color: #065F46;
-}
-
-.adolf-kb-category-faq {
-  background-color: #FEF3C7;
-  color: #92400E;
-}
-
-.adolf-kb-category-process {
-  background-color: #FCE7F3;
-  color: #9D174D;
-}
-
-.adolf-kb-category-template {
-  background-color: #E0E7FF;
-  color: #3730A3;
-}
-
-.adolf-kb-category-other {
-  background-color: var(--adolf-bg-tertiary);
-  color: var(--adolf-text-secondary);
-}
-
-/* ========================================
-   ЗАГРУЗКА ДОКУМЕНТА
-   ======================================== */
-
-.adolf-kb-upload {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
-  overflow: hidden;
-}
-
-.adolf-kb-upload-header {
-  display: flex;
-  align-items: center;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  background-color: var(--adolf-success-light);
-  border-bottom: 1px solid var(--adolf-border-default);
-}
-
-.adolf-kb-upload-body {
-  padding: var(--adolf-spacing-lg);
-}
-
-/* Dropzone */
-.adolf-kb-dropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--adolf-spacing-2xl);
-  border: 2px dashed var(--adolf-border-default);
-  border-radius: var(--adolf-radius-lg);
-  background-color: var(--adolf-bg-secondary);
-  cursor: pointer;
-  transition: all var(--adolf-transition-fast);
-}
-
-.adolf-kb-dropzone:hover,
-.adolf-kb-dropzone.dragover {
+over {
   border-color: var(--module-color);
   background-color: var(--module-color-light);
 }
 
 .adolf-kb-dropzone-icon {
   font-size: 48px;
-  margin-bottom: var(--adolf-spacing-md);
+  margin-bottom: var(--ant-margin);
 }
 
 .adolf-kb-dropzone-text {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-secondary);
+  font-size: var(--ant-font-size);
+  color: var(--ant-color-text-secondary);
   text-align: center;
   margin: 0;
 }
 
 .adolf-kb-dropzone-hint {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
-  margin-top: var(--adolf-spacing-sm);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-tertiary);
+  margin-top: var(--ant-margin-sm);
 }
 
 /* Форма загрузки */
 .adolf-kb-upload-form {
-  margin-top: var(--adolf-spacing-lg);
+  margin-top: var(--ant-margin-lg);
 }
 
 .adolf-kb-form-group {
-  margin-bottom: var(--adolf-spacing-md);
+  margin-bottom: var(--ant-margin);
 }
 
 .adolf-kb-form-label {
   display: block;
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-medium);
-  color: var(--adolf-text-primary);
-  margin-bottom: var(--adolf-spacing-xs);
+  font-size: var(--ant-font-size);
+  font-weight: 500;
+  color: var(--ant-color-text);
+  margin-bottom: var(--ant-margin-xs);
 }
 
 .adolf-kb-form-input,
 .adolf-kb-form-select,
 .adolf-kb-form-textarea {
   width: 100%;
-  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
-  font-size: var(--adolf-text-sm);
-  font-family: var(--adolf-font-family);
-  color: var(--adolf-text-primary);
-  background-color: var(--adolf-bg-primary);
-  border: 1px solid var(--adolf-border-default);
-  border-radius: var(--adolf-radius-md);
-  transition: border-color var(--adolf-transition-fast);
+  padding: var(--ant-padding-xs) var(--ant-padding-sm);
+  font-size: var(--ant-font-size);
+  font-family: var(--ant-font-family);
+  color: var(--ant-color-text);
+  background-color: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border);
+  border-radius: var(--ant-border-radius);
+  transition: border-color var(--ant-motion-duration-fast);
 }
 
 .adolf-kb-form-input:focus,
 .adolf-kb-form-select:focus,
 .adolf-kb-form-textarea:focus {
   outline: none;
-  border-color: var(--adolf-border-focus);
+  border-color: var(--ant-color-primary);
+  box-shadow: 0 0 0 2px var(--ant-blue-1);
 }
 
 .adolf-kb-form-textarea {
@@ -396,20 +65,14 @@
   resize: vertical;
 }
 
-.adolf-kb-form-hint {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
-  margin-top: var(--adolf-spacing-xs);
-}
-
 /* ========================================
    МОДЕРАЦИЯ ДОКУМЕНТОВ
    ======================================== */
 
 .adolf-kb-moderation {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius-lg);
+  border: 1px solid var(--ant-color-border);
   overflow: hidden;
 }
 
@@ -417,18 +80,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  background-color: var(--adolf-warning-light);
-  border-bottom: 1px solid var(--adolf-border-default);
+  padding: var(--ant-padding) var(--ant-padding-lg);
+  background-color: var(--ant-gold-1);
+  border-bottom: 1px solid var(--ant-color-border);
 }
 
 .adolf-kb-moderation-title {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-lg);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
+  gap: var(--ant-padding-sm);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
   margin: 0;
 }
 
@@ -438,22 +101,21 @@
   justify-content: center;
   min-width: 24px;
   height: 24px;
-  padding: 0 var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-bold);
-  background-color: var(--adolf-warning);
-  color: var(--adolf-text-inverse);
-  border-radius: var(--adolf-radius-full);
+  padding: 0 var(--ant-padding-xs);
+  font-size: var(--ant-font-size-sm);
+  font-weight: var(--ant-font-weight-strong);
+  background-color: var(--ant-color-warning);
+  color: white;
+  border-radius: 12px;
 }
 
 /* Элемент очереди модерации */
 .adolf-kb-moderation-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--adolf-spacing-md);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  border-bottom: 1px solid var(--adolf-border-default);
-  transition: background-color var(--adolf-transition-fast);
+  gap: var(--ant-padding);
+  padding: var(--ant-padding) var(--ant-padding-lg);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 
 .adolf-kb-moderation-item:last-child {
@@ -461,7 +123,7 @@
 }
 
 .adolf-kb-moderation-item:hover {
-  background-color: var(--adolf-bg-hover);
+  background-color: var(--ant-color-fill-quaternary);
 }
 
 .adolf-kb-moderation-item-icon {
@@ -471,9 +133,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--adolf-text-2xl);
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-md);
+  font-size: var(--ant-font-size-xl);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius);
 }
 
 .adolf-kb-moderation-item-content {
@@ -482,24 +144,24 @@
 }
 
 .adolf-kb-moderation-item-name {
-  font-size: var(--adolf-text-sm);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
-  margin: 0 0 var(--adolf-spacing-xs) 0;
+  font-size: var(--ant-font-size);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
+  margin: 0 0 var(--ant-margin-xxs) 0;
 }
 
 .adolf-kb-moderation-item-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
-  margin-bottom: var(--adolf-spacing-sm);
+  gap: var(--ant-padding-sm);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-tertiary);
+  margin-bottom: var(--ant-margin-xs);
 }
 
 .adolf-kb-moderation-item-preview {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-secondary);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -510,7 +172,7 @@
 .adolf-kb-moderation-item-actions {
   flex-shrink: 0;
   display: flex;
-  gap: var(--adolf-spacing-sm);
+  gap: var(--ant-padding-xs);
 }
 
 /* ========================================
@@ -518,9 +180,9 @@
    ======================================== */
 
 .adolf-kb-docs-list {
-  background-color: var(--adolf-bg-primary);
-  border-radius: var(--adolf-radius-lg);
-  border: 1px solid var(--adolf-border-default);
+  background-color: var(--ant-color-bg-container);
+  border-radius: var(--ant-border-radius-lg);
+  border: 1px solid var(--ant-color-border);
   overflow: hidden;
 }
 
@@ -528,18 +190,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
+  padding: var(--ant-padding) var(--ant-padding-lg);
   background-color: var(--module-color-light);
-  border-bottom: 1px solid var(--adolf-border-default);
+  border-bottom: 1px solid var(--ant-color-border);
 }
 
 .adolf-kb-docs-title {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-lg);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-primary);
+  gap: var(--ant-padding-sm);
+  font-size: var(--ant-font-size-lg);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text);
   margin: 0;
 }
 
@@ -547,23 +209,23 @@
 .adolf-kb-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-md) var(--adolf-spacing-lg);
-  background-color: var(--adolf-bg-secondary);
-  border-bottom: 1px solid var(--adolf-border-default);
+  gap: var(--ant-padding-xs);
+  padding: var(--ant-padding) var(--ant-padding-lg);
+  background-color: var(--ant-color-bg-layout);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 
 .adolf-kb-filter-chip {
   display: inline-flex;
   align-items: center;
-  padding: var(--adolf-spacing-xs) var(--adolf-spacing-sm);
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-secondary);
-  background-color: var(--adolf-bg-primary);
-  border: 1px solid var(--adolf-border-default);
-  border-radius: var(--adolf-radius-full);
+  padding: var(--ant-padding-xxs) var(--ant-padding-sm);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
+  background-color: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border);
+  border-radius: var(--ant-border-radius-sm);
   cursor: pointer;
-  transition: all var(--adolf-transition-fast);
+  transition: all var(--ant-motion-duration-fast);
 }
 
 .adolf-kb-filter-chip:hover {
@@ -574,7 +236,7 @@
 .adolf-kb-filter-chip.active {
   background-color: var(--module-color);
   border-color: var(--module-color);
-  color: var(--adolf-text-inverse);
+  color: white;
 }
 
 /* Таблица документов */
@@ -585,42 +247,42 @@
 
 .adolf-kb-docs-table th,
 .adolf-kb-docs-table td {
-  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
+  padding: var(--ant-padding-sm) var(--ant-padding);
   text-align: left;
-  border-bottom: 1px solid var(--adolf-border-default);
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 
 .adolf-kb-docs-table th {
-  font-size: var(--adolf-text-xs);
-  font-weight: var(--adolf-font-semibold);
-  color: var(--adolf-text-tertiary);
+  font-size: var(--ant-font-size-sm);
+  font-weight: var(--ant-font-weight-strong);
+  color: var(--ant-color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background-color: var(--adolf-bg-secondary);
+  background-color: var(--ant-color-bg-layout);
 }
 
 .adolf-kb-docs-table td {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-primary);
+  font-size: var(--ant-font-size);
+  color: var(--ant-color-text);
 }
 
 .adolf-kb-docs-table tbody tr {
   cursor: pointer;
-  transition: background-color var(--adolf-transition-fast);
+  transition: background-color var(--ant-motion-duration-fast);
 }
 
 .adolf-kb-docs-table tbody tr:hover {
-  background-color: var(--adolf-bg-hover);
+  background-color: var(--ant-color-fill-quaternary);
 }
 
 .adolf-kb-doc-name {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
+  gap: var(--ant-padding-sm);
 }
 
 .adolf-kb-doc-name-icon {
-  font-size: var(--adolf-text-lg);
+  font-size: var(--ant-font-size-lg);
 }
 
 /* ========================================
@@ -630,26 +292,26 @@
 .adolf-kb-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--adolf-spacing-md);
+  gap: var(--ant-padding);
 }
 
 .adolf-kb-stat-card {
-  background-color: var(--adolf-bg-secondary);
-  border-radius: var(--adolf-radius-md);
-  padding: var(--adolf-spacing-md);
+  background-color: var(--ant-color-bg-layout);
+  border-radius: var(--ant-border-radius);
+  padding: var(--ant-padding);
   text-align: center;
 }
 
 .adolf-kb-stat-value {
-  font-size: var(--adolf-text-2xl);
-  font-weight: var(--adolf-font-bold);
+  font-size: var(--ant-font-size-xl);
+  font-weight: var(--ant-font-weight-strong);
   color: var(--module-color);
 }
 
 .adolf-kb-stat-label {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-secondary);
-  margin-top: var(--adolf-spacing-xs);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-secondary);
+  margin-top: var(--ant-margin-xxs);
 }
 
 /* ========================================
@@ -659,34 +321,35 @@
 .adolf-kb-search {
   display: flex;
   align-items: center;
-  gap: var(--adolf-spacing-sm);
-  padding: var(--adolf-spacing-sm) var(--adolf-spacing-md);
-  background-color: var(--adolf-bg-secondary);
-  border: 1px solid var(--adolf-border-default);
-  border-radius: var(--adolf-radius-lg);
-  transition: border-color var(--adolf-transition-fast);
+  gap: var(--ant-padding-xs);
+  padding: var(--ant-padding-xs) var(--ant-padding-sm);
+  background-color: var(--ant-color-bg-layout);
+  border: 1px solid var(--ant-color-border);
+  border-radius: var(--ant-border-radius);
+  transition: border-color var(--ant-motion-duration-fast);
 }
 
 .adolf-kb-search:focus-within {
-  border-color: var(--adolf-border-focus);
+  border-color: var(--ant-color-primary);
+  box-shadow: 0 0 0 2px var(--ant-blue-1);
 }
 
 .adolf-kb-search-icon {
-  color: var(--adolf-text-tertiary);
-  font-size: var(--adolf-text-lg);
+  color: var(--ant-color-text-tertiary);
+  font-size: var(--ant-font-size-lg);
 }
 
 .adolf-kb-search-input {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-primary);
+  font-size: var(--ant-font-size);
+  color: var(--ant-color-text);
   outline: none;
 }
 
 .adolf-kb-search-input::placeholder {
-  color: var(--adolf-text-tertiary);
+  color: var(--ant-color-text-quaternary);
 }
 
 /* ========================================
@@ -696,41 +359,41 @@
 .adolf-kb-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adolf-spacing-sm);
-  padding-top: var(--adolf-spacing-md);
-  border-top: 1px solid var(--adolf-border-default);
-  margin-top: var(--adolf-spacing-lg);
+  gap: var(--ant-padding-xs);
+  padding-top: var(--ant-padding);
+  border-top: 1px solid var(--ant-color-border-secondary);
+  margin-top: var(--ant-margin-lg);
 }
 
 /* Специфичные кнопки Knowledge */
 .adolf-btn-upload {
   background-color: var(--module-color);
-  color: var(--adolf-text-inverse);
+  color: white;
   border-color: var(--module-color);
 }
 
 .adolf-btn-upload:hover:not(:disabled) {
-  filter: brightness(0.9);
+  background-color: var(--module-color-dark);
 }
 
 .adolf-btn-approve-doc {
-  background-color: var(--adolf-success);
-  color: var(--adolf-text-inverse);
-  border-color: var(--adolf-success);
+  background-color: var(--ant-color-success);
+  color: white;
+  border-color: var(--ant-color-success);
 }
 
 .adolf-btn-approve-doc:hover:not(:disabled) {
-  background-color: var(--adolf-success-dark);
+  background-color: var(--ant-green-7);
 }
 
 .adolf-btn-reject-doc {
-  background-color: var(--adolf-error);
-  color: var(--adolf-text-inverse);
-  border-color: var(--adolf-error);
+  background-color: var(--ant-color-error);
+  color: white;
+  border-color: var(--ant-color-error);
 }
 
 .adolf-btn-reject-doc:hover:not(:disabled) {
-  background-color: var(--adolf-error-dark);
+  background-color: var(--ant-red-7);
 }
 
 /* ========================================
@@ -742,26 +405,26 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--adolf-spacing-2xl);
+  padding: var(--ant-padding-xl);
   text-align: center;
 }
 
 .adolf-kb-no-results-icon {
   font-size: 48px;
-  margin-bottom: var(--adolf-spacing-md);
+  margin-bottom: var(--ant-margin);
   opacity: 0.5;
 }
 
 .adolf-kb-no-results-text {
-  font-size: var(--adolf-text-sm);
-  color: var(--adolf-text-secondary);
+  font-size: var(--ant-font-size);
+  color: var(--ant-color-text-secondary);
   margin: 0;
 }
 
 .adolf-kb-no-results-hint {
-  font-size: var(--adolf-text-xs);
-  color: var(--adolf-text-tertiary);
-  margin-top: var(--adolf-spacing-sm);
+  font-size: var(--ant-font-size-sm);
+  color: var(--ant-color-text-tertiary);
+  margin-top: var(--ant-margin-sm);
 }
 
 /* ========================================
@@ -771,7 +434,7 @@
 @media (max-width: 768px) {
   .adolf-kb-result-body,
   .adolf-kb-upload-body {
-    padding: var(--adolf-spacing-md);
+    padding: var(--ant-padding);
   }
   
   .adolf-kb-source-card {
@@ -780,7 +443,7 @@
   
   .adolf-kb-source-relevance {
     width: 100%;
-    margin-top: var(--adolf-spacing-sm);
+    margin-top: var(--ant-margin-sm);
   }
   
   .adolf-kb-moderation-item {
@@ -789,7 +452,7 @@
   
   .adolf-kb-moderation-item-actions {
     width: 100%;
-    margin-top: var(--adolf-spacing-sm);
+    margin-top: var(--ant-margin-sm);
   }
   
   .adolf-kb-moderation-item-actions .adolf-btn {
