@@ -1,474 +1,298 @@
 # ADOLF LOGISTIC — Раздел 2: WB Integration
 
-**Проект:** Интеллектуальная система управления логистикой маркетплейсов  
-**Модуль:** Logistic / WB Integration  
+**Модуль:** Logistic  
+**Компонент:** Wildberries API Integration  
 **Версия:** 1.0  
 **Дата:** Январь 2026
 
 ---
 
-## 2.1 Обзор API Wildberries
+## 2.1 Обзор интеграции
 
-### Используемые API домены
+### Назначение
 
-| Домен | Назначение | Токен |
-|-------|------------|-------|
-| `statistics-api.wildberries.ru` | Остатки, заказы, продажи | Statistics |
-| `common-api.wildberries.ru` | Тарифы логистики | Любой |
-| `supplies-api.wildberries.ru` | Коэффициенты приёмки, склады | Supplies |
-| `seller-analytics-api.wildberries.ru` | Аналитика по регионам | Analytics |
+Компонент WB Integration обеспечивает взаимодействие модуля Logistic с API Wildberries для получения данных об остатках, заказах, продажах и тарифах логистики.
 
-### Карта endpoints
+### Используемые API
 
-```mermaid
-graph TB
-    subgraph STATISTICS["Statistics API"]
-        STOCKS["/api/v1/supplier/stocks<br/>Остатки по складам"]
-        ORDERS["/api/v1/supplier/orders<br/>Заказы"]
-        SALES["/api/v1/supplier/sales<br/>Продажи"]
-    end
+| API | Base URL | Назначение |
+|-----|----------|------------|
+| Statistics API | `https://statistics-api.wildberries.ru` | Остатки, заказы, продажи |
+| Common API | `https://common-api.wildberries.ru` | Тарифы логистики |
+| Supplies API | `https://supplies-api.wildberries.ru` | Коэффициенты приёмки, склады |
+
+### Документация WB
+
+Официальная документация: [dev.wildberries.ru/openapi](https://dev.wildberries.ru/openapi)
+
+---
+
+## 2.2 Авторизация
+
+### Формат запроса
+
+```http
+GET /api/v1/supplier/stocks
+Host: statistics-api.wildberries.ru
+Authorization: {API_KEY}
+Content-Type: application/json
+```
+
+### Конфигурация
+
+```python
+# config/wb_api.py
+from pydantic_settings import BaseSettings
+
+class WBAPISettings(BaseSettings):
+    """Настройки API Wildberries"""
     
-    subgraph COMMON["Common API"]
-        TARIFFS["/api/v1/tariffs/box<br/>Тарифы на коробки"]
-        COMMISSION["/api/v1/tariffs/commission<br/>Комиссии"]
-    end
+    # API ключи (разные для разных API)
+    statistics_api_key: str
+    supplies_api_key: str
+    common_api_key: str
     
-    subgraph SUPPLIES["Supplies API"]
-        ACCEPTANCE["/api/v1/acceptance/coefficients<br/>Коэффициенты приёмки"]
-        WAREHOUSES["/api/v1/warehouses<br/>Список складов"]
-        SUPPLY_LIST["/api/v1/supplies<br/>Список поставок"]
-    end
+    # Base URLs
+    statistics_base_url: str = "https://statistics-api.wildberries.ru"
+    supplies_base_url: str = "https://supplies-api.wildberries.ru"
+    common_base_url: str = "https://common-api.wildberries.ru"
     
-    subgraph ANALYTICS["Analytics API"]
-        REGION_SALE["/api/v1/analytics/region-sale<br/>Продажи по регионам"]
-    end
+    # Таймауты
+    request_timeout: int = 30
+    
+    # Retry политика
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    
+    class Config:
+        env_prefix = "WB_"
 ```
 
 ---
 
-## 2.2 Endpoint: Остатки по складам
+## 2.3 Endpoints
 
-### Спецификация
+### 2.3.1 Остатки (Stocks)
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://statistics-api.wildberries.ru/api/v1/supplier/stocks` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` |
-| Rate Limit | 1 запрос/минуту |
-| Данные | Обновляются каждые 30 минут |
+**Endpoint:** `GET /api/v1/supplier/stocks`
 
-### Параметры запроса
+**Назначение:** Текущие остатки товаров на складах WB
+
+**Параметры:**
 
 | Параметр | Тип | Обязательный | Описание |
 |----------|-----|:------------:|----------|
-| `dateFrom` | string | ✅ | Дата изменения (RFC3339). Для полного списка: `2019-01-01` |
+| dateFrom | string | ✅ | Дата в формате RFC3339 |
 
-### Структура ответа
+**Rate Limit:** 1 запрос/минуту
+
+**Максимум записей:** 60 000
+
+**Пример запроса:**
+
+```http
+GET /api/v1/supplier/stocks?dateFrom=2026-01-01T00:00:00Z
+Authorization: {API_KEY}
+```
+
+**Пример ответа:**
 
 ```json
 [
   {
-    "lastChangeDate": "2026-01-31T10:15:00",
+    "lastChangeDate": "2026-01-30T14:25:00",
     "warehouseName": "Коледино",
     "supplierArticle": "OM-12345",
-    "nmId": 12345678,
+    "nmId": 123456789,
     "barcode": "2000000000001",
     "quantity": 45,
     "inWayToClient": 3,
     "inWayFromClient": 1,
     "quantityFull": 49,
-    "category": "Одежда",
-    "subject": "Платья",
+    "category": "Платья",
+    "subject": "Платье летнее",
     "brand": "Охана Маркет",
     "techSize": "44",
-    "Price": 3500,
+    "Price": 2500,
     "Discount": 15,
     "isSupply": true,
-    "isRealization": true,
-    "SCCode": "Tech"
+    "isRealization": false,
+    "SCCode": "SC123456"
   }
 ]
 ```
 
-### Маппинг полей
+**Ключевые поля:**
 
-| Поле WB API | Поле Logistic | Описание |
-|-------------|---------------|----------|
-| `supplierArticle` | `sku` | Артикул продавца |
-| `nmId` | `nm_id` | Номенклатура WB |
-| `barcode` | `barcode` | Штрихкод |
-| `warehouseName` | `warehouse_name` | Название склада |
-| `quantity` | `quantity` | Доступный остаток |
-| `inWayToClient` | `in_way_to_client` | В пути к клиенту |
-| `inWayFromClient` | `in_way_from_client` | Возвраты в пути |
-| `quantityFull` | `quantity_full` | Полный остаток |
-| `techSize` | `size` | Размер |
-| `lastChangeDate` | `updated_at` | Время обновления |
-
-### Реализация адаптера
-
-```python
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional
-import aiohttp
-
-@dataclass
-class Stock:
-    """Остаток товара на складе."""
-    sku: str
-    nm_id: int
-    barcode: str
-    warehouse_name: str
-    quantity: int
-    in_way_to_client: int
-    in_way_from_client: int
-    quantity_full: int
-    size: str
-    category: str
-    brand: str
-    updated_at: datetime
-
-
-class WBStocksAdapter:
-    """Адаптер для получения остатков с WB API."""
-    
-    BASE_URL = "https://statistics-api.wildberries.ru"
-    ENDPOINT = "/api/v1/supplier/stocks"
-    
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.headers = {"Authorization": api_key}
-    
-    async def fetch_stocks(self, date_from: str = "2019-01-01") -> list[Stock]:
-        """
-        Получение всех остатков.
-        
-        Лимит: 60,000 записей за запрос.
-        При превышении — пагинация по lastChangeDate.
-        """
-        all_stocks = []
-        current_date = date_from
-        
-        async with aiohttp.ClientSession() as session:
-            while True:
-                batch = await self._fetch_batch(session, current_date)
-                
-                if not batch:
-                    break
-                
-                all_stocks.extend(batch)
-                
-                if len(batch) < 60000:
-                    break
-                
-                # Пагинация: берём lastChangeDate последней записи
-                current_date = batch[-1]["lastChangeDate"]
-        
-        return [self._map_stock(s) for s in all_stocks]
-    
-    async def _fetch_batch(
-        self, 
-        session: aiohttp.ClientSession,
-        date_from: str
-    ) -> list[dict]:
-        """Получение пакета данных."""
-        url = f"{self.BASE_URL}{self.ENDPOINT}"
-        params = {"dateFrom": date_from}
-        
-        async with session.get(url, params=params, headers=self.headers) as resp:
-            if resp.status == 429:
-                raise RateLimitError("Stocks API rate limit exceeded")
-            if resp.status == 401:
-                raise AuthenticationError("Invalid API key")
-            if resp.status != 200:
-                raise WBAPIError(f"Stocks API error: {resp.status}")
-            
-            return await resp.json()
-    
-    def _map_stock(self, raw: dict) -> Stock:
-        """Маппинг сырых данных в модель."""
-        return Stock(
-            sku=raw.get("supplierArticle", ""),
-            nm_id=raw.get("nmId", 0),
-            barcode=raw.get("barcode", ""),
-            warehouse_name=raw.get("warehouseName", ""),
-            quantity=raw.get("quantity", 0),
-            in_way_to_client=raw.get("inWayToClient", 0),
-            in_way_from_client=raw.get("inWayFromClient", 0),
-            quantity_full=raw.get("quantityFull", 0),
-            size=raw.get("techSize", ""),
-            category=raw.get("category", ""),
-            brand=raw.get("brand", ""),
-            updated_at=datetime.fromisoformat(
-                raw.get("lastChangeDate", "").replace("Z", "+00:00")
-            ) if raw.get("lastChangeDate") else datetime.now()
-        )
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| warehouseName | string | Название склада WB |
+| supplierArticle | string | Артикул продавца |
+| nmId | integer | Номенклатура WB |
+| barcode | string | Штрихкод |
+| quantity | integer | Доступный остаток |
+| inWayToClient | integer | В пути к покупателю |
+| inWayFromClient | integer | Возвраты в пути |
+| quantityFull | integer | Полный остаток |
+| techSize | string | Размер |
 
 ---
 
-## 2.3 Endpoint: Заказы
+### 2.3.2 Заказы (Orders)
 
-### Спецификация
+**Endpoint:** `GET /api/v1/supplier/orders`
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://statistics-api.wildberries.ru/api/v1/supplier/orders` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` |
-| Rate Limit | 1 запрос/минуту |
-| Хранение данных | 90 дней |
+**Назначение:** Информация о заказах с данными о складе отгрузки
 
-### Параметры запроса
+**Параметры:**
 
 | Параметр | Тип | Обязательный | Описание |
 |----------|-----|:------------:|----------|
-| `dateFrom` | string | ✅ | Дата изменения (RFC3339) |
-| `flag` | int | ❌ | 0 = инкрементально, 1 = за конкретную дату |
+| dateFrom | string | ✅ | Начальная дата (RFC3339) |
+| flag | integer | ❌ | 0 — все, 1 — только изменения |
 
-### Структура ответа
+**Rate Limit:** 1 запрос/минуту
+
+**Максимум записей:** 80 000
+
+**Хранение данных:** 90 дней
+
+**Пример ответа:**
 
 ```json
 [
   {
-    "date": "2026-01-31T14:30:00",
-    "lastChangeDate": "2026-01-31T15:00:00",
+    "date": "2026-01-30T10:15:00",
+    "lastChangeDate": "2026-01-30T14:30:00",
     "warehouseName": "Коледино",
     "warehouseType": "Склад WB",
     "countryName": "Россия",
     "oblastOkrugName": "Центральный федеральный округ",
-    "regionName": "Московская",
+    "regionName": "Московская область",
     "supplierArticle": "OM-12345",
-    "nmId": 12345678,
+    "nmId": 123456789,
     "barcode": "2000000000001",
-    "category": "Одежда",
-    "subject": "Платья",
+    "category": "Платья",
+    "subject": "Платье летнее",
     "brand": "Охана Маркет",
     "techSize": "44",
-    "incomeID": 56735459,
-    "isSupply": false,
-    "isRealization": true,
-    "totalPrice": 3500,
+    "incomeID": 12345678,
+    "isSupply": true,
+    "isRealization": false,
+    "totalPrice": 2500,
     "discountPercent": 15,
-    "spp": 20,
-    "finishedPrice": 2380,
-    "priceWithDisc": 2975,
+    "spp": 10,
+    "finishedPrice": 1912,
+    "priceWithDisc": 2125,
     "isCancel": false,
     "cancelDate": null,
-    "sticker": "926912515",
-    "gNumber": "34343462218572569531",
-    "srid": "11.rf9ef11fce1684117b0nhj96222982382.3.0"
+    "orderType": "Клиентский",
+    "sticker": "AB123456",
+    "gNumber": "G123456789",
+    "srid": "abc123def456"
   }
 ]
 ```
 
-### Ключевые поля для логистики
+**Ключевые поля для логистики:**
 
-| Поле | Назначение | Использование |
-|------|------------|---------------|
-| `warehouseName` | Склад отгрузки | Определение источника |
-| `warehouseType` | Тип склада | FBW vs FBS |
-| `regionName` | Регион покупателя | Определение кросс-докинга |
-| `oblastOkrugName` | Федеральный округ | Группировка по округам |
-| `srid` | Уникальный ID заказа | Дедупликация |
-| `isCancel` | Отменён ли заказ | Фильтрация |
-
-### Реализация адаптера
-
-```python
-@dataclass
-class Order:
-    """Заказ с информацией для логистики."""
-    srid: str
-    order_date: datetime
-    sku: str
-    nm_id: int
-    barcode: str
-    size: str
-    warehouse_name: str
-    warehouse_type: str
-    region_name: str
-    oblast_okrug_name: str
-    country_name: str
-    total_price: float
-    price_with_disc: float
-    is_cancel: bool
-    updated_at: datetime
-
-
-class WBOrdersAdapter:
-    """Адаптер для получения заказов с WB API."""
-    
-    BASE_URL = "https://statistics-api.wildberries.ru"
-    ENDPOINT = "/api/v1/supplier/orders"
-    
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.headers = {"Authorization": api_key}
-    
-    async def fetch_orders(
-        self, 
-        date_from: datetime,
-        flag: int = 0
-    ) -> list[Order]:
-        """
-        Получение заказов.
-        
-        flag=0: инкрементальная загрузка (по lastChangeDate)
-        flag=1: все заказы за конкретную дату
-        """
-        all_orders = []
-        current_date = date_from.isoformat()
-        
-        async with aiohttp.ClientSession() as session:
-            while True:
-                batch = await self._fetch_batch(session, current_date, flag)
-                
-                if not batch:
-                    break
-                
-                all_orders.extend(batch)
-                
-                if len(batch) < 80000:
-                    break
-                
-                current_date = batch[-1]["lastChangeDate"]
-        
-        return [self._map_order(o) for o in all_orders]
-    
-    async def _fetch_batch(
-        self,
-        session: aiohttp.ClientSession,
-        date_from: str,
-        flag: int
-    ) -> list[dict]:
-        """Получение пакета заказов."""
-        url = f"{self.BASE_URL}{self.ENDPOINT}"
-        params = {"dateFrom": date_from}
-        if flag:
-            params["flag"] = flag
-        
-        async with session.get(url, params=params, headers=self.headers) as resp:
-            if resp.status == 429:
-                raise RateLimitError("Orders API rate limit exceeded")
-            if resp.status != 200:
-                raise WBAPIError(f"Orders API error: {resp.status}")
-            
-            return await resp.json()
-    
-    def _map_order(self, raw: dict) -> Order:
-        """Маппинг сырых данных в модель."""
-        return Order(
-            srid=raw.get("srid", ""),
-            order_date=datetime.fromisoformat(
-                raw.get("date", "").replace("Z", "+00:00")
-            ) if raw.get("date") else datetime.now(),
-            sku=raw.get("supplierArticle", ""),
-            nm_id=raw.get("nmId", 0),
-            barcode=raw.get("barcode", ""),
-            size=raw.get("techSize", ""),
-            warehouse_name=raw.get("warehouseName", ""),
-            warehouse_type=raw.get("warehouseType", ""),
-            region_name=raw.get("regionName", ""),
-            oblast_okrug_name=raw.get("oblastOkrugName", ""),
-            country_name=raw.get("countryName", ""),
-            total_price=float(raw.get("totalPrice", 0)),
-            price_with_disc=float(raw.get("priceWithDisc", 0)),
-            is_cancel=raw.get("isCancel", False),
-            updated_at=datetime.fromisoformat(
-                raw.get("lastChangeDate", "").replace("Z", "+00:00")
-            ) if raw.get("lastChangeDate") else datetime.now()
-        )
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| srid | string | Уникальный ID заказа |
+| warehouseName | string | Склад отгрузки |
+| warehouseType | string | "Склад WB" / "Склад продавца" |
+| regionName | string | Регион покупателя |
+| oblastOkrugName | string | Федеральный округ |
+| supplierArticle | string | Артикул продавца |
+| nmId | integer | Номенклатура WB |
+| techSize | string | Размер |
+| isCancel | boolean | Отмена заказа |
 
 ---
 
-## 2.4 Endpoint: Продажи
+### 2.3.3 Продажи (Sales)
 
-### Спецификация
+**Endpoint:** `GET /api/v1/supplier/sales`
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://statistics-api.wildberries.ru/api/v1/supplier/sales` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` |
-| Rate Limit | 1 запрос/минуту |
-| Хранение данных | 90 дней |
+**Назначение:** Данные о продажах для аналитики спроса
 
-### Структура ответа
+**Параметры:**
+
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|:------------:|----------|
+| dateFrom | string | ✅ | Начальная дата (RFC3339) |
+| flag | integer | ❌ | 0 — все, 1 — только изменения |
+
+**Rate Limit:** 1 запрос/минуту
+
+**Максимум записей:** 80 000
+
+**Пример ответа:**
 
 ```json
 [
   {
-    "date": "2026-01-31T16:00:00",
-    "lastChangeDate": "2026-01-31T16:30:00",
+    "date": "2026-01-30T12:00:00",
+    "lastChangeDate": "2026-01-30T12:05:00",
     "warehouseName": "Коледино",
-    "warehouseType": "Склад WB",
     "countryName": "Россия",
     "oblastOkrugName": "Центральный федеральный округ",
-    "regionName": "Московская",
+    "regionName": "Москва",
     "supplierArticle": "OM-12345",
-    "nmId": 12345678,
+    "nmId": 123456789,
     "barcode": "2000000000001",
-    "category": "Одежда",
-    "subject": "Платья",
+    "category": "Платья",
+    "subject": "Платье летнее",
     "brand": "Охана Маркет",
     "techSize": "44",
-    "totalPrice": 3500,
+    "totalPrice": 2500,
     "discountPercent": 15,
-    "spp": 20,
-    "paymentSaleAmount": 93,
-    "forPay": 2428.87,
-    "finishedPrice": 2380,
-    "priceWithDisc": 2975,
-    "saleID": "S9993700024",
-    "sticker": "926912515",
-    "gNumber": "34343462218572569531",
-    "srid": "11.rf9ef11fce1684117b0nhj96222982382.3.0"
+    "isSupply": true,
+    "isRealization": false,
+    "promoCodeDiscount": 0,
+    "spp": 10,
+    "forPay": 1720,
+    "finishedPrice": 1912,
+    "priceWithDisc": 2125,
+    "saleID": "S123456789",
+    "orderType": "Клиентский",
+    "sticker": "AB123456",
+    "gNumber": "G123456789",
+    "srid": "abc123def456"
   }
 ]
 ```
 
-### Использование в Logistic
-
-Продажи используются для:
-- Построения истории спроса по регионам
-- Расчёта скорости продаж (velocity)
-- Прогнозирования будущего спроса
-
 ---
 
-## 2.5 Endpoint: Тарифы на логистику
+### 2.3.4 Тарифы логистики (Tariffs)
 
-### Спецификация
+**Endpoint:** `GET /api/v1/tariffs/box`
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://common-api.wildberries.ru/api/v1/tariffs/box` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` (любой токен) |
-| Rate Limit | 60 запросов/минуту |
+**Base URL:** `https://common-api.wildberries.ru`
 
-### Параметры запроса
+**Назначение:** Тарифы доставки по складам
+
+**Rate Limit:** 60 запросов/минуту
+
+**Параметры:**
 
 | Параметр | Тип | Обязательный | Описание |
 |----------|-----|:------------:|----------|
-| `date` | string | ❌ | Дата тарифов (по умолчанию: сегодня) |
+| date | string | ❌ | Дата тарифа (YYYY-MM-DD) |
 
-### Структура ответа
+**Пример ответа:**
 
 ```json
 {
   "response": {
     "data": {
       "dtNextBox": "2026-02-01",
-      "dtTillMax": "2026-02-28",
+      "dtTillMax": "2026-01-31",
       "warehouseList": [
         {
           "warehouseName": "Коледино",
-          "boxDeliveryAndStorageExpr": "100",
+          "boxDeliveryAndStorageExpr": "150",
           "boxDeliveryBase": "50",
           "boxDeliveryLiter": "5",
           "boxStorageBase": "0.5",
@@ -476,7 +300,7 @@ class WBOrdersAdapter:
         },
         {
           "warehouseName": "Краснодар",
-          "boxDeliveryAndStorageExpr": "120",
+          "boxDeliveryAndStorageExpr": "180",
           "boxDeliveryBase": "60",
           "boxDeliveryLiter": "6",
           "boxStorageBase": "0.6",
@@ -488,540 +312,785 @@ class WBOrdersAdapter:
 }
 ```
 
-### Маппинг полей
+**Ключевые поля:**
 
-| Поле WB API | Описание | Использование |
-|-------------|----------|---------------|
-| `warehouseName` | Название склада | Идентификация |
-| `boxDeliveryBase` | Базовая стоимость доставки (₽) | Расчёт издержек |
-| `boxDeliveryLiter` | Стоимость за доп. литр (₽) | Расчёт издержек |
-| `boxStorageBase` | Базовая стоимость хранения | Аналитика v2.0 |
-| `boxStorageLiter` | Хранение за доп. литр | Аналитика v2.0 |
-
-### Реализация адаптера
-
-```python
-@dataclass
-class WarehouseTariff:
-    """Тарифы склада."""
-    warehouse_name: str
-    delivery_base: float
-    delivery_per_liter: float
-    storage_base: float
-    storage_per_liter: float
-
-
-class WBTariffAdapter:
-    """Адаптер для получения тарифов."""
-    
-    BASE_URL = "https://common-api.wildberries.ru"
-    ENDPOINT = "/api/v1/tariffs/box"
-    
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.headers = {"Authorization": api_key}
-    
-    async def fetch_tariffs(self, date: Optional[str] = None) -> list[WarehouseTariff]:
-        """Получение тарифов по всем складам."""
-        async with aiohttp.ClientSession() as session:
-            url = f"{self.BASE_URL}{self.ENDPOINT}"
-            params = {}
-            if date:
-                params["date"] = date
-            
-            async with session.get(url, params=params, headers=self.headers) as resp:
-                if resp.status != 200:
-                    raise WBAPIError(f"Tariffs API error: {resp.status}")
-                
-                data = await resp.json()
-                warehouse_list = data.get("response", {}).get("data", {}).get("warehouseList", [])
-                
-                return [self._map_tariff(t) for t in warehouse_list]
-    
-    def _map_tariff(self, raw: dict) -> WarehouseTariff:
-        """Маппинг тарифа."""
-        return WarehouseTariff(
-            warehouse_name=raw.get("warehouseName", ""),
-            delivery_base=float(raw.get("boxDeliveryBase", 0) or 0),
-            delivery_per_liter=float(raw.get("boxDeliveryLiter", 0) or 0),
-            storage_base=float(raw.get("boxStorageBase", 0) or 0),
-            storage_per_liter=float(raw.get("boxStorageLiter", 0) or 0)
-        )
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| warehouseName | string | Название склада |
+| boxDeliveryBase | string | Базовая стоимость доставки (₽) |
+| boxDeliveryLiter | string | Стоимость за доп. литр (₽) |
+| boxStorageBase | string | Базовая стоимость хранения (₽/день) |
+| boxStorageLiter | string | Хранение за доп. литр (₽/день) |
 
 ---
 
-## 2.6 Endpoint: Коэффициенты приёмки
+### 2.3.5 Коэффициенты приёмки
 
-### Спецификация
+**Endpoint:** `GET /api/v1/acceptance/coefficients`
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://common-api.wildberries.ru/api/tariffs/v1/acceptance/coefficients` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` (любой токен) |
-| Rate Limit | 6 запросов/минуту |
+**Base URL:** `https://supplies-api.wildberries.ru`
 
-### Структура ответа
+**Назначение:** Коэффициенты приёмки товаров на склады
+
+**Параметры:**
+
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|:------------:|----------|
+| warehouseIDs | array | ❌ | Фильтр по ID складов |
+
+**Пример ответа:**
 
 ```json
 [
   {
-    "date": "2026-02-01T00:00:00Z",
+    "date": "2026-02-01",
     "coefficient": 0,
     "warehouseID": 507,
     "warehouseName": "Коледино",
     "allowUnload": true,
-    "boxTypeID": 5,
     "storageCoef": 1.0,
-    "deliveryCoef": 1.0,
-    "isSortingCenter": false
+    "boxTypeName": "Короба",
+    "boxTypeID": 2
   },
   {
-    "date": "2026-02-01T00:00:00Z",
+    "date": "2026-02-01",
     "coefficient": 1.5,
-    "warehouseID": 1234,
+    "warehouseID": 117501,
     "warehouseName": "Краснодар",
     "allowUnload": true,
-    "boxTypeID": 5,
     "storageCoef": 1.2,
-    "deliveryCoef": 1.3,
-    "isSortingCenter": false
+    "boxTypeName": "Короба",
+    "boxTypeID": 2
   }
 ]
 ```
 
-### Важные поля
+**Ключевые поля:**
 
-| Поле | Описание | Значения |
-|------|----------|----------|
-| `coefficient` | Коэффициент платной приёмки | 0 = бесплатно, 1+ = платно |
-| `allowUnload` | Разрешена ли выгрузка | true/false |
-| `storageCoef` | Коэффициент хранения | Множитель к тарифу |
-| `deliveryCoef` | Коэффициент логистики | Множитель к тарифу |
-
-### Использование в рекомендациях
-
-```python
-@dataclass
-class AcceptanceInfo:
-    """Информация о приёмке склада."""
-    warehouse_id: int
-    warehouse_name: str
-    date: datetime
-    coefficient: float
-    allow_unload: bool
-    storage_coef: float
-    delivery_coef: float
-
-
-def calculate_acceptance_cost(
-    quantity: int,
-    coefficient: float,
-    base_rate: float = 50.0  # базовая ставка за единицу
-) -> float:
-    """
-    Расчёт стоимости приёмки.
-    
-    coefficient = 0: бесплатно
-    coefficient = 1: базовая ставка
-    coefficient > 1: базовая ставка * coefficient
-    """
-    if coefficient <= 0:
-        return 0.0
-    return quantity * base_rate * coefficient
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| warehouseID | integer | ID склада |
+| warehouseName | string | Название склада |
+| coefficient | float | Коэффициент приёмки (0 = бесплатно) |
+| allowUnload | boolean | Приёмка разрешена |
+| storageCoef | float | Коэффициент хранения |
 
 ---
 
-## 2.7 Endpoint: Список складов
+### 2.3.6 Список складов WB
 
-### Спецификация
+**Endpoint:** `GET /api/v1/warehouses`
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://supplies-api.wildberries.ru/api/v1/warehouses` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` (Supplies token) |
-| Rate Limit | 6 запросов/минуту |
+**Base URL:** `https://supplies-api.wildberries.ru`
 
-### Структура ответа
+**Назначение:** Справочник складов Wildberries
+
+**Пример ответа:**
 
 ```json
 [
   {
     "ID": 507,
     "name": "Коледино",
-    "address": "Московская область, г.о. Подольск, д. Коледино",
-    "workTime": "24/7",
-    "isActive": true,
-    "isTransitActive": false
-  },
-  {
-    "ID": 1234,
-    "name": "Краснодар",
-    "address": "Краснодарский край, г. Краснодар",
-    "workTime": "24/7",
-    "isActive": true,
-    "isTransitActive": true
+    "city": "Подольск",
+    "address": "Московская обл., г. Подольск",
+    "longitude": 37.5,
+    "latitude": 55.4,
+    "cargoType": 1,
+    "deliveryType": 1,
+    "selected": true
   }
 ]
 ```
 
 ---
 
-## 2.8 Endpoint: Продажи по регионам
+## 2.4 Архитектура адаптера
 
-### Спецификация
+### Диаграмма компонентов
 
-| Параметр | Значение |
-|----------|----------|
-| URL | `https://seller-analytics-api.wildberries.ru/api/v1/analytics/region-sale` |
-| Method | GET |
-| Auth | Header `Authorization: {API_KEY}` (Analytics token) |
-| Rate Limit | 1 запрос/10 секунд |
-| Период | До 31 дня |
-
-### Параметры запроса
-
-| Параметр | Тип | Обязательный | Описание |
-|----------|-----|:------------:|----------|
-| `dateFrom` | string | ✅ | Начало периода (YYYY-MM-DD) |
-| `dateTo` | string | ✅ | Конец периода (YYYY-MM-DD) |
-
-### Структура ответа
-
-```json
-{
-  "report": [
-    {
-      "cityName": "Москва",
-      "countryName": "Россия",
-      "foName": "Центральный федеральный округ",
-      "nmID": 12345678,
-      "regionName": "Московская область",
-      "sa": "OM-12345",
-      "saleInvoiceCostPrice": 2975.00,
-      "saleInvoiceCostPricePerc": 45.5,
-      "saleItemInvoiceQty": 150
-    }
-  ]
-}
+```mermaid
+graph TB
+    subgraph ADAPTER["WB API Adapter"]
+        CLIENT["HTTP Client<br/>(httpx)"]
+        AUTH["Auth Manager"]
+        RATE["Rate Limiter"]
+        RETRY["Retry Handler"]
+        PARSE["Response Parser"]
+    end
+    
+    subgraph ENDPOINTS["Endpoint Handlers"]
+        STOCKS["StocksAPI"]
+        ORDERS["OrdersAPI"]
+        SALES["SalesAPI"]
+        TARIFFS["TariffsAPI"]
+        SUPPLIES["SuppliesAPI"]
+    end
+    
+    subgraph EXTERNAL["Wildberries"]
+        WB_STAT["Statistics API"]
+        WB_COMMON["Common API"]
+        WB_SUPPLY["Supplies API"]
+    end
+    
+    CLIENT --> AUTH --> RATE --> RETRY
+    RETRY --> WB_STAT & WB_COMMON & WB_SUPPLY
+    
+    STOCKS & ORDERS & SALES --> CLIENT
+    TARIFFS --> CLIENT
+    SUPPLIES --> CLIENT
+    
+    WB_STAT --> PARSE
+    WB_COMMON --> PARSE
+    WB_SUPPLY --> PARSE
 ```
 
-### Использование
+### Структура модуля
 
-Данные используются для:
-- Определения топ-регионов по продажам
-- Построения матрицы спроса регион → SKU
-- Оптимизации распределения поставок
+```
+logistic/
+└── adapters/
+    └── wildberries/
+        ├── __init__.py
+        ├── client.py          # HTTP клиент с rate limiting
+        ├── auth.py            # Управление API ключами
+        ├── endpoints/
+        │   ├── __init__.py
+        │   ├── stocks.py      # /supplier/stocks
+        │   ├── orders.py      # /supplier/orders
+        │   ├── sales.py       # /supplier/sales
+        │   ├── tariffs.py     # /tariffs/box
+        │   └── supplies.py    # /acceptance/coefficients, /warehouses
+        ├── models/
+        │   ├── __init__.py
+        │   ├── stock.py       # Pydantic модели остатков
+        │   ├── order.py       # Модели заказов
+        │   ├── sale.py        # Модели продаж
+        │   ├── tariff.py      # Модели тарифов
+        │   └── warehouse.py   # Модели складов
+        └── exceptions.py      # Кастомные исключения
+```
 
 ---
 
-## 2.9 Rate Limiter
+## 2.5 Rate Limiting
 
-### Конфигурация лимитов
+### Лимиты по endpoints
 
-```python
-from dataclasses import dataclass
-from enum import Enum
-
-class WBEndpoint(Enum):
-    STOCKS = "stocks"
-    ORDERS = "orders"
-    SALES = "sales"
-    TARIFFS = "tariffs"
-    ACCEPTANCE = "acceptance"
-    WAREHOUSES = "warehouses"
-    REGION_SALES = "region_sales"
-
-
-@dataclass
-class RateLimitConfig:
-    """Конфигурация лимитов для endpoint."""
-    requests_per_minute: int
-    min_interval_seconds: float
-
-
-RATE_LIMITS: dict[WBEndpoint, RateLimitConfig] = {
-    WBEndpoint.STOCKS: RateLimitConfig(1, 60),
-    WBEndpoint.ORDERS: RateLimitConfig(1, 60),
-    WBEndpoint.SALES: RateLimitConfig(1, 60),
-    WBEndpoint.TARIFFS: RateLimitConfig(60, 1),
-    WBEndpoint.ACCEPTANCE: RateLimitConfig(6, 10),
-    WBEndpoint.WAREHOUSES: RateLimitConfig(6, 10),
-    WBEndpoint.REGION_SALES: RateLimitConfig(6, 10),
-}
-```
+| Endpoint | Rate Limit | Стратегия |
+|----------|------------|-----------|
+| /supplier/stocks | 1/мин | Кэширование 30 мин |
+| /supplier/orders | 1/мин | Инкрементальная загрузка |
+| /supplier/sales | 1/мин | Ежедневная синхронизация |
+| /tariffs/box | 60/мин | Кэширование 1 неделя |
+| /acceptance/coefficients | 10/мин | Кэширование 1 день |
+| /warehouses | 10/мин | Кэширование 1 неделя |
 
 ### Реализация Rate Limiter
 
 ```python
+# adapters/wildberries/client.py
 import asyncio
-from datetime import datetime
-import redis.asyncio as redis
+from datetime import datetime, timedelta
+from collections import defaultdict
 
-class WBRateLimiter:
-    """Rate limiter для WB API на базе Redis."""
+class RateLimiter:
+    """Rate limiter для WB API"""
     
-    def __init__(self, redis_client: redis.Redis):
-        self.redis = redis_client
-        self.key_prefix = "logistic:ratelimit"
+    def __init__(self):
+        self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._last_request: dict[str, datetime] = {}
+        
+        # Лимиты: endpoint -> (requests, per_seconds)
+        self._limits = {
+            "/supplier/stocks": (1, 60),
+            "/supplier/orders": (1, 60),
+            "/supplier/sales": (1, 60),
+            "/tariffs/box": (60, 60),
+            "/acceptance/coefficients": (10, 60),
+            "/warehouses": (10, 60),
+        }
     
-    async def acquire(self, endpoint: WBEndpoint) -> bool:
-        """
-        Попытка получить разрешение на запрос.
-        
-        Returns:
-            True если можно выполнить запрос
-            False если нужно подождать
-        """
-        config = RATE_LIMITS[endpoint]
-        key = f"{self.key_prefix}:{endpoint.value}"
-        
-        now = datetime.now().timestamp()
-        window_start = now - 60  # окно 1 минута
-        
-        # Удаляем устаревшие записи
-        await self.redis.zremrangebyscore(key, 0, window_start)
-        
-        # Считаем текущее количество запросов
-        current_count = await self.redis.zcard(key)
-        
-        if current_count >= config.requests_per_minute:
-            return False
-        
-        # Добавляем новый запрос
-        await self.redis.zadd(key, {str(now): now})
-        await self.redis.expire(key, 120)  # TTL 2 минуты
-        
-        return True
-    
-    async def wait_and_acquire(self, endpoint: WBEndpoint) -> None:
-        """Ожидание и получение разрешения."""
-        config = RATE_LIMITS[endpoint]
-        
-        while not await self.acquire(endpoint):
-            await asyncio.sleep(config.min_interval_seconds)
+    async def acquire(self, endpoint: str) -> None:
+        """Ожидание до возможности выполнить запрос"""
+        async with self._locks[endpoint]:
+            limit = self._limits.get(endpoint, (60, 60))
+            requests_per_period, period_seconds = limit
+            
+            min_interval = period_seconds / requests_per_period
+            
+            if endpoint in self._last_request:
+                elapsed = (datetime.now() - self._last_request[endpoint]).total_seconds()
+                if elapsed < min_interval:
+                    await asyncio.sleep(min_interval - elapsed)
+            
+            self._last_request[endpoint] = datetime.now()
 ```
 
 ---
 
-## 2.10 Unified WB Adapter
+## 2.6 Обработка ошибок
 
-### Объединённый адаптер
+### Коды ошибок WB API
+
+| HTTP Code | Описание | Действие |
+|-----------|----------|----------|
+| 200 | Успех | Обработать ответ |
+| 400 | Неверный запрос | Логировать, не повторять |
+| 401 | Не авторизован | Проверить API ключ |
+| 429 | Too Many Requests | Ждать и повторить |
+| 500 | Ошибка сервера | Retry с backoff |
+| 503 | Сервис недоступен | Retry с backoff |
+
+### Retry стратегия
 
 ```python
-class WBLogisticAdapter:
-    """
-    Единый адаптер для всех WB API endpoints.
+# adapters/wildberries/client.py
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+class WBAPIClient:
+    """HTTP клиент для Wildberries API"""
     
-    Инкапсулирует:
-    - Rate limiting
-    - Retry logic
-    - Error handling
-    - Caching
-    """
-    
-    def __init__(
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=60),
+        retry=retry_if_exception_type((httpx.TimeoutException, WBServerError))
+    )
+    async def _request(
         self,
-        api_key: str,
-        redis_client: redis.Redis,
-        cache_ttl: dict[str, int] = None
-    ):
-        self.api_key = api_key
-        self.rate_limiter = WBRateLimiter(redis_client)
-        self.redis = redis_client
-        self.cache_ttl = cache_ttl or {
-            "stocks": 1500,      # 25 min
-            "tariffs": 86400,    # 24 hours
-            "warehouses": 604800 # 7 days
-        }
-        
-        # Sub-adapters
-        self._stocks = WBStocksAdapter(api_key)
-        self._orders = WBOrdersAdapter(api_key)
-        self._tariffs = WBTariffAdapter(api_key)
+        method: str,
+        url: str,
+        **kwargs
+    ) -> dict:
+        """Выполнение HTTP запроса с retry"""
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.request(method, url, **kwargs)
+            
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 60))
+                raise WBRateLimitError(retry_after=retry_after)
+            
+            if response.status_code >= 500:
+                raise WBServerError(status_code=response.status_code)
+            
+            response.raise_for_status()
+            return response.json()
+```
+
+### Кастомные исключения
+
+```python
+# adapters/wildberries/exceptions.py
+
+class WBAPIError(Exception):
+    """Базовое исключение WB API"""
+    pass
+
+class WBAuthError(WBAPIError):
+    """Ошибка авторизации"""
+    pass
+
+class WBRateLimitError(WBAPIError):
+    """Превышен лимит запросов"""
+    def __init__(self, retry_after: int = 60):
+        self.retry_after = retry_after
+        super().__init__(f"Rate limit exceeded. Retry after {retry_after}s")
+
+class WBServerError(WBAPIError):
+    """Ошибка сервера WB"""
+    def __init__(self, status_code: int):
+        self.status_code = status_code
+        super().__init__(f"WB server error: {status_code}")
+
+class WBDataError(WBAPIError):
+    """Ошибка в данных ответа"""
+    pass
+```
+
+---
+
+## 2.7 Кэширование
+
+### Стратегия кэширования
+
+```mermaid
+graph LR
+    subgraph REQUEST["Запрос"]
+        REQ["API Request"]
+    end
     
-    async def get_stocks(self, use_cache: bool = True) -> list[Stock]:
-        """Получение остатков с кэшированием."""
-        cache_key = "logistic:cache:stocks"
-        
+    subgraph CACHE["Redis Cache"]
+        CHECK{"В кэше?"}
+        HIT["Cache Hit"]
+        MISS["Cache Miss"]
+    end
+    
+    subgraph API["WB API"]
+        FETCH["Fetch Data"]
+        SAVE["Save to Cache"]
+    end
+    
+    subgraph RESPONSE["Ответ"]
+        RESP["Response"]
+    end
+    
+    REQ --> CHECK
+    CHECK -->|Да| HIT --> RESP
+    CHECK -->|Нет| MISS --> FETCH --> SAVE --> RESP
+```
+
+### TTL по типам данных
+
+| Данные | TTL | Обоснование |
+|--------|-----|-------------|
+| Остатки (stocks) | 30 мин | Частые изменения |
+| Заказы (orders) | 30 мин | Новые заказы |
+| Продажи (sales) | 24 часа | Ежедневный отчёт |
+| Тарифы (tariffs) | 7 дней | Редкие изменения |
+| Коэффициенты приёмки | 24 часа | Ежедневные изменения |
+| Список складов | 7 дней | Стабильный справочник |
+
+### Реализация кэша
+
+```python
+# adapters/wildberries/cache.py
+import json
+from datetime import timedelta
+from redis.asyncio import Redis
+
+class WBCache:
+    """Кэш для данных WB API"""
+    
+    TTL = {
+        "stocks": timedelta(minutes=30),
+        "orders": timedelta(minutes=30),
+        "sales": timedelta(hours=24),
+        "tariffs": timedelta(days=7),
+        "coefficients": timedelta(hours=24),
+        "warehouses": timedelta(days=7),
+    }
+    
+    def __init__(self, redis: Redis):
+        self._redis = redis
+        self._prefix = "logistic:wb:"
+    
+    async def get(self, data_type: str, key: str = "default") -> dict | None:
+        """Получить данные из кэша"""
+        cache_key = f"{self._prefix}{data_type}:{key}"
+        data = await self._redis.get(cache_key)
+        return json.loads(data) if data else None
+    
+    async def set(self, data_type: str, data: dict, key: str = "default") -> None:
+        """Сохранить данные в кэш"""
+        cache_key = f"{self._prefix}{data_type}:{key}"
+        ttl = self.TTL.get(data_type, timedelta(hours=1))
+        await self._redis.setex(cache_key, ttl, json.dumps(data))
+    
+    async def invalidate(self, data_type: str, key: str = "*") -> None:
+        """Инвалидировать кэш"""
+        pattern = f"{self._prefix}{data_type}:{key}"
+        keys = await self._redis.keys(pattern)
+        if keys:
+            await self._redis.delete(*keys)
+```
+
+---
+
+## 2.8 Pydantic модели
+
+### Модель остатков
+
+```python
+# adapters/wildberries/models/stock.py
+from datetime import datetime
+from pydantic import BaseModel, Field
+
+class WBStock(BaseModel):
+    """Остаток товара на складе WB"""
+    
+    last_change_date: datetime = Field(alias="lastChangeDate")
+    warehouse_name: str = Field(alias="warehouseName")
+    supplier_article: str = Field(alias="supplierArticle")
+    nm_id: int = Field(alias="nmId")
+    barcode: str
+    quantity: int
+    in_way_to_client: int = Field(alias="inWayToClient")
+    in_way_from_client: int = Field(alias="inWayFromClient")
+    quantity_full: int = Field(alias="quantityFull")
+    category: str
+    subject: str
+    brand: str
+    tech_size: str = Field(alias="techSize")
+    price: float = Field(alias="Price")
+    discount: int = Field(alias="Discount")
+    
+    class Config:
+        populate_by_name = True
+```
+
+### Модель заказа
+
+```python
+# adapters/wildberries/models/order.py
+from datetime import datetime
+from pydantic import BaseModel, Field
+
+class WBOrder(BaseModel):
+    """Заказ WB"""
+    
+    date: datetime
+    last_change_date: datetime = Field(alias="lastChangeDate")
+    warehouse_name: str = Field(alias="warehouseName")
+    warehouse_type: str = Field(alias="warehouseType")
+    country_name: str = Field(alias="countryName")
+    oblast_okrug_name: str = Field(alias="oblastOkrugName")
+    region_name: str = Field(alias="regionName")
+    supplier_article: str = Field(alias="supplierArticle")
+    nm_id: int = Field(alias="nmId")
+    barcode: str
+    category: str
+    subject: str
+    brand: str
+    tech_size: str = Field(alias="techSize")
+    total_price: float = Field(alias="totalPrice")
+    discount_percent: int = Field(alias="discountPercent")
+    spp: float
+    finished_price: float = Field(alias="finishedPrice")
+    price_with_disc: float = Field(alias="priceWithDisc")
+    is_cancel: bool = Field(alias="isCancel")
+    cancel_date: datetime | None = Field(alias="cancelDate", default=None)
+    order_type: str = Field(alias="orderType")
+    g_number: str = Field(alias="gNumber")
+    srid: str
+    
+    class Config:
+        populate_by_name = True
+```
+
+### Модель тарифа
+
+```python
+# adapters/wildberries/models/tariff.py
+from pydantic import BaseModel, Field
+
+class WBTariff(BaseModel):
+    """Тариф логистики склада WB"""
+    
+    warehouse_name: str = Field(alias="warehouseName")
+    box_delivery_base: float = Field(alias="boxDeliveryBase")
+    box_delivery_liter: float = Field(alias="boxDeliveryLiter")
+    box_storage_base: float = Field(alias="boxStorageBase")
+    box_storage_liter: float = Field(alias="boxStorageLiter")
+    
+    class Config:
+        populate_by_name = True
+    
+    def calculate_delivery_cost(self, volume_liters: float) -> float:
+        """Расчёт стоимости доставки"""
+        if volume_liters <= 1:
+            return self.box_delivery_base
+        return self.box_delivery_base + (volume_liters - 1) * self.box_delivery_liter
+```
+
+---
+
+## 2.9 Endpoint Handlers
+
+### StocksAPI
+
+```python
+# adapters/wildberries/endpoints/stocks.py
+from datetime import datetime
+from ..client import WBAPIClient
+from ..models.stock import WBStock
+from ..cache import WBCache
+
+class StocksAPI:
+    """API для работы с остатками"""
+    
+    ENDPOINT = "/api/v1/supplier/stocks"
+    
+    def __init__(self, client: WBAPIClient, cache: WBCache):
+        self._client = client
+        self._cache = cache
+    
+    async def get_all(self, use_cache: bool = True) -> list[WBStock]:
+        """Получить все остатки"""
         if use_cache:
-            cached = await self.redis.get(cache_key)
+            cached = await self._cache.get("stocks")
             if cached:
-                return self._deserialize_stocks(cached)
+                return [WBStock(**item) for item in cached]
         
-        await self.rate_limiter.wait_and_acquire(WBEndpoint.STOCKS)
-        stocks = await self._stocks.fetch_stocks()
+        # dateFrom — обязательный, но можно указать старую дату для получения всех
+        params = {"dateFrom": "2020-01-01T00:00:00Z"}
         
-        # Сохраняем в кэш
-        await self.redis.setex(
-            cache_key,
-            self.cache_ttl["stocks"],
-            self._serialize_stocks(stocks)
+        data = await self._client.get(
+            base_url="statistics",
+            endpoint=self.ENDPOINT,
+            params=params
         )
         
-        return stocks
+        await self._cache.set("stocks", data)
+        return [WBStock(**item) for item in data]
+    
+    async def get_by_warehouse(self, warehouse_name: str) -> list[WBStock]:
+        """Остатки по конкретному складу"""
+        all_stocks = await self.get_all()
+        return [s for s in all_stocks if s.warehouse_name == warehouse_name]
+    
+    async def get_by_article(self, supplier_article: str) -> list[WBStock]:
+        """Остатки по артикулу (все склады)"""
+        all_stocks = await self.get_all()
+        return [s for s in all_stocks if s.supplier_article == supplier_article]
+```
+
+### OrdersAPI
+
+```python
+# adapters/wildberries/endpoints/orders.py
+from datetime import datetime, timedelta
+from ..client import WBAPIClient
+from ..models.order import WBOrder
+
+class OrdersAPI:
+    """API для работы с заказами"""
+    
+    ENDPOINT = "/api/v1/supplier/orders"
+    
+    def __init__(self, client: WBAPIClient):
+        self._client = client
     
     async def get_orders(
         self,
         date_from: datetime,
         flag: int = 0
-    ) -> list[Order]:
-        """Получение заказов (без кэширования)."""
-        await self.rate_limiter.wait_and_acquire(WBEndpoint.ORDERS)
-        return await self._orders.fetch_orders(date_from, flag)
-    
-    async def get_tariffs(self, use_cache: bool = True) -> list[WarehouseTariff]:
-        """Получение тарифов с кэшированием."""
-        cache_key = "logistic:cache:tariffs"
+    ) -> list[WBOrder]:
+        """Получить заказы за период"""
+        params = {
+            "dateFrom": date_from.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "flag": flag
+        }
         
-        if use_cache:
-            cached = await self.redis.get(cache_key)
-            if cached:
-                return self._deserialize_tariffs(cached)
-        
-        await self.rate_limiter.wait_and_acquire(WBEndpoint.TARIFFS)
-        tariffs = await self._tariffs.fetch_tariffs()
-        
-        await self.redis.setex(
-            cache_key,
-            self.cache_ttl["tariffs"],
-            self._serialize_tariffs(tariffs)
+        data = await self._client.get(
+            base_url="statistics",
+            endpoint=self.ENDPOINT,
+            params=params
         )
         
-        return tariffs
+        return [WBOrder(**item) for item in data]
     
-    def _serialize_stocks(self, stocks: list[Stock]) -> str:
-        """Сериализация для кэша."""
-        import json
-        return json.dumps([asdict(s) for s in stocks], default=str)
-    
-    def _deserialize_stocks(self, data: str) -> list[Stock]:
-        """Десериализация из кэша."""
-        import json
-        raw_list = json.loads(data)
-        return [Stock(**item) for item in raw_list]
+    async def get_recent(self, days: int = 7) -> list[WBOrder]:
+        """Заказы за последние N дней"""
+        date_from = datetime.utcnow() - timedelta(days=days)
+        return await self.get_orders(date_from)
 ```
 
 ---
 
-## 2.11 Матрица склад-регион
+## 2.10 Синхронизация данных
 
-### Статическая матрица оптимальности
+### Стратегия синхронизации
+
+```mermaid
+sequenceDiagram
+    participant Celery
+    participant Adapter as WB Adapter
+    participant WB as Wildberries API
+    participant DB as PostgreSQL
+    participant Cache as Redis
+    
+    Note over Celery: Каждые 30 минут
+    Celery->>Adapter: sync_stocks()
+    Adapter->>Cache: get("stocks:last_sync")
+    Cache-->>Adapter: last_sync_time
+    
+    Adapter->>WB: GET /supplier/stocks
+    WB-->>Adapter: stocks_data[]
+    
+    Adapter->>DB: upsert stocks
+    Adapter->>Cache: set("stocks", data, TTL=30min)
+    Adapter->>Cache: set("stocks:last_sync", now)
+    
+    Adapter-->>Celery: SyncResult(count=N)
+```
+
+### Инкрементальная загрузка заказов
 
 ```python
-# Матрица: регион -> список оптимальных складов (в порядке приоритета)
-WAREHOUSE_REGION_MATRIX: dict[str, list[str]] = {
-    # Центральный федеральный округ
-    "Московская": ["Коледино", "Подольск", "Электросталь"],
-    "Москва": ["Коледино", "Подольск", "Электросталь"],
-    "Тульская": ["Коледино", "Тула"],
-    "Калужская": ["Коледино", "Калуга"],
-    "Владимирская": ["Коледино", "Электросталь"],
-    
-    # Северо-Западный федеральный округ
-    "Санкт-Петербург": ["Санкт-Петербург"],
-    "Ленинградская": ["Санкт-Петербург"],
-    
-    # Южный федеральный округ
-    "Краснодарский край": ["Краснодар"],
-    "Ростовская": ["Краснодар"],
-    
-    # Приволжский федеральный округ
-    "Татарстан": ["Казань"],
-    "Самарская": ["Казань"],
-    "Нижегородская": ["Казань", "Коледино"],
-    
-    # Уральский федеральный округ
-    "Свердловская": ["Екатеринбург"],
-    "Челябинская": ["Екатеринбург"],
-    
-    # Сибирский федеральный округ
-    "Новосибирская": ["Новосибирск"],
-    "Красноярский край": ["Новосибирск", "Красноярск"],
-    
-    # Дальневосточный федеральный округ
-    "Приморский край": ["Хабаровск"],
-    "Хабаровский край": ["Хабаровск"],
-}
+# services/sync.py
+from datetime import datetime, timedelta
 
-# Дефолтные склады по федеральным округам
-DEFAULT_WAREHOUSES_BY_OKRUG: dict[str, str] = {
-    "Центральный федеральный округ": "Коледино",
-    "Северо-Западный федеральный округ": "Санкт-Петербург",
-    "Южный федеральный округ": "Краснодар",
-    "Приволжский федеральный округ": "Казань",
-    "Уральский федеральный округ": "Екатеринбург",
-    "Сибирский федеральный округ": "Новосибирск",
-    "Дальневосточный федеральный округ": "Хабаровск",
-}
-
-
-def is_cross_dock(
-    warehouse_name: str,
-    region_name: str,
-    oblast_okrug_name: str
-) -> bool:
-    """
-    Определение, является ли отправка кросс-докингом.
+class WBSyncService:
+    """Сервис синхронизации данных WB"""
     
-    Returns:
-        True если товар отправлен с неоптимального склада
-    """
-    # Получаем оптимальные склады для региона
-    optimal_warehouses = WAREHOUSE_REGION_MATRIX.get(region_name, [])
-    
-    if not optimal_warehouses:
-        # Если регион не найден, используем дефолт по округу
-        default_warehouse = DEFAULT_WAREHOUSES_BY_OKRUG.get(oblast_okrug_name)
-        if default_warehouse:
-            optimal_warehouses = [default_warehouse]
-    
-    # Если склад отгрузки не в списке оптимальных — это кросс-докинг
-    return warehouse_name not in optimal_warehouses
+    async def sync_orders_incremental(self) -> int:
+        """Инкрементальная синхронизация заказов"""
+        # Получаем время последней синхронизации
+        last_sync = await self._get_last_sync("orders")
+        
+        if last_sync is None:
+            # Первая синхронизация — берём 90 дней (максимум WB)
+            date_from = datetime.utcnow() - timedelta(days=90)
+        else:
+            # Инкрементально — с последней синхронизации
+            date_from = last_sync - timedelta(hours=1)  # перекрытие для надёжности
+        
+        orders = await self._orders_api.get_orders(date_from, flag=0)
+        
+        # Upsert в БД
+        count = await self._repository.upsert_orders(orders)
+        
+        # Обновляем время синхронизации
+        await self._set_last_sync("orders", datetime.utcnow())
+        
+        return count
 ```
 
 ---
 
-## 2.12 Обработка ошибок API
+## 2.11 Мониторинг и логирование
 
-### Типы ошибок
+### Метрики
+
+| Метрика | Тип | Описание |
+|---------|-----|----------|
+| `wb_api_requests_total` | Counter | Всего запросов к WB API |
+| `wb_api_errors_total` | Counter | Ошибки по типам |
+| `wb_api_latency_seconds` | Histogram | Время ответа API |
+| `wb_api_rate_limit_hits` | Counter | Срабатывания rate limit |
+| `wb_sync_duration_seconds` | Histogram | Время синхронизации |
+| `wb_sync_records_count` | Gauge | Количество записей |
+
+### Структура логов
 
 ```python
-class WBAPIError(Exception):
-    """Базовая ошибка WB API."""
-    pass
+# Успешный запрос
+{
+    "level": "INFO",
+    "message": "WB API request completed",
+    "endpoint": "/supplier/stocks",
+    "status_code": 200,
+    "duration_ms": 1250,
+    "records_count": 1500,
+    "timestamp": "2026-01-30T14:30:00Z"
+}
 
-class RateLimitError(WBAPIError):
-    """Превышен лимит запросов (429)."""
-    pass
-
-class AuthenticationError(WBAPIError):
-    """Ошибка аутентификации (401)."""
-    pass
-
-class NotFoundError(WBAPIError):
-    """Ресурс не найден (404)."""
-    pass
-
-class ServerError(WBAPIError):
-    """Ошибка сервера WB (5xx)."""
-    pass
+# Ошибка
+{
+    "level": "ERROR",
+    "message": "WB API request failed",
+    "endpoint": "/supplier/orders",
+    "status_code": 429,
+    "error": "Rate limit exceeded",
+    "retry_after": 60,
+    "timestamp": "2026-01-30T14:31:00Z"
+}
 ```
 
-### Стратегия обработки
+---
 
-| Код | Ошибка | Действие |
-|-----|--------|----------|
-| 200 | OK | Обработка данных |
-| 400 | Bad Request | Логирование, прекращение |
-| 401 | Unauthorized | Алерт администратору |
-| 403 | Forbidden | Проверка прав токена |
-| 404 | Not Found | Логирование, пропуск |
-| 429 | Rate Limit | Ожидание, retry |
-| 500+ | Server Error | Retry с backoff |
+## 2.12 Тестирование
+
+### Mock-сервер для тестов
+
+```python
+# tests/mocks/wb_api.py
+from fastapi import FastAPI, Header, HTTPException
+from datetime import datetime
+
+mock_wb_app = FastAPI()
+
+MOCK_STOCKS = [
+    {
+        "lastChangeDate": "2026-01-30T14:25:00",
+        "warehouseName": "Коледино",
+        "supplierArticle": "OM-12345",
+        "nmId": 123456789,
+        "barcode": "2000000000001",
+        "quantity": 45,
+        "inWayToClient": 3,
+        "inWayFromClient": 1,
+        "quantityFull": 49,
+        "category": "Платья",
+        "subject": "Платье летнее",
+        "brand": "Охана Маркет",
+        "techSize": "44",
+        "Price": 2500,
+        "Discount": 15,
+        "isSupply": True,
+        "isRealization": False,
+        "SCCode": "SC123456"
+    }
+]
+
+@mock_wb_app.get("/api/v1/supplier/stocks")
+async def get_stocks(
+    dateFrom: str,
+    authorization: str = Header(...)
+):
+    if authorization != "test_api_key":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return MOCK_STOCKS
+```
+
+### Пример теста
+
+```python
+# tests/test_wb_adapter.py
+import pytest
+from httpx import AsyncClient
+from adapters.wildberries.endpoints.stocks import StocksAPI
+
+@pytest.mark.asyncio
+async def test_get_stocks():
+    """Тест получения остатков"""
+    async with AsyncClient(base_url="http://test") as client:
+        api = StocksAPI(client)
+        stocks = await api.get_all()
+        
+        assert len(stocks) > 0
+        assert stocks[0].warehouse_name == "Коледино"
+        assert stocks[0].quantity == 45
+```
+
+---
+
+## 2.13 Промпт для Claude Code
+
+Для реализации WB API адаптера:
+
+```
+Реализуй WB API адаптер для модуля Logistic согласно документации 
+adolf_logistic_2_wb_integration_v1_0.md
+
+Требования:
+1. Структура: logistic/adapters/wildberries/
+2. HTTP клиент на httpx с async/await
+3. Rate limiting согласно лимитам WB (1 req/min для stocks/orders/sales)
+4. Retry с exponential backoff (tenacity)
+5. Кэширование в Redis с TTL по типам данных
+6. Pydantic модели для всех ответов API
+7. Endpoint handlers: StocksAPI, OrdersAPI, SalesAPI, TariffsAPI, SuppliesAPI
+8. Логирование всех запросов и ошибок
+
+Endpoints:
+- Statistics API: stocks, orders, sales
+- Common API: tariffs/box
+- Supplies API: acceptance/coefficients, warehouses
+
+Тесты: pytest + mock-сервер FastAPI
+```
+
+---
+
+## 2.14 Ссылки
+
+| Ресурс | URL |
+|--------|-----|
+| WB API Документация | https://dev.wildberries.ru/openapi |
+| Statistics API | https://dev.wildberries.ru/openapi/statistics |
+| Supplies API | https://dev.wildberries.ru/openapi/supplies |
+| Common API | https://dev.wildberries.ru/openapi/common |
 
 ---
 
