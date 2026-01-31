@@ -1,46 +1,58 @@
 # ADOLF UI Reference
 
-> Visual Reference для Open WebUI Pipelines на базе **shadcn/ui**
+> Visual Reference для Open WebUI Pipelines на базе **shadcn/ui** + **Lucide Icons**
 
 ## Версия 3.0 (January 2026)
 
-Миграция на [shadcn/ui](https://ui.shadcn.com/) — современную дизайн-систему на базе Radix UI и Tailwind CSS.
+## Иконки модулей (Lucide)
+
+| Модуль | Иконка | Lucide | Цвет |
+|--------|--------|--------|------|
+| 📖 Knowledge | `book-open-check` | `BookOpenCheck` | Blue |
+| 🏭 Content Factory | `factory` | `Factory` | Purple |
+| 📈 CFO | `line-chart` | `LineChart` | Green |
+| 👍 Reputation | `thumbs-up` | `ThumbsUp` | Orange |
+| 💬 Новый чат | `message-square` | `MessageSquare` | — |
+
+```jsx
+import { BookOpenCheck, Factory, LineChart, ThumbsUp, MessageSquare } from 'lucide-react';
+```
+
+## Цвета модулей
+
+```
+██████  Knowledge        #3B82F6  Blue
+██████  Content Factory  #A855F7  Purple
+██████  CFO              #22C55E  Green
+██████  Reputation       #F97316  Orange
+██████  Watcher          #EF4444  Red
+██████  Marketing        #EC4899  Pink
+██████  Scout            #06B6D4  Cyan
+██████  Lex              #64748B  Slate
+```
+
+## Маркетплейсы
+
+```
+██████  Wildberries      #CB11AB
+██████  Ozon             #005BFF
+██████  Yandex Market    #FFCC00
+```
 
 ## Структура
 
 ```
 ui_reference/
 ├── base/
-│   ├── shadcn-variables.css   # CSS переменные shadcn/ui
+│   ├── shadcn-variables.css   # CSS переменные
 │   ├── shadcn-tokens.json     # Design tokens
-│   └── README.md              # Документация дизайн-системы
-├── content_factory/
-│   ├── content-factory.css    # Стили модуля
-│   └── index.html             # Демо-страница
-├── knowledge/
-│   ├── knowledge.css
-│   └── index.html
-├── cfo/
-│   ├── cfo.css
-│   └── index.html
-├── reputation/
-│   ├── reputation.css
-│   └── index.html
+│   └── README.md              # Документация + иконки
+├── content_factory/           # ✅ Ready
+├── knowledge/                 # ✅ Ready
+├── cfo/                       # ✅ Ready
+├── reputation/                # ✅ Ready
 └── README.md
 ```
-
-## Статус модулей
-
-| Модуль | Цвет | Статус |
-|--------|------|--------|
-| Content Factory | Purple | ✅ Ready |
-| Knowledge | Blue | ✅ Ready |
-| CFO | Green | ✅ Ready |
-| Reputation | Orange | ✅ Ready |
-| Watcher | Red | 📋 Planned |
-| Marketing | Pink | 📋 Planned |
-| Scout | Cyan | 📋 Planned |
-| Lex | Slate | 📋 Planned |
 
 ## Быстрый старт
 
@@ -48,92 +60,25 @@ ui_reference/
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <!-- shadcn/ui Variables -->
   <link rel="stylesheet" href="../base/shadcn-variables.css">
-  <!-- Module Styles -->
   <link rel="stylesheet" href="module.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
   <div class="adolf-module-name">
-    <!-- Контент модуля -->
+    <i data-lucide="book-open-check"></i>
   </div>
+  <script>lucide.createIcons();</script>
 </body>
 </html>
 ```
 
-## Цветовая схема модулей
-
-```css
-/* Content Factory */
-.adolf-content-factory {
-  --module-color: var(--module-content);
-}
-
-/* Knowledge */
-.adolf-knowledge {
-  --module-color: var(--module-knowledge);
-}
-
-/* CFO */
-.adolf-cfo {
-  --module-color: var(--module-cfo);
-}
-
-/* Reputation */
-.adolf-reputation {
-  --module-color: var(--module-reputation);
-}
-```
-
-## Ключевые переменные
-
-### Цвета
-- `--background` / `--foreground` — фон и текст
-- `--card` / `--card-foreground` — карточки
-- `--primary` / `--primary-foreground` — основной акцент
-- `--muted` / `--muted-foreground` — приглушённые элементы
-- `--destructive` — ошибки и удаление
-- `--border` — границы
-
-### Размеры
-- `--spacing-*` — отступы (1-16)
-- `--radius-*` — скругления (sm, md, lg)
-- `--control-*` — высота элементов (sm, md, lg)
-- `--text-*` — размеры текста (xs, sm, base, lg, xl)
-
-### Анимации
-- `--transition-fast` — 150ms
-- `--transition-normal` — 200ms
-- `--transition-slow` — 300ms
-
-## Компоненты
-
-### Общие элементы
-- `.adolf-btn` — кнопки (primary, secondary, danger, ghost)
-- `.adolf-*-badge` — бейджи статусов и маркетплейсов
-- `.adolf-*-card` — карточки контента
-
-### Маркетплейсы
-- `.wb` — Wildberries
-- `.ozon` — Ozon
-- `.ym` — Yandex Market
-
-## Dark Mode
-
-```html
-<html class="dark">
-```
-
-Все переменные автоматически переключаются на тёмные значения.
-
 ## Ресурсы
 
-- [shadcn/ui Documentation](https://ui.shadcn.com/)
-- [Theming Guide](https://ui.shadcn.com/docs/theming)
-- [Components](https://ui.shadcn.com/docs/components)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [Lucide Icons](https://lucide.dev/)
+- [Figma Kit](https://www.figma.com/community/file/1203061493325953101)
 
 ---
 
-**Design System**: shadcn/ui  
-**Version**: 3.0  
-**Updated**: January 2026
+**Design System**: shadcn/ui + Lucide | **Version**: 3.0
