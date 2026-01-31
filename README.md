@@ -6,7 +6,7 @@
 
 ```
 docs/
-├── ADOLF_OVERVIEW_v4_2.md           # Общий обзор платформы
+├── ADOLF_OVERVIEW_v4_3.md           # Общий обзор платформы
 ├── adolf_fastapi_reference_v1_0.md  # Справочник FastAPI
 │
 ├── core/                            # Базовая инфраструктура (9 файлов)
@@ -30,7 +30,6 @@ docs/
 ├── lex/                             # Правовой мониторинг (7 файлов)
 ├── shop/                            # Управление интернет-магазином (6 файлов)
 ├── office/                          # Визуальный дашборд агентов (8 файлов)
-├── logistic/                        # Управление логистикой (9 файлов)
 │
 └── ui_reference/                    # UI справочник и стили
     ├── base/                        # Базовые токены и стили
@@ -55,31 +54,8 @@ docs/
 | **Lex** | Мониторинг правовых изменений | v1.0 | 7 |
 | **Shop** | AI-управление интернет-магазином через WooCommerce MCP | v1.0 | 6 |
 | **Office** | Визуальный дашборд AI-агентов | v1.0 | 8 |
-| **Logistic** | Управление логистикой маркетплейсов, минимизация кросс-докинга | v1.0 | 9 ✅ |
 
 **Внешний репозиторий:** [Sign25/Office](https://github.com/Sign25/Office) — исходный код модуля Office
-
-## Модуль Logistic
-
-Модуль оптимизации распределения товаров по складам WB для минимизации логистических издержек.
-
-| Документ | Описание |
-|----------|----------|
-| `adolf_logistic_0_introduction_v1_0.md` | Введение, цели, scope |
-| `adolf_logistic_1_architecture_v1_0.md` | Архитектура и компоненты |
-| `adolf_logistic_2_wb_integration_v1_0.md` | API Wildberries |
-| `adolf_logistic_3_stock_monitor_v1_0.md` | Мониторинг остатков |
-| `adolf_logistic_4_order_analyzer_v1_0.md` | Анализ заказов |
-| `adolf_logistic_5_recommendation_engine_v1_0.md` | Рекомендации |
-| `adolf_logistic_6_database_v1_0.md` | Схема БД |
-| `adolf_logistic_7_open_webui_v1_0.md` | Интерфейс Open WebUI |
-| `adolf_logistic_8_celery_v1_0.md` | Фоновые задачи Celery |
-
-**Ключевые функции:**
-- Мониторинг остатков по складам WB в реальном времени
-- Выявление кросс-докинга и расчёт убытков
-- Алерты о критических остатках
-- Рекомендации по распределению поставок
 
 ## Компоненты Core
 
@@ -92,8 +68,40 @@ docs/
 | PWA & Auth | `adolf_core_1_4_open_webui_pwa_auth_v4_1.md` | PWA и аутентификация |
 | PostgreSQL | `adolf_core_2_5_postgresql_v4_1.md` | Схема базы данных |
 | Notifications | `adolf_core_2_6_notifications_v4_1.md` | Система уведомлений |
-| Launcher | `adolf_core_3_1_launcher_v1_0.md` | Система баннерного подменю |
+| **Launcher** | `adolf_core_3_1_launcher_v1_0.md` | Система баннерного подменю |
 | Roadmap | `adolf_core_roadmap.md` | Дорожная карта Core |
+
+## Launcher — Система баннерного подменю
+
+Launcher обеспечивает двухуровневую навигацию с визуальным выбором действий:
+
+```
+Sidebar (модуль) → Launcher Page (баннеры) → Result Page (результат)
+```
+
+**Ключевые особенности:**
+- Код запускается только после явного выбора действия
+- JSON-конфигурация баннеров для MVP
+- Контроль доступа на уровне модуля
+- Отдельная страница результата с навигацией назад
+
+Подробнее: [adolf_core_3_1_launcher_v1_0.md](core/adolf_core_3_1_launcher_v1_0.md)
+
+## Матрица доступа к модулям
+
+| Модуль | Staff | Manager | Senior | Director | Admin |
+|--------|:-----:|:-------:|:------:|:--------:|:-----:|
+| Knowledge (Public) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Knowledge (Manager) | ❌ | Бренд | Все | Все | Все |
+| Reputation | ❌ | Бренд | Все | Все | Все |
+| Watcher | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Content Factory | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Marketing | ❌ | Бренд | Все | Все | Все |
+| Scout | ❌ | ❌ | ✅ | ✅ | ✅ |
+| CFO | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Lex | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Shop | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Office | ❌ | ❌ | ❌ | Бренд | ✅ |
 
 ## Технологический стек
 
@@ -139,22 +147,6 @@ docs/
 | `content_factory/` | Демо-страница и стили Content Factory |
 | `knowledge/` | Демо-страница и стили Knowledge |
 | `reputation/` | Демо-страница и стили Reputation |
-
-## Launcher — Система баннерного подменю
-
-Launcher обеспечивает двухуровневую навигацию с визуальным выбором действий:
-
-```
-Sidebar (модуль) → Launcher Page (баннеры) → Result Page (результат)
-```
-
-**Ключевые особенности:**
-- Код запускается только после явного выбора действия
-- JSON-конфигурация баннеров для MVP
-- Контроль доступа на уровне модуля
-- Отдельная страница результата с навигацией назад
-
-Подробнее: [adolf_core_3_1_launcher_v1_0.md](core/adolf_core_3_1_launcher_v1_0.md)
 
 ---
 
