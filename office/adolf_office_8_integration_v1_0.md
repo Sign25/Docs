@@ -395,9 +395,9 @@ atexit.register(shutdown_handler)
 
 | Модуль | Агенты | Статус интеграции |
 |--------|--------|-------------------|
-| Watcher | watcher_price_monitor, watcher_night_agent, watcher_competitor_scan | ⏳ TODO |
-| Reputation | reputation_wb, reputation_ozon, reputation_ym | ⏳ TODO |
-| Content Factory | content_descriptions, content_seo | ⏳ TODO |
+| Watcher | watcher_price_monitor, watcher_night_agent, watcher_competitor_scan | ✅ v2.1 |
+| Reputation | reputation_wb, reputation_ozon, reputation_ym | ✅ v2.2 |
+| Content Factory | content_descriptions, content_seo | ✅ v1.1 |
 | Marketing | marketing_wb, marketing_ozon | ⏳ TODO |
 | Scout | scout_niche | ⏳ TODO |
 | CFO | cfo_report | ⏳ TODO |
