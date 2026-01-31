@@ -11,12 +11,12 @@ erDiagram
     office_agent_status {
         int id PK
         string agent_id UK
-        string parent_module
-        string display_name
+        string department
+        string name
         string brand
-        enum status
+        enum status "ok|warning|error|offline"
         timestamp last_activity
-        string current_task
+        string task
         jsonb metrics
         int salary_equivalent
         numeric fte_coefficient
@@ -27,9 +27,9 @@ erDiagram
     office_agent_status_history {
         int id PK
         string agent_id
-        string parent_module
+        string department
         enum status
-        string current_task
+        string task
         jsonb metrics
         timestamp recorded_at
     }
@@ -44,17 +44,17 @@ erDiagram
 Текущее состояние агентов. Одна запись на агента.
 
 ```sql
-CREATE TYPE agent_status_enum AS ENUM ('ok', 'warning', 'error');
+CREATE TYPE agent_status_enum AS ENUM ('ok', 'warning', 'error', 'offline');
 
 CREATE TABLE office_agent_status (
     id SERIAL PRIMARY KEY,
     agent_id VARCHAR(100) NOT NULL UNIQUE,
-    parent_module VARCHAR(50) NOT NULL,
-    display_name VARCHAR(100) NOT NULL,
+    department VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
     brand VARCHAR(20),
     status agent_status_enum NOT NULL DEFAULT 'ok',
     last_activity TIMESTAMP WITH TIME ZONE,
-    current_task VARCHAR(255),
+    task VARCHAR(255),
     metrics JSONB DEFAULT '{}',
     -- Экономия на ФОТ
     salary_equivalent INTEGER DEFAULT 60000,  -- Зарплата эквивалентной должности (руб/мес)
@@ -64,7 +64,7 @@ CREATE TABLE office_agent_status (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_agent_status_parent ON office_agent_status(parent_module);
+CREATE INDEX idx_agent_status_department ON office_agent_status(department);
 CREATE INDEX idx_agent_status_brand ON office_agent_status(brand);
 ```
 
@@ -76,9 +76,9 @@ CREATE INDEX idx_agent_status_brand ON office_agent_status(brand);
 CREATE TABLE office_agent_status_history (
     id SERIAL PRIMARY KEY,
     agent_id VARCHAR(100) NOT NULL,
-    parent_module VARCHAR(50) NOT NULL,
+    department VARCHAR(50) NOT NULL,
     status agent_status_enum NOT NULL,
-    current_task VARCHAR(255),
+    task VARCHAR(255),
     metrics JSONB DEFAULT '{}',
     recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -90,16 +90,16 @@ CREATE INDEX idx_history_recorded_at
     ON office_agent_status_history(recorded_at);
 ```
 
-## Значения parent_module
+## Значения department
 
-| parent_module | Описание |
-|---------------|----------|
-| knowledge | База знаний |
-| reputation | Работа с отзывами |
+| department | Описание |
+|------------|----------|
 | watcher | Мониторинг цен |
+| reputation | Работа с отзывами |
 | content_factory | Генерация контента |
 | marketing | Рекламные кампании |
 | scout | Анализ ниш |
+| knowledge | База знаний |
 | cfo | Финансовая отчётность |
 | lex | Мониторинг законодательства |
 
@@ -113,11 +113,13 @@ CREATE INDEX idx_history_recorded_at
 
 ## Примеры agent_id
 
-| agent_id | parent_module | display_name | salary_equivalent | fte_coefficient |
-|----------|---------------|--------------|-------------------|-----------------|
+| agent_id | department | name | salary_equivalent | fte_coefficient |
+|----------|------------|------|-------------------|-----------------|
 | watcher_price_monitor | watcher | Мониторинг цен | 60000 | 1.0 |
 | watcher_night_agent | watcher | Ночной агент | 60000 | 0.5 |
 | watcher_competitor_scan | watcher | Сканер конкурентов | 60000 | 1.0 |
+| reputation_wb | reputation | WB отзывы | 60000 | 1.0 |
+| reputation_ozon | reputation | Ozon отзывы | 60000 | 1.0 |
 | reputation_wb_responder | reputation | Ответы WB |
 | reputation_ozon_responder | reputation | Ответы Ozon |
 | knowledge_rag_processor | knowledge | RAG процессор |
@@ -169,9 +171,9 @@ CREATE OR REPLACE FUNCTION save_agent_status_history()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO office_agent_status_history 
-        (agent_id, parent_module, status, current_task, metrics, recorded_at)
+        (agent_id, department, status, task, metrics, recorded_at)
     VALUES 
-        (NEW.agent_id, NEW.parent_module, NEW.status, NEW.current_task, NEW.metrics, NOW());
+        (NEW.agent_id, NEW.department, NEW.status, NEW.task, NEW.metrics, NOW());
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -188,7 +190,7 @@ CREATE TRIGGER trg_agent_status_history
 
 ```sql
 INSERT INTO office_agent_status 
-    (agent_id, parent_module, display_name, brand, status, current_task, metrics, 
+    (agent_id, department, name, brand, status, task, metrics, 
      salary_equivalent, fte_coefficient, last_activity)
 VALUES 
     ('watcher_night_agent', 'watcher', 'Ночной агент', 'ohana_market', 'ok', 'Сканирование', '{}',
@@ -196,7 +198,7 @@ VALUES
 ON CONFLICT (agent_id) 
 DO UPDATE SET
     status = EXCLUDED.status,
-    current_task = EXCLUDED.current_task,
+    task = EXCLUDED.task,
     metrics = EXCLUDED.metrics,
     last_activity = EXCLUDED.last_activity,
     updated_at = NOW();
