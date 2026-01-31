@@ -6,7 +6,26 @@
     "primary": "#0D9373"
   },
   "navigation": {
-    "groups": []
+    "anchors": [
+      {
+        "anchor": "Untitled Anchor",
+        "products": [
+          {
+            "product": "CFO",
+            "pages": [
+              "cfo/adolf_cfo_0_introduction_v1_0",
+              "cfo/adolf_cfo_1_architecture_v1_0",
+              "cfo/adolf_cfo_2_data_ingestion_v1_0",
+              "cfo/adolf_cfo_3_ai_pipeline_v1_0",
+              "cfo/adolf_cfo_4_open_webui_v1_0",
+              "cfo/adolf_cfo_5_database_v1_0",
+              "cfo/adolf_cfo_6_scenarios_v1_0",
+              "cfo/adolf_cfo_7_celery_v1_1"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "styling": {
     "latex": true
