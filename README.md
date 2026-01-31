@@ -7,7 +7,7 @@
 ```
 docs/
 ├── ADOLF_OVERVIEW_v4_3.md           # Общий обзор платформы
-├── adolf_fastapi_reference_v1_0.md  # Справочник FastAPI
+├── adolf_fastapi_reference_v1_1.md  # Справочник FastAPI
 │
 ├── core/                            # Базовая инфраструктура (9 файлов)
 │   ├── adolf_core_0_introduction.md
