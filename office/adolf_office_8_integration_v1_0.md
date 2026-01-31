@@ -398,8 +398,8 @@ atexit.register(shutdown_handler)
 | Watcher | watcher_price_monitor, watcher_night_agent, watcher_competitor_scan | ✅ v2.1 |
 | Reputation | reputation_wb, reputation_ozon, reputation_ym | ✅ v2.2 |
 | Content Factory | content_descriptions, content_seo | ✅ v1.1 |
-| Marketing | marketing_wb, marketing_ozon | ⏳ TODO |
-| Scout | scout_niche | ⏳ TODO |
-| CFO | cfo_report | ⏳ TODO |
-| Knowledge | knowledge_rag | ⏳ TODO |
-| Lex | lex_monitor | ⏳ TODO |
+| Marketing | marketing_wb, marketing_ozon | ✅ v1.1 |
+| Scout | scout_niche | ✅ v1.1 |
+| CFO | cfo_report | ✅ v1.1 |
+| Knowledge | knowledge_rag | ✅ v1.0 |
+| Lex | lex_monitor | ✅ v1.0 |
