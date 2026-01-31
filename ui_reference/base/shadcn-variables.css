@@ -121,6 +121,11 @@
   --module-lex-light: oklch(0.95 0.01 257.417);
   --module-lex-foreground: oklch(0.985 0 0);
 
+  /* Logistic - Teal */
+  --module-logistic: oklch(0.72 0.14 180);
+  --module-logistic-light: oklch(0.95 0.03 180);
+  --module-logistic-foreground: oklch(0.985 0 0);
+
   /* ===== MARKETPLACE COLORS ===== */
   --mp-wildberries: oklch(0.55 0.25 328);
   --mp-ozon: oklch(0.55 0.25 250);
@@ -270,6 +275,7 @@
   --module-marketing-light: oklch(0.3 0.06 354.308);
   --module-scout-light: oklch(0.3 0.04 194.769);
   --module-lex-light: oklch(0.3 0.02 257.417);
+  --module-logistic-light: oklch(0.3 0.04 180);
 
   /* Sentiment Colors (Dark) */
   --sentiment-positive-light: oklch(0.3 0.06 142.495);
