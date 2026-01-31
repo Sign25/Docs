@@ -12,6 +12,16 @@ docs/
 ├── adolf_inconsistencies_registry.md # Реестр несоответствий
 │
 ├── core/                             # Базовая инфраструктура
+│   ├── adolf_core_0_introduction.md
+│   ├── adolf_core_1_1_open_webui_overview_v4_1.md
+│   ├── adolf_core_1_2_open_webui_pipelines_v4_1.md
+│   ├── adolf_core_1_3_open_webui_tools_v4_1.md
+│   ├── adolf_core_1_4_open_webui_pwa_auth_v4_1.md
+│   ├── adolf_core_2_5_postgresql_v4_1.md
+│   ├── adolf_core_2_6_notifications_v4_1.md
+│   ├── adolf_core_3_1_launcher_v1_0.md    # NEW: Система баннерного подменю
+│   └── adolf_core_roadmap.md
+│
 ├── knowledge/                        # База знаний (RAG)
 ├── reputation/                       # Управление отзывами
 ├── watcher/                          # Мониторинг конкурентов
@@ -21,14 +31,15 @@ docs/
 ├── cfo/                              # Финансовая отчётность
 ├── lex/                              # Правовой мониторинг
 ├── shop/                             # Управление интернет-магазином
-└── office/                           # Визуальный дашборд агентов
+├── office/                           # Визуальный дашборд агентов
+└── ui_reference/                     # UI справочник и стили
 ```
 
 ## Модули платформы
 
 | Модуль | Описание | Версия | Репозиторий |
 |--------|----------|--------|-------------|
-| **Core** | Базовая инфраструктура: Open WebUI, PostgreSQL, уведомления | v4.1 | — |
+| **Core** | Базовая инфраструктура: Open WebUI, PostgreSQL, уведомления, Launcher | v4.1 | — |
 | **Knowledge** | Корпоративная база знаний с RAG-пайплайном | v1.1 | — |
 | **Reputation** | AI-генерация ответов на отзывы маркетплейсов | v2.1 | — |
 | **Watcher** | Мониторинг цен и действий конкурентов | v2.0 | — |
@@ -39,6 +50,18 @@ docs/
 | **Lex** | Мониторинг правовых изменений | v1.0 | — |
 | **Shop** | AI-управление интернет-магазином через WooCommerce MCP | v1.0 | — |
 | **Office** | Визуальный дашборд AI-агентов | v1.0 | [Sign25/Office](https://github.com/Sign25/Office) |
+
+## Компоненты Core
+
+| Компонент | Документ | Описание |
+|-----------|----------|----------|
+| Open WebUI Overview | `adolf_core_1_1_*` | Архитектура и установка |
+| Pipelines | `adolf_core_1_2_*` | Интерфейс и агенты модулей |
+| Tools | `adolf_core_1_3_*` | Function Calling инструменты |
+| PWA & Auth | `adolf_core_1_4_*` | PWA и аутентификация |
+| PostgreSQL | `adolf_core_2_5_*` | Схема базы данных |
+| Notifications | `adolf_core_2_6_*` | Система уведомлений |
+| **Launcher** | `adolf_core_3_1_*` | Система баннерного подменю |
 
 ## Технологический стек
 
@@ -71,6 +94,22 @@ docs/
 - `5_database` / `5_scenarios` - Схема БД или сценарии
 - `6_scenarios` / `6_celery` - Сценарии или фоновые задачи
 - `7_celery` - Фоновые задачи (если есть)
+
+## Launcher — Система баннерного подменю
+
+Launcher обеспечивает двухуровневую навигацию с визуальным выбором действий:
+
+```
+Sidebar (модуль) → Launcher Page (баннеры) → Result Page (результат)
+```
+
+**Ключевые особенности:**
+- Код запускается только после явного выбора действия
+- JSON-конфигурация баннеров для MVP
+- Контроль доступа на уровне модуля
+- Отдельная страница результата с навигацией назад
+
+Подробнее: [adolf_core_3_1_launcher_v1_0.md](core/adolf_core_3_1_launcher_v1_0.md)
 
 ---
 
