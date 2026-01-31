@@ -34,16 +34,17 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 {
   "departments": [
     {
-      "module": "watcher",
-      "display_name": "Мониторинг",
+      "key": "watcher",
+      "name": "Watcher",
+      "color": "#4A90D9",
       "agents": [
         {
-          "agent_id": "watcher_price_monitor",
-          "display_name": "Мониторинг цен",
+          "id": "watcher_price_monitor",
+          "name": "Мониторинг цен",
           "brand": "ohana_market",
           "status": "ok",
           "last_activity": "2025-01-24T14:32:15Z",
-          "current_task": "Сканирование Wildberries",
+          "task": "Сканирование Wildberries",
           "metrics": {
             "products_monitored": 230,
             "price_changes_today": 15
@@ -52,12 +53,12 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
           "fte_coefficient": 1.0
         },
         {
-          "agent_id": "watcher_night_agent",
-          "display_name": "Ночной агент",
+          "id": "watcher_night_agent",
+          "name": "Ночной агент",
           "brand": "ohana_market",
-          "status": "ok",
+          "status": "offline",
           "last_activity": "2025-01-24T03:15:00Z",
-          "current_task": null,
+          "task": null,
           "metrics": {},
           "salary_equivalent": 60000,
           "fte_coefficient": 0.5
@@ -65,8 +66,9 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
       ]
     },
     {
-      "module": "reputation",
-      "display_name": "Отзывы",
+      "key": "reputation",
+      "name": "Reputation",
+      "color": "#7ED321",
       "agents": [...]
     }
   ],
@@ -92,17 +94,19 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 
 ```json
 {
-  "agent_id": "watcher_price_monitor",
-  "parent_module": "watcher",
-  "display_name": "Мониторинг цен",
+  "id": "watcher_price_monitor",
+  "department": "watcher",
+  "name": "Мониторинг цен",
   "brand": "ohana_market",
   "status": "ok",
   "last_activity": "2025-01-24T14:32:15Z",
-  "current_task": "Сканирование Wildberries",
+  "task": "Сканирование Wildberries",
   "metrics": {
     "products_monitored": 230,
     "price_changes_today": 15
   },
+  "salary_equivalent": 60000,
+  "fte_coefficient": 1.0,
   "created_at": "2025-01-20T10:00:00Z",
   "updated_at": "2025-01-24T14:32:15Z"
 }
@@ -172,15 +176,17 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 
 ```json
 {
-  "parent_module": "watcher",
-  "display_name": "Ночной агент",
+  "department": "watcher",
+  "name": "Ночной агент",
   "brand": "ohana_market",
   "status": "ok",
-  "current_task": "Сканирование цен конкурентов",
+  "task": "Сканирование цен конкурентов",
   "metrics": {
     "products_scanned": 1250,
     "price_changes_found": 23
-  }
+  },
+  "salary_equivalent": 60000,
+  "fte_coefficient": 0.5
 }
 ```
 
