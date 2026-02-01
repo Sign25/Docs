@@ -24,6 +24,21 @@
         "anchor": "Модули",
         "groups": [
           {
+            "group": "Knowledge",
+            "pages": [
+              "knowledge/adolf_knowledge_1_introduction_v1_1",
+              "knowledge/adolf_knowledge_2_data_sources_v1_1",
+              "knowledge/adolf_knowledge_3_rag_pipeline_v1_1",
+              "knowledge/adolf_knowledge_4_access_control_v1_1",
+              "knowledge/adolf_knowledge_5_kb_management_v1_1",
+              "knowledge/adolf_knowledge_6_user_scenarios_v1_1",
+              "knowledge/adolf_knowledge_7_integrations_v1_1",
+              "knowledge/adolf_knowledge_8_analytics_v1_1",
+              "knowledge/adolf_knowledge_9_celery_v1_0",
+              "knowledge/adolf_knowledge_glossary_v1_1"
+            ]
+          },
+          {
             "group": "Content factory",
             "pages": [
               "content_factory/adolf_content_factory_0_introduction_v1_0",
@@ -55,5 +70,13 @@
   },
   "styling": {
     "latex": true
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "errors": {
+    "404": {
+      "title": "Страница не найдена"
+    }
   }
 }
