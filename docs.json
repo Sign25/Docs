@@ -9,6 +9,7 @@
     "anchors": [
       {
         "anchor": "CORE",
+        "icon": "brain-circuit",
         "pages": [
           "core/adolf_core_0_introduction",
           "core/adolf_core_1_2_open_webui_pipelines_v4_1",
