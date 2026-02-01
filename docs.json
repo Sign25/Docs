@@ -8,10 +8,23 @@
   "navigation": {
     "anchors": [
       {
+        "anchor": "CORE",
+        "pages": [
+          "core/adolf_core_0_introduction",
+          "core/adolf_core_1_2_open_webui_pipelines_v4_1",
+          "core/adolf_core_1_1_open_webui_overview_v4_1",
+          "core/adolf_core_1_3_open_webui_tools_v4_1",
+          "core/adolf_core_1_4_open_webui_pwa_auth_v4_1",
+          "core/adolf_core_2_5_postgresql_v4_1",
+          "core/adolf_core_2_6_notifications_v4_1",
+          "core/adolf_core_3_1_launcher_v1_1"
+        ]
+      },
+      {
         "anchor": "Модули",
-        "dropdowns": [
+        "groups": [
           {
-            "dropdown": "Content factory",
+            "group": "Content factory",
             "pages": [
               "content_factory/adolf_content_factory_0_introduction_v1_0",
               "content_factory/adolf_content_factory_1_architecture_v1_0",
@@ -24,7 +37,7 @@
             ]
           },
           {
-            "dropdown": "CFO",
+            "group": "CFO",
             "pages": [
               "cfo/adolf_cfo_0_introduction_v1_0",
               "cfo/adolf_cfo_1_architecture_v1_0",
