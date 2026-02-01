@@ -9,9 +9,9 @@
     "anchors": [
       {
         "anchor": "Модули",
-        "groups": [
+        "dropdowns": [
           {
-            "group": "Content factory",
+            "dropdown": "Content factory",
             "pages": [
               "content_factory/adolf_content_factory_0_introduction_v1_0",
               "content_factory/adolf_content_factory_1_architecture_v1_0",
@@ -24,7 +24,7 @@
             ]
           },
           {
-            "group": "CFO",
+            "dropdown": "CFO",
             "pages": [
               "cfo/adolf_cfo_0_introduction_v1_0",
               "cfo/adolf_cfo_1_architecture_v1_0",
