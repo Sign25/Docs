@@ -63,6 +63,7 @@
 	import PinnedModelList from './Sidebar/PinnedModelList.svelte';
 		import { slide } from 'svelte/transition';
 	import HotkeyHint from '../common/HotkeyHint.svelte';
+	import { canAccessModule } from '$lib/utils/roles';
 
 	const BREAKPOINT = 768;
 
@@ -710,12 +711,12 @@
 					<Tooltip content="База знаний" placement="right">
 						<a
 							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
-							href="/files"
+							href="/knowledge"
 							on:click={async (e) => {
 								e.stopImmediatePropagation();
 								e.preventDefault();
 
-								goto('/files');
+								goto('/knowledge');
 								itemClickHandler();
 							}}
 							draggable="false"
@@ -733,6 +734,7 @@
 				</div>
 
 				<!-- Content Factory кнопка для сжатой панели -->
+				{#if canAccessModule($user?.role, 'content_factory')}
 				<div class="">
 					<Tooltip content="Контент-Фабрика" placement="right">
 						<a
@@ -758,8 +760,10 @@
 						</a>
 					</Tooltip>
 				</div>
+				{/if}
 
 				<!-- CFO кнопка для сжатой панели -->
+				{#if canAccessModule($user?.role, 'cfo')}
 				<div class="">
 					<Tooltip content="Финансы (CFO)" placement="right">
 						<a
@@ -786,6 +790,7 @@
 						</a>
 					</Tooltip>
 				</div>
+				{/if}
 			</div>
 		</button>
 
@@ -948,7 +953,7 @@
 						<a
 							id="sidebar-files-button"
 							class="grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
-							href="/files"
+							href="/knowledge"
 							on:click={itemClickHandler}
 							draggable="false"
 							aria-label="База знаний"
@@ -968,6 +973,7 @@
 					</div>
 
 					<!-- Content Factory кнопка -->
+					{#if canAccessModule($user?.role, 'content_factory')}
 					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 						<a
 							id="sidebar-content-factory-button"
@@ -990,8 +996,10 @@
 							</div>
 						</a>
 					</div>
+					{/if}
 
 					<!-- CFO кнопка -->
+					{#if canAccessModule($user?.role, 'cfo')}
 					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 						<a
 							id="sidebar-cfo-button"
@@ -1015,6 +1023,7 @@
 							</div>
 						</a>
 					</div>
+					{/if}
 				</div>
 
 				{#if ($models ?? []).length > 0 && (($settings?.pinnedModels ?? []).length > 0 || $config?.default_pinned_models)}
