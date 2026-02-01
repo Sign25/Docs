@@ -11,6 +11,19 @@
         "anchor": "Модули",
         "groups": [
           {
+            "group": "Content factory",
+            "pages": [
+              "content_factory/adolf_content_factory_0_introduction_v1_0",
+              "content_factory/adolf_content_factory_1_architecture_v1_0",
+              "content_factory/adolf_content_factory_2_marketplace_adapters_v1_0",
+              "content_factory/adolf_content_factory_3_ai_pipeline_v1_0",
+              "content_factory/adolf_content_factory_4_open_webui_v1_0",
+              "content_factory/adolf_content_factory_5_database_v1_0",
+              "content_factory/adolf_content_factory_6_scenarios_v1_0",
+              "content_factory/adolf_content_factory_7_celery_v1_1"
+            ]
+          },
+          {
             "group": "CFO",
             "pages": [
               "cfo/adolf_cfo_0_introduction_v1_0",
