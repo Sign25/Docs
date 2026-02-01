@@ -26,6 +26,7 @@
         "groups": [
           {
             "group": "Knowledge",
+            "icon": "book-atlas",
             "pages": [
               "knowledge/adolf_knowledge_1_introduction_v1_1",
               "knowledge/adolf_knowledge_2_data_sources_v1_1",
@@ -41,6 +42,7 @@
           },
           {
             "group": "Content factory",
+            "icon": "conveyor-belt-boxes",
             "pages": [
               "content_factory/adolf_content_factory_0_introduction_v1_0",
               "content_factory/adolf_content_factory_1_architecture_v1_0",
@@ -54,6 +56,7 @@
           },
           {
             "group": "CFO",
+            "icon": "chart-line-up",
             "pages": [
               "cfo/adolf_cfo_0_introduction_v1_0",
               "cfo/adolf_cfo_1_architecture_v1_0",
