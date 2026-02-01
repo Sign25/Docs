@@ -883,6 +883,7 @@ icon_files = [
     "content-factory-icon.svg",
     "content-factory-icon.png",
     "knowledge-icon.svg",
+    "cfo-icon.svg",
     "site.webmanifest",
     "web-app-manifest-192x192.png",
     "web-app-manifest-512x512.png"
