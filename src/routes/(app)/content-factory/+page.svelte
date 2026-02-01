@@ -62,6 +62,72 @@
 	// Заметки менеджера для перегенерации
 	let managerNotes = '';
 
+	// Активная секция
+	let activeSection: 'generate' | 'drafts' | 'visual-prompt' | 'stats' = 'generate';
+
+	// Моковые данные для черновиков
+	const mockDrafts = [
+		{ id: 'draft_a1b2', sku: 'OM-12345', mp: 'wb', status: 'pending', created: '15.01 10:30' },
+		{ id: 'draft_c3d4', sku: 'OM-12346', mp: 'wb', status: 'pending', created: '15.01 10:35' },
+		{ id: 'draft_e5f6', sku: 'OK-555', mp: 'ozon', status: 'approved', created: '14.01 15:20' },
+		{ id: 'draft_g7h8', sku: 'OM-12340', mp: 'ozon', status: 'processing', created: '14.01 14:00' },
+		{ id: 'draft_i9j0', sku: 'OK-560', mp: 'ym', status: 'published', created: '13.01 11:00' }
+	];
+
+	// Статистика
+	const stats = [
+		{ value: '156', label: 'Сгенерировано' },
+		{ value: '142', label: 'Опубликовано' },
+		{ value: '91%', label: 'Одобрено' },
+		{ value: '2.3 мин', label: 'Ср. время' }
+	];
+
+	// Данные для ТЗ дизайнеру
+	const visualPromptData = {
+		sku: 'OK-555',
+		product: 'Платье детское',
+		problems: [
+			'Непонятный размер на фото',
+			'Цвет отличается от реального',
+			'Нет фото деталей (застёжка, бирка)'
+		],
+		recommendations: [
+			{
+				title: 'Демонстрация размера',
+				text: 'Добавить фото с моделью соответствующего возраста. Показать платье на ребёнке 5-6 лет для размера 116.'
+			},
+			{
+				title: 'Точная цветопередача',
+				text: 'Съёмка при естественном освещении. Добавить фото ткани крупным планом.'
+			},
+			{
+				title: 'Детали',
+				text: 'Сфотографировать:',
+				list: ['Застёжку крупным планом', 'Бирку с составом', 'Изнаночную сторону']
+			}
+		]
+	};
+
+	function getStatusBadgeClass(status: string): string {
+		switch(status) {
+			case 'pending': return 'cf-badge-pending';
+			case 'approved': return 'cf-badge-approved';
+			case 'published': return 'cf-badge-published';
+			case 'processing': return 'cf-badge-processing';
+			default: return '';
+		}
+	}
+
+	function getStatusText(status: string): string {
+		switch(status) {
+			case 'pending': return 'ожидает';
+			case 'approved': return 'утверждён';
+			case 'published': return 'опубликован';
+			case 'processing': return 'обработка';
+			default: return status;
+		}
+	}
+
 	// Маркетплейсы
 	const marketplaces = [
 		{ id: 'wb', name: 'Wildberries', short: 'WB', color: '#CB11AB' },
@@ -652,9 +718,338 @@
 		text-transform: uppercase;
 	}
 
-	.cf-mp-badge.wb { background: #7B2D8E; color: white; }
+	.cf-mp-badge.wb { background: #CB11AB; color: white; }
 	.cf-mp-badge.ozon { background: #005BFF; color: white; }
 	.cf-mp-badge.ym { background: #FFCC00; color: black; }
+
+	/* Drafts List */
+	.cf-draft-list {
+		background: var(--cf-bg-primary);
+		border: 1px solid var(--cf-border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+
+	.cf-draft-list-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem 1.25rem;
+		background: var(--cf-bg-secondary);
+		border-bottom: 1px solid var(--cf-border);
+	}
+
+	.cf-draft-list-title {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--cf-text-primary);
+		margin: 0;
+	}
+
+	.cf-draft-list-count {
+		font-size: 0.875rem;
+		font-weight: 400;
+		color: var(--cf-text-secondary);
+	}
+
+	/* Drafts Table */
+	.cf-drafts-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.cf-drafts-table th,
+	.cf-drafts-table td {
+		padding: 0.75rem 1rem;
+		text-align: left;
+		border-bottom: 1px solid var(--cf-border);
+	}
+
+	.cf-drafts-table th {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--cf-text-tertiary);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		background: var(--cf-bg-secondary);
+	}
+
+	.cf-drafts-table td {
+		font-size: 0.875rem;
+		color: var(--cf-text-primary);
+	}
+
+	.cf-drafts-table tbody tr {
+		cursor: pointer;
+		transition: background-color 0.15s;
+	}
+
+	.cf-drafts-table tbody tr:hover {
+		background: var(--cf-bg-secondary);
+	}
+
+	.cf-draft-id {
+		font-family: ui-monospace, monospace;
+		font-size: 0.75rem;
+		color: var(--cf-text-secondary);
+	}
+
+	/* Badge Processing */
+	.cf-badge-processing {
+		background: #DBEAFE;
+		color: #2563EB;
+	}
+
+	:global(.dark) .cf-badge-processing {
+		background: #1E3A5F;
+		color: #60A5FA;
+	}
+
+	/* Visual Prompt */
+	.cf-visual-prompt {
+		background: var(--cf-bg-primary);
+		border: 1px solid var(--cf-border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+
+	.cf-visual-prompt-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1rem 1.25rem;
+		background: #FEF3C7;
+		border-bottom: 1px solid var(--cf-border);
+	}
+
+	:global(.dark) .cf-visual-prompt-header {
+		background: #78350F;
+	}
+
+	.cf-visual-prompt-body {
+		padding: 1.25rem;
+	}
+
+	.cf-visual-prompt-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.cf-visual-prompt-section:last-child {
+		margin-bottom: 0;
+	}
+
+	.cf-visual-prompt-title {
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--cf-text-primary);
+		margin: 0 0 0.75rem 0;
+	}
+
+	/* Problems List */
+	.cf-problems {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.cf-problem-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		padding: 0.5rem 0;
+		font-size: 0.875rem;
+		color: var(--cf-text-primary);
+	}
+
+	.cf-problem-icon {
+		color: var(--cf-error);
+		flex-shrink: 0;
+		margin-top: 2px;
+	}
+
+	/* Recommendations */
+	.cf-recommendation {
+		background: var(--cf-bg-secondary);
+		border-radius: 0.5rem;
+		padding: 1rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.cf-recommendation:last-child {
+		margin-bottom: 0;
+	}
+
+	.cf-recommendation-number {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		font-size: 0.75rem;
+		font-weight: 700;
+		background: var(--cf-text-primary);
+		color: var(--cf-bg-primary);
+		border-radius: 9999px;
+		margin-right: 0.5rem;
+	}
+
+	.cf-recommendation-title {
+		display: inline;
+		font-weight: 600;
+		color: var(--cf-text-primary);
+	}
+
+	.cf-recommendation-text {
+		font-size: 0.875rem;
+		color: var(--cf-text-secondary);
+		margin-top: 0.5rem;
+		line-height: 1.6;
+	}
+
+	.cf-recommendation-list {
+		list-style: disc;
+		margin: 0.5rem 0 0 1.5rem;
+		padding: 0;
+	}
+
+	.cf-recommendation-list li {
+		font-size: 0.875rem;
+		color: var(--cf-text-secondary);
+		padding: 0.25rem 0;
+	}
+
+	/* Statistics */
+	.cf-stats {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1rem;
+	}
+
+	@media (max-width: 768px) {
+		.cf-stats {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	.cf-stat-card {
+		background: var(--cf-bg-secondary);
+		border: 1px solid var(--cf-border);
+		border-radius: 0.5rem;
+		padding: 1rem;
+		text-align: center;
+	}
+
+	.cf-stat-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--cf-text-primary);
+	}
+
+	.cf-stat-label {
+		font-size: 0.75rem;
+		color: var(--cf-text-secondary);
+		margin-top: 0.25rem;
+	}
+
+	/* Generating State */
+	.cf-generating {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 3rem;
+		text-align: center;
+	}
+
+	.cf-generating-spinner {
+		width: 48px;
+		height: 48px;
+		border: 3px solid var(--cf-border);
+		border-top-color: var(--cf-text-primary);
+		border-radius: 50%;
+		animation: cf-spin 1s linear infinite;
+		margin-bottom: 1rem;
+	}
+
+	@keyframes cf-spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.cf-generating-text {
+		font-size: 0.875rem;
+		color: var(--cf-text-secondary);
+	}
+
+	.cf-generating-progress {
+		width: 200px;
+		height: 4px;
+		background: var(--cf-border);
+		border-radius: 9999px;
+		margin-top: 1rem;
+		overflow: hidden;
+	}
+
+	.cf-generating-progress-bar {
+		height: 100%;
+		background: var(--cf-text-primary);
+		animation: cf-progress 2s ease-in-out infinite;
+	}
+
+	@keyframes cf-progress {
+		0% { width: 0%; }
+		50% { width: 70%; }
+		100% { width: 100%; }
+	}
+
+	/* Action Buttons */
+	.cf-btn-approve {
+		background: var(--cf-success);
+		color: white;
+		border-color: var(--cf-success);
+	}
+
+	.cf-btn-approve:hover {
+		opacity: 0.9;
+	}
+
+	.cf-btn-edit {
+		background: var(--cf-warning);
+		color: white;
+		border-color: var(--cf-warning);
+	}
+
+	.cf-btn-edit:hover {
+		opacity: 0.9;
+	}
+
+	.cf-btn-regenerate {
+		background: transparent;
+		color: var(--cf-text-secondary);
+		border-color: var(--cf-border);
+	}
+
+	.cf-btn-regenerate:hover {
+		background: var(--cf-bg-secondary);
+		color: var(--cf-text-primary);
+	}
+
+	/* Section Tabs */
+	.cf-section-tabs {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 1.5rem;
+		flex-wrap: wrap;
+	}
+
+	/* Divider */
+	.cf-divider {
+		border: none;
+		border-top: 1px solid var(--cf-border);
+		margin: 1rem 0;
+	}
 </style>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -680,27 +1075,58 @@
 			</Tooltip>
 		{/if}
 
-		{#if processingMode === null}
-			<!-- ЭКРАН ВЫБОРА РЕЖИМА -->
-			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
-				<!-- Заголовок -->
-				<div class="text-center mb-6 sm:mb-8 md:mb-10">
-					<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-						<img
-							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
-							class="size-8 sm:size-9 md:size-10 dark:invert"
-							alt=""
-						/>
-						<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">
-							Контент-Фабрика
-						</h1>
-					</div>
-					<p class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
-						Выберите режим обработки
-					</p>
-				</div>
+		<!-- Навигация по секциям -->
+		<div class="w-full max-w-6xl mx-auto mb-6">
+			<div class="cf-section-tabs">
+				<button
+					class="cf-btn {activeSection === 'generate' ? 'cf-btn-primary' : ''}"
+					on:click={() => activeSection = 'generate'}
+				>
+					📝 Генерация
+				</button>
+				<button
+					class="cf-btn {activeSection === 'drafts' ? 'cf-btn-primary' : ''}"
+					on:click={() => activeSection = 'drafts'}
+				>
+					📋 Черновики
+				</button>
+				<button
+					class="cf-btn {activeSection === 'visual-prompt' ? 'cf-btn-primary' : ''}"
+					on:click={() => activeSection = 'visual-prompt'}
+				>
+					📸 ТЗ дизайнеру
+				</button>
+				<button
+					class="cf-btn {activeSection === 'stats' ? 'cf-btn-primary' : ''}"
+					on:click={() => activeSection = 'stats'}
+				>
+					📊 Статистика
+				</button>
+			</div>
+		</div>
 
-				<!-- Карточки выбора режима -->
+		{#if activeSection === 'generate'}
+			{#if processingMode === null}
+				<!-- ЭКРАН ВЫБОРА РЕЖИМА -->
+				<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
+					<!-- Заголовок -->
+					<div class="text-center mb-6 sm:mb-8 md:mb-10">
+						<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+							<img
+								src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
+								class="size-8 sm:size-9 md:size-10 dark:invert"
+								alt=""
+							/>
+							<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">
+								Контент-Фабрика
+							</h1>
+						</div>
+						<p class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
+							Выберите режим обработки
+						</p>
+					</div>
+
+					<!-- Карточки выбора режима -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 					<!-- Один артикул -->
 					<button
@@ -734,8 +1160,8 @@
 						<p class="cf-mode-desc">Применить контент ко всем размерам карточки</p>
 					</button>
 				</div>
-			</div>
-		{:else if currentStep === 1}
+				</div>
+			{:else if currentStep === 1}
 			<!-- ШАГ 1: Ввод данных -->
 			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
 				<!-- Заголовок -->
@@ -1321,6 +1747,153 @@
 								<span class="sm:hidden">Опубликовать на WB</span>
 							{/if}
 						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		{:else if activeSection === 'drafts'}
+			<!-- СЕКЦИЯ: СПИСОК ЧЕРНОВИКОВ -->
+			<div class="w-full max-w-4xl">
+				<div class="cf-draft-list">
+					<div class="cf-draft-list-header">
+						<h3 class="cf-draft-list-title">
+							📋 Черновики контента
+							<span class="cf-draft-list-count">({mockDrafts.length})</span>
+						</h3>
+						<div class="flex gap-2">
+							<button class="cf-btn">🔍 Фильтр</button>
+							<button class="cf-btn cf-btn-primary" on:click={() => activeSection = 'generate'}>📝 Новый</button>
+						</div>
+					</div>
+
+					<table class="cf-drafts-table">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>Артикул</th>
+								<th>МП</th>
+								<th>Статус</th>
+								<th>Создан</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each mockDrafts as draft}
+								<tr>
+									<td><span class="cf-draft-id">{draft.id}</span></td>
+									<td>{draft.sku}</td>
+									<td><span class="cf-mp-badge {draft.mp}">{draft.mp.toUpperCase()}</span></td>
+									<td><span class="cf-badge {getStatusBadgeClass(draft.status)}">{getStatusText(draft.status)}</span></td>
+									<td>{draft.created}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+		{:else if activeSection === 'visual-prompt'}
+			<!-- СЕКЦИЯ: ТЗ ДЛЯ ДИЗАЙНЕРА -->
+			<div class="w-full max-w-3xl">
+				<div class="cf-visual-prompt">
+					<div class="cf-visual-prompt-header">
+						<span class="text-2xl">📸</span>
+						<h2 class="cf-card-title">ТЗ для дизайнера</h2>
+					</div>
+
+					<div class="cf-visual-prompt-body">
+						<!-- Метаданные -->
+						<div class="cf-meta">
+							<div class="cf-meta-item">
+								<span class="cf-meta-label">Артикул:</span>
+								<span class="cf-meta-value mono">{visualPromptData.sku}</span>
+							</div>
+							<div class="cf-meta-item">
+								<span class="cf-meta-label">Товар:</span>
+								<span class="cf-meta-value">{visualPromptData.product}</span>
+							</div>
+						</div>
+
+						<hr class="cf-divider">
+
+						<!-- Выявленные проблемы -->
+						<div class="cf-visual-prompt-section">
+							<h3 class="cf-visual-prompt-title">❌ Известные проблемы</h3>
+							<ul class="cf-problems">
+								{#each visualPromptData.problems as problem}
+									<li class="cf-problem-item">
+										<span class="cf-problem-icon">•</span>
+										<span>{problem}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
+
+						<!-- Рекомендации -->
+						<div class="cf-visual-prompt-section">
+							<h3 class="cf-visual-prompt-title">✅ Рекомендации по съёмке</h3>
+
+							{#each visualPromptData.recommendations as rec, index}
+								<div class="cf-recommendation">
+									<span class="cf-recommendation-number">{index + 1}</span>
+									<span class="cf-recommendation-title">{rec.title}</span>
+									<p class="cf-recommendation-text">{rec.text}</p>
+									{#if rec.list}
+										<ul class="cf-recommendation-list">
+											{#each rec.list as item}
+												<li>{item}</li>
+											{/each}
+										</ul>
+									{/if}
+								</div>
+							{/each}
+						</div>
+
+						<!-- Кнопки действий -->
+						<div class="cf-actions" style="border-top: 1px solid var(--cf-border); margin-top: 1.5rem; padding-top: 1rem;">
+							<button class="cf-btn">📋 Копировать</button>
+							<button class="cf-btn cf-btn-primary">📧 Отправить</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		{:else if activeSection === 'stats'}
+			<!-- СЕКЦИЯ: СТАТИСТИКА -->
+			<div class="w-full max-w-3xl">
+				<div class="cf-card">
+					<div class="cf-card-header">
+						<span class="text-xl">📊</span>
+						<h2 class="cf-card-title">Статистика генераций</h2>
+					</div>
+
+					<div class="cf-card-body">
+						<div class="cf-stats">
+							{#each stats as stat}
+								<div class="cf-stat-card">
+									<div class="cf-stat-value">{stat.value}</div>
+									<div class="cf-stat-label">{stat.label}</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<!-- Пример состояния загрузки -->
+				<div class="cf-card mt-6">
+					<div class="cf-card-header">
+						<span class="text-xl">⏳</span>
+						<h2 class="cf-card-title">Пример состояния загрузки</h2>
+					</div>
+
+					<div class="cf-card-body">
+						<div class="cf-generating">
+							<div class="cf-generating-spinner"></div>
+							<p class="cf-generating-text">Генерация контента для OM-12345...</p>
+							<div class="cf-generating-progress">
+								<div class="cf-generating-progress-bar"></div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
