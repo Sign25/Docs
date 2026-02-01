@@ -16,8 +16,15 @@
 
 	const i18n = getContext('i18n');
 
+	// Режим обработки: null - не выбран, 'single' - один артикул, 'batch' - пакетная
+	let processingMode: 'single' | 'batch' | null = null;
+
 	// Текущий шаг: 1 - ввод данных, 2 - карточка товара, 3 - результат генерации
 	let currentStep: 1 | 2 | 3 = 1;
+
+	// Данные для пакетной обработки (размеры)
+	let batchSizes: { nmId: string; size: string; selected: boolean }[] = [];
+	let isBatchProcessing = false;
 
 	// Режим ввода: 'sku' или 'link'
 	let inputMode: 'sku' | 'link' = 'sku';
@@ -156,6 +163,46 @@
 		currentStep = 2;
 	}
 
+	// Возврат к выбору режима
+	function handleBackToModeSelection() {
+		processingMode = null;
+		currentStep = 1;
+		productData = null;
+		draftData = null;
+		skuInput = '';
+		linkInput = '';
+		batchSizes = [];
+		currentPhotoIndex = 0;
+		managerNotes = '';
+	}
+
+	// Пакетная обработка - применить ко всем размерам
+	async function handleBatchApply() {
+		if (!productData || !draftData) return;
+
+		const selectedSizes = batchSizes.filter(s => s.selected);
+		if (selectedSizes.length === 0) {
+			toast.error('Выберите хотя бы один размер');
+			return;
+		}
+
+		isBatchProcessing = true;
+		try {
+			// TODO: API call для пакетной обработки
+			// await batchApplyContent(draftData.draft_id, selectedSizes.map(s => s.nmId));
+			toast.success(`Контент применён к ${selectedSizes.length} размерам`);
+		} catch (error: any) {
+			toast.error(error.message || 'Ошибка пакетной обработки');
+		} finally {
+			isBatchProcessing = false;
+		}
+	}
+
+	// Выбрать/снять все размеры
+	function toggleAllSizes(select: boolean) {
+		batchSizes = batchSizes.map(s => ({ ...s, selected: select }));
+	}
+
 	// Генерация контента
 	async function handleGenerate() {
 		if (!productData) return;
@@ -287,7 +334,82 @@
 			</Tooltip>
 		{/if}
 
-		{#if currentStep === 1}
+		{#if processingMode === null}
+			<!-- ЭКРАН ВЫБОРА РЕЖИМА -->
+			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
+				<!-- Заголовок -->
+				<div class="text-center mb-6 sm:mb-8 md:mb-10">
+					<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+						<img
+							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
+							class="size-8 sm:size-9 md:size-10 dark:invert"
+							alt=""
+						/>
+						<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">
+							Контент-Фабрика
+						</h1>
+					</div>
+					<p class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
+						Выберите режим обработки
+					</p>
+				</div>
+
+				<!-- Карточки выбора режима -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+					<!-- Один артикул -->
+					<button
+						type="button"
+						on:click={() => processingMode = 'single'}
+						class="group bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700
+							hover:border-violet-500 dark:hover:border-violet-500
+							rounded-2xl sm:rounded-3xl p-6 sm:p-8 transition-all duration-300
+							hover:shadow-xl hover:shadow-violet-500/20 text-left"
+					>
+						<div class="flex flex-col items-center text-center">
+							<div class="size-14 sm:size-16 mb-4 rounded-2xl bg-violet-100 dark:bg-violet-900/30
+								flex items-center justify-center group-hover:scale-110 transition-transform">
+								<svg class="size-7 sm:size-8 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+								</svg>
+							</div>
+							<h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+								Один артикул
+							</h3>
+							<p class="text-sm text-gray-500 dark:text-gray-400">
+								Генерация контента для одного товара
+							</p>
+						</div>
+					</button>
+
+					<!-- Пакетная обработка -->
+					<button
+						type="button"
+						on:click={() => processingMode = 'batch'}
+						class="group bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700
+							hover:border-amber-500 dark:hover:border-amber-500
+							rounded-2xl sm:rounded-3xl p-6 sm:p-8 transition-all duration-300
+							hover:shadow-xl hover:shadow-amber-500/20 text-left"
+					>
+						<div class="flex flex-col items-center text-center">
+							<div class="size-14 sm:size-16 mb-4 rounded-2xl bg-amber-100 dark:bg-amber-900/30
+								flex items-center justify-center group-hover:scale-110 transition-transform">
+								<svg class="size-7 sm:size-8 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+								</svg>
+							</div>
+							<h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+								Пакетная обработка
+							</h3>
+							<p class="text-sm text-gray-500 dark:text-gray-400">
+								Применить контент ко всем размерам карточки
+							</p>
+						</div>
+					</button>
+				</div>
+			</div>
+		{:else if currentStep === 1}
 			<!-- ШАГ 1: Ввод данных -->
 			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
 				<!-- Заголовок -->
@@ -299,11 +421,13 @@
 							alt=""
 						/>
 						<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-							Контент-Фабрика
+							{processingMode === 'batch' ? 'Пакетная обработка' : 'Один артикул'}
 						</h1>
 					</div>
 					<p class="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
-						Генерация SEO-контента для карточек товаров
+						{processingMode === 'batch'
+							? 'Применить контент ко всем размерам карточки'
+							: 'Генерация SEO-контента для одного товара'}
 					</p>
 				</div>
 
@@ -437,6 +561,15 @@
 				<p class="text-center text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-4 sm:mt-5 md:mt-6">
 					Поддерживаются Wildberries, Ozon и Яндекс.Маркет
 				</p>
+
+				<!-- Кнопка назад к выбору режима -->
+				<button
+					type="button"
+					on:click={handleBackToModeSelection}
+					class="w-full mt-3 sm:mt-4 text-center text-sm text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+				>
+					← Назад к выбору режима
+				</button>
 			</div>
 
 		{:else if currentStep === 2 && productData}

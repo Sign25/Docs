@@ -758,6 +758,34 @@
 						</a>
 					</Tooltip>
 				</div>
+
+				<!-- CFO кнопка для сжатой панели -->
+				<div class="">
+					<Tooltip content="Финансы (CFO)" placement="right">
+						<a
+							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/cfo"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/cfo');
+								itemClickHandler();
+							}}
+							aria-label="Финансы (CFO)"
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg class="size-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M3 3v18h18"/>
+									<path d="M18 17V9"/>
+									<path d="M13 17V5"/>
+									<path d="M8 17v-3"/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
 			</div>
 		</button>
 
@@ -959,6 +987,31 @@
 
 							<div class="flex self-center translate-y-[0.5px]">
 								<div class=" self-center text-sm font-primary">Контент-Фабрика</div>
+							</div>
+						</a>
+					</div>
+
+					<!-- CFO кнопка -->
+					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
+						<a
+							id="sidebar-cfo-button"
+							class="grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+							href="/cfo"
+							on:click={itemClickHandler}
+							draggable="false"
+							aria-label="Финансы (CFO)"
+						>
+							<div class="self-center">
+								<svg class="size-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M3 3v18h18"/>
+									<path d="M18 17V9"/>
+									<path d="M13 17V5"/>
+									<path d="M8 17v-3"/>
+								</svg>
+							</div>
+
+							<div class="flex self-center translate-y-[0.5px]">
+								<div class=" self-center text-sm font-primary">Финансы (CFO)</div>
 							</div>
 						</a>
 					</div>
