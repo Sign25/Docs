@@ -9,9 +9,9 @@
     "anchors": [
       {
         "anchor": "Модули",
-        "products": [
+        "tabs": [
           {
-            "product": "CFO",
+            "tab": "CFO",
             "pages": [
               "cfo/adolf_cfo_0_introduction_v1_0",
               "cfo/adolf_cfo_1_architecture_v1_0",
