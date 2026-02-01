@@ -311,10 +311,356 @@
 	<title>Контент-Фабрика | Adolf</title>
 </svelte:head>
 
+<style>
+	/* Content Factory Module Styles - Neutral Theme */
+	.cf-container {
+		--cf-text-primary: #1F2937;
+		--cf-text-secondary: #6B7280;
+		--cf-text-tertiary: #9CA3AF;
+		--cf-bg-primary: #FFFFFF;
+		--cf-bg-secondary: #F9FAFB;
+		--cf-border: #E5E7EB;
+		--cf-accent: #1F2937;
+		--cf-success: #10B981;
+		--cf-warning: #F59E0B;
+		--cf-error: #EF4444;
+	}
+
+	:global(.dark) .cf-container {
+		--cf-text-primary: #F9FAFB;
+		--cf-text-secondary: #D1D5DB;
+		--cf-text-tertiary: #9CA3AF;
+		--cf-bg-primary: #1F2937;
+		--cf-bg-secondary: #374151;
+		--cf-border: #4B5563;
+		--cf-accent: #F9FAFB;
+	}
+
+	/* Buttons */
+	.cf-btn {
+		padding: 0.75rem 1.5rem;
+		font-size: 0.875rem;
+		font-weight: 600;
+		border-radius: 0.75rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		border: 1px solid var(--cf-border);
+		background: var(--cf-bg-primary);
+		color: var(--cf-text-primary);
+	}
+
+	.cf-btn:hover {
+		background: var(--cf-bg-secondary);
+	}
+
+	.cf-btn-primary {
+		background: var(--cf-text-primary);
+		color: var(--cf-bg-primary);
+		border-color: var(--cf-text-primary);
+	}
+
+	.cf-btn-primary:hover {
+		opacity: 0.9;
+	}
+
+	.cf-btn-success {
+		background: var(--cf-success);
+		color: white;
+		border-color: var(--cf-success);
+	}
+
+	/* Tabs */
+	.cf-tabs {
+		display: flex;
+		border-bottom: 1px solid var(--cf-border);
+	}
+
+	.cf-tab {
+		flex: 1;
+		padding: 0.75rem 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--cf-text-secondary);
+		border-bottom: 2px solid transparent;
+		transition: all 0.2s;
+		cursor: pointer;
+		background: none;
+		border-top: none;
+		border-left: none;
+		border-right: none;
+		text-align: center;
+	}
+
+	.cf-tab:hover {
+		color: var(--cf-text-primary);
+	}
+
+	.cf-tab.active {
+		color: var(--cf-text-primary);
+		border-bottom-color: var(--cf-text-primary);
+	}
+
+	/* Cards */
+	.cf-card {
+		background: var(--cf-bg-primary);
+		border: 1px solid var(--cf-border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+
+	.cf-card-header {
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--cf-border);
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.cf-card-title {
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--cf-text-primary);
+	}
+
+	.cf-card-body {
+		padding: 1.25rem;
+	}
+
+	/* Form elements */
+	.cf-input {
+		width: 100%;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--cf-border);
+		border-radius: 0.5rem;
+		background: var(--cf-bg-secondary);
+		color: var(--cf-text-primary);
+		font-size: 0.875rem;
+		transition: all 0.2s;
+	}
+
+	.cf-input:focus {
+		outline: none;
+		border-color: var(--cf-text-primary);
+		box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+	}
+
+	:global(.dark) .cf-input:focus {
+		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+	}
+
+	.cf-label {
+		display: block;
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--cf-text-tertiary);
+		margin-bottom: 0.5rem;
+	}
+
+	/* Tags */
+	.cf-tag {
+		display: inline-block;
+		padding: 0.25rem 0.75rem;
+		background: var(--cf-bg-secondary);
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		font-size: 0.75rem;
+		color: var(--cf-text-secondary);
+	}
+
+	/* Badges */
+	.cf-badge {
+		display: inline-block;
+		padding: 0.25rem 0.75rem;
+		border-radius: 9999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.cf-badge-pending {
+		background: #FEF3C7;
+		color: #D97706;
+	}
+
+	.cf-badge-approved {
+		background: #D1FAE5;
+		color: #059669;
+	}
+
+	.cf-badge-published {
+		background: #DBEAFE;
+		color: #2563EB;
+	}
+
+	:global(.dark) .cf-badge-pending {
+		background: #78350F;
+		color: #FBBF24;
+	}
+
+	:global(.dark) .cf-badge-approved {
+		background: #064E3B;
+		color: #34D399;
+	}
+
+	:global(.dark) .cf-badge-published {
+		background: #1E3A5F;
+		color: #60A5FA;
+	}
+
+	/* Validation */
+	.cf-validation {
+		padding: 1rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--cf-border);
+	}
+
+	.cf-validation.success {
+		background: #D1FAE5;
+		border-color: #A7F3D0;
+	}
+
+	.cf-validation.warning {
+		background: #FEF3C7;
+		border-color: #FDE68A;
+	}
+
+	:global(.dark) .cf-validation.success {
+		background: #064E3B;
+		border-color: #065F46;
+	}
+
+	:global(.dark) .cf-validation.warning {
+		background: #78350F;
+		border-color: #92400E;
+	}
+
+	.cf-validation-title {
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+	}
+
+	.cf-validation-title.success {
+		color: #059669;
+	}
+
+	.cf-validation-title.warning {
+		color: #D97706;
+	}
+
+	:global(.dark) .cf-validation-title.success {
+		color: #34D399;
+	}
+
+	:global(.dark) .cf-validation-title.warning {
+		color: #FBBF24;
+	}
+
+	/* Actions */
+	.cf-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		padding: 1rem 1.25rem;
+		border-top: 1px solid var(--cf-border);
+	}
+
+	/* Meta */
+	.cf-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.cf-meta-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.cf-meta-label {
+		color: var(--cf-text-tertiary);
+	}
+
+	.cf-meta-value {
+		color: var(--cf-text-primary);
+		font-weight: 500;
+	}
+
+	.cf-meta-value.mono {
+		font-family: ui-monospace, monospace;
+	}
+
+	/* Counter */
+	.cf-counter {
+		font-size: 0.75rem;
+		color: var(--cf-text-tertiary);
+	}
+
+	/* Mode selection cards */
+	.cf-mode-card {
+		background: var(--cf-bg-primary);
+		border: 2px solid var(--cf-border);
+		border-radius: 1rem;
+		padding: 2rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		text-align: center;
+	}
+
+	.cf-mode-card:hover {
+		border-color: var(--cf-text-primary);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	}
+
+	:global(.dark) .cf-mode-card:hover {
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	}
+
+	.cf-mode-icon {
+		width: 4rem;
+		height: 4rem;
+		margin: 0 auto 1rem;
+		border-radius: 1rem;
+		background: var(--cf-bg-secondary);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.cf-mode-title {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--cf-text-primary);
+		margin-bottom: 0.5rem;
+	}
+
+	.cf-mode-desc {
+		font-size: 0.875rem;
+		color: var(--cf-text-secondary);
+	}
+
+	/* MP Badge */
+	.cf-mp-badge {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.625rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.cf-mp-badge.wb { background: #7B2D8E; color: white; }
+	.cf-mp-badge.ozon { background: #005BFF; color: white; }
+	.cf-mp-badge.ym { background: #FFCC00; color: black; }
+</style>
+
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <div
-	class="h-screen max-h-[100dvh] w-full flex flex-col overflow-x-hidden overflow-y-auto transition-all duration-300 {$showSidebar
+	class="cf-container h-screen max-h-[100dvh] w-full flex flex-col overflow-x-hidden overflow-y-auto transition-all duration-300 {$showSidebar
 		? 'md:max-w-[calc(100%-var(--sidebar-width))] md:ml-[var(--sidebar-width)]'
 		: ''}"
 	on:click={handlePageClick}
@@ -360,52 +706,32 @@
 					<button
 						type="button"
 						on:click={() => processingMode = 'single'}
-						class="group bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700
-							hover:border-violet-500 dark:hover:border-violet-500
-							rounded-2xl sm:rounded-3xl p-6 sm:p-8 transition-all duration-300
-							hover:shadow-xl hover:shadow-violet-500/20 text-left"
+						class="cf-mode-card group"
 					>
-						<div class="flex flex-col items-center text-center">
-							<div class="size-14 sm:size-16 mb-4 rounded-2xl bg-violet-100 dark:bg-violet-900/30
-								flex items-center justify-center group-hover:scale-110 transition-transform">
-								<svg class="size-7 sm:size-8 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-								</svg>
-							</div>
-							<h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-								Один артикул
-							</h3>
-							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Генерация контента для одного товара
-							</p>
+						<div class="cf-mode-icon group-hover:scale-110 transition-transform">
+							<svg class="size-7 sm:size-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+									d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+							</svg>
 						</div>
+						<h3 class="cf-mode-title">Один артикул</h3>
+						<p class="cf-mode-desc">Генерация контента для одного товара</p>
 					</button>
 
 					<!-- Пакетная обработка -->
 					<button
 						type="button"
 						on:click={() => processingMode = 'batch'}
-						class="group bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700
-							hover:border-amber-500 dark:hover:border-amber-500
-							rounded-2xl sm:rounded-3xl p-6 sm:p-8 transition-all duration-300
-							hover:shadow-xl hover:shadow-amber-500/20 text-left"
+						class="cf-mode-card group"
 					>
-						<div class="flex flex-col items-center text-center">
-							<div class="size-14 sm:size-16 mb-4 rounded-2xl bg-amber-100 dark:bg-amber-900/30
-								flex items-center justify-center group-hover:scale-110 transition-transform">
-								<svg class="size-7 sm:size-8 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-								</svg>
-							</div>
-							<h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-								Пакетная обработка
-							</h3>
-							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Применить контент ко всем размерам карточки
-							</p>
+						<div class="cf-mode-icon group-hover:scale-110 transition-transform">
+							<svg class="size-7 sm:size-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+									d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+							</svg>
 						</div>
+						<h3 class="cf-mode-title">Пакетная обработка</h3>
+						<p class="cf-mode-desc">Применить контент ко всем размерам карточки</p>
 					</button>
 				</div>
 			</div>
@@ -434,32 +760,20 @@
 				<!-- Карточка формы -->
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg">
 					<!-- Переключатель режима -->
-					<div class="flex border-b border-gray-200 dark:border-gray-700">
+					<div class="cf-tabs">
 						<button
 							type="button"
 							on:click={() => inputMode = 'sku'}
-							class="flex-1 py-2.5 sm:py-3 md:py-3.5 text-xs sm:text-sm md:text-base font-medium transition relative
-								{inputMode === 'sku'
-									? 'text-violet-600 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10'
-									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
+							class="cf-tab {inputMode === 'sku' ? 'active' : ''}"
 						>
 							Артикул
-							{#if inputMode === 'sku'}
-								<div class="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-violet-500"></div>
-							{/if}
 						</button>
 						<button
 							type="button"
 							on:click={() => inputMode = 'link'}
-							class="flex-1 py-2.5 sm:py-3 md:py-3.5 text-xs sm:text-sm md:text-base font-medium transition relative
-								{inputMode === 'link'
-									? 'text-violet-600 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10'
-									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
+							class="cf-tab {inputMode === 'link' ? 'active' : ''}"
 						>
 							Ссылка
-							{#if inputMode === 'link'}
-								<div class="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-violet-500"></div>
-							{/if}
 						</button>
 					</div>
 
@@ -479,8 +793,8 @@
 												on:click={() => selectedMarketplace = mp.id}
 												class="py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm font-semibold rounded-xl sm:rounded-2xl border-2 transition-all duration-200
 													{selectedMarketplace === mp.id
-														? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 shadow-md shadow-violet-500/20'
-														: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-violet-300 dark:hover:border-violet-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
+														? 'border-gray-900 dark:border-gray-100 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-md'
+														: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'}"
 											>
 												{mp.short}
 											</button>
@@ -501,7 +815,7 @@
 										class="w-full px-3 sm:px-4 py-2.5 sm:py-3 md:py-3.5 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 											bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 											placeholder-gray-400 dark:placeholder-gray-500
-											focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+											focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 											transition-all duration-200 text-sm sm:text-base"
 										on:keydown={(e) => e.key === 'Enter' && handleNext()}
 									/>
@@ -520,7 +834,7 @@
 									class="w-full px-3 sm:px-4 py-2.5 sm:py-3 md:py-3.5 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 										placeholder-gray-400 dark:placeholder-gray-500
-										focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+										focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 										transition-all duration-200 text-sm sm:text-base"
 									on:keydown={(e) => e.key === 'Enter' && handleNext()}
 								/>
@@ -537,10 +851,10 @@
 							type="button"
 							on:click={handleNext}
 							disabled={(inputMode === 'sku' && !skuInput.trim()) || (inputMode === 'link' && !linkInput.trim()) || isLoading}
-							class="w-full py-2.5 sm:py-3 md:py-3.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white
+							class="w-full py-2.5 sm:py-3 md:py-3.5 bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-gray-900
 								disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
 								font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-3
-								shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 disabled:shadow-none"
+								shadow-lg hover:shadow-xl disabled:shadow-none"
 						>
 							{#if isLoading}
 								<svg class="animate-spin size-5 sm:size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -566,7 +880,7 @@
 				<button
 					type="button"
 					on:click={handleBackToModeSelection}
-					class="w-full mt-3 sm:mt-4 text-center text-sm text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+					class="w-full mt-3 sm:mt-4 text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
 				>
 					← Назад к выбору режима
 				</button>
@@ -667,7 +981,7 @@
 											on:click={() => currentPhotoIndex = index}
 											class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all duration-200
 												{currentPhotoIndex === index
-													? 'border-violet-500 shadow-md shadow-violet-500/30 scale-105'
+													? 'border-gray-900 dark:border-gray-100 shadow-md scale-105'
 													: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 hover:scale-105'}"
 											aria-label="Показать фото {index + 1}"
 										>
@@ -697,7 +1011,7 @@
 									class="w-full px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 										placeholder-gray-400 dark:placeholder-gray-500
-										focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+										focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 										transition-all duration-200 text-sm sm:text-base md:text-lg"
 								/>
 							</div>
@@ -715,7 +1029,7 @@
 									class="w-full min-h-[150px] sm:min-h-[180px] md:min-h-[220px] lg:min-h-[280px] px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 										bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 										placeholder-gray-400 dark:placeholder-gray-500
-										focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+										focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 										transition-all duration-200 text-sm sm:text-base resize-none"
 								></textarea>
 							</div>
@@ -765,10 +1079,10 @@
 								type="button"
 								on:click={handleGenerate}
 								disabled={isGenerating}
-								class="w-full py-2.5 sm:py-3 md:py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white
+								class="w-full py-2.5 sm:py-3 md:py-3.5 bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-gray-200 active:bg-gray-700 dark:active:bg-gray-300 text-white
 									disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
 									font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 sm:gap-3
-									shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 disabled:shadow-none"
+									shadow-lg hover:shadow-xl disabled:shadow-none"
 							>
 								{#if isGenerating}
 									<svg class="animate-spin size-5 sm:size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -848,7 +1162,7 @@
 								bind:value={productData.title}
 								class="w-full px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
-									focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+									focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 									transition-all duration-200 text-sm sm:text-base md:text-lg"
 							/>
 							<p class="text-xs sm:text-sm text-gray-400 mt-2">
@@ -867,7 +1181,7 @@
 								rows="6"
 								class="w-full px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
-									focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+									focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 									transition-all duration-200 text-sm sm:text-base resize-none min-h-[140px] sm:min-h-[160px] md:min-h-[200px]"
 							></textarea>
 							<p class="text-xs sm:text-sm text-gray-400 mt-2">
@@ -883,7 +1197,7 @@
 								</p>
 								<div class="flex flex-wrap gap-1.5 sm:gap-2">
 									{#each draftData.seo_tags as tag}
-										<span class="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium">
+										<span class="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium">
 											{tag}
 										</span>
 									{/each}
@@ -956,7 +1270,7 @@
 								class="w-full px-4 sm:px-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-gray-200 dark:border-gray-700
 									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
 									placeholder-gray-400 dark:placeholder-gray-500
-									focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+									focus:outline-none focus:ring-2 focus:ring-gray-400/50 focus:border-gray-400 dark:focus:ring-gray-500/50 dark:focus:border-gray-500
 									transition-all duration-200 text-sm sm:text-base resize-none"
 							></textarea>
 							<button

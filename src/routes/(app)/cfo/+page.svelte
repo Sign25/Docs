@@ -6,43 +6,100 @@
 
 	const i18n = getContext('i18n');
 
-	// Активная вкладка
-	let activeTab: 'pnl' | 'abc' | 'insights' = 'pnl';
+	// Активная вкладка отчёта
+	let activeReportTab: 'categories' | 'brands' | 'marketplaces' | 'sku' = 'categories';
 
 	// Выбранный период
-	let selectedPeriod: 'week' | 'month' | 'quarter' = 'week';
+	let selectedPeriod: 'today' | 'week' | 'month' | 'quarter' = 'week';
 
-	// Моковые данные для демонстрации
-	const pnlData = {
-		categories: [
-			{ name: 'Платья', revenue: 2450000, cogs: 980000, expenses: 367500, profit: 1102500, margin: 45.0 },
-			{ name: 'Блузки', revenue: 1230000, cogs: 492000, expenses: 184500, profit: 553500, margin: 45.0 },
-			{ name: 'Брюки', revenue: 890000, cogs: 356000, expenses: 133500, profit: 400500, margin: 45.0 },
-			{ name: 'Юбки', revenue: 560000, cogs: 224000, expenses: 84000, profit: 252000, margin: 45.0 }
-		],
-		summary: {
-			totalRevenue: 5130000,
-			totalProfit: 2308500,
-			avgMargin: 45.0
+	// Активная секция
+	let activeSection: 'pnl' | 'abc' | 'losers' | 'insights' = 'pnl';
+
+	// Моковые данные P&L
+	const pnlData = [
+		{ name: 'Платья', revenue: 2450000, cogs: 980000, profit: 1102500, margin: 45.0 },
+		{ name: 'Блузки', revenue: 1230000, cogs: 492000, profit: 553500, margin: 45.0 },
+		{ name: 'Брюки', revenue: 890000, cogs: 356000, profit: 400500, margin: 45.0 },
+		{ name: 'Юбки', revenue: 560000, cogs: 280000, profit: 168000, margin: 30.0 },
+		{ name: 'Аксессуары', revenue: 120000, cogs: 96000, profit: 14400, margin: 12.0 }
+	];
+
+	const totals = {
+		revenue: 5250000,
+		cogs: 2204000,
+		profit: 2238900,
+		margin: 42.6
+	};
+
+	// ABC данные
+	const abcData = [
+		{ class: 'A', count: 25, revenueShare: 80.0, profitShare: 75.0, desc: 'Лидеры продаж' },
+		{ class: 'B', count: 50, revenueShare: 15.0, profitShare: 18.0, desc: 'Стабильные середняки' },
+		{ class: 'C', count: 100, revenueShare: 4.5, profitShare: 6.0, desc: 'Требуют внимания' },
+		{ class: 'D', count: 25, revenueShare: 0.5, profitShare: -1.0, desc: 'Убыточные' }
+	];
+
+	// Убыточные SKU
+	const losers = [
+		{ sku: 'OM-099', name: 'Блузка шифоновая белая', sold: 15, revenue: 25000, loss: -5000, mp: 'WB' },
+		{ sku: 'OM-156', name: 'Юбка плиссе бежевая', sold: 8, revenue: 18400, loss: -3200, mp: 'OZ' },
+		{ sku: 'OK-045', name: 'Комбинезон детский', sold: 3, revenue: 8700, loss: -1500, mp: 'YM' }
+	];
+
+	// AI инсайты
+	const insights = [
+		{
+			icon: '📈',
+			title: 'Рост категории "Платья"',
+			text: 'Категория показала рост +23% относительно прошлой недели. Рекомендуется увеличить закупки популярных моделей.',
+			impact: '+350 000 ₽/нед',
+			type: 'positive'
+		},
+		{
+			icon: '⚠️',
+			title: 'Снижение маржи на Ozon',
+			text: 'Средняя маржинальность на Ozon снизилась с 42% до 35% за последний месяц из-за роста комиссий.',
+			impact: '-120 000 ₽/мес',
+			type: 'negative'
+		},
+		{
+			icon: '💡',
+			title: 'Оптимизация SKU класса D',
+			text: '5 позиций класса D генерируют убыток 9 700 ₽/нед. Рекомендуется: повысить цену на 15% или вывести из ассортимента.',
+			impact: 'требуется решение',
+			type: 'neutral'
 		}
-	};
+	];
 
-	const abcData = {
-		classes: [
-			{ class: 'A', count: 47, profit: 7200000, share: 80.0, color: 'emerald' },
-			{ class: 'B', count: 89, profit: 1350000, share: 15.0, color: 'blue' },
-			{ class: 'C', count: 156, profit: 450000, share: 5.0, color: 'amber' },
-			{ class: 'D', count: 23, profit: -180000, share: 0, color: 'red' }
-		],
-		totalSkus: 315
-	};
+	// Метрики
+	const metrics = [
+		{ icon: '💵', value: '5.25M ₽', label: 'Выручка', change: '+12%', up: true },
+		{ icon: '💰', value: '2.24M ₽', label: 'Чистая прибыль', change: '+8%', up: true },
+		{ icon: '📊', value: '42.6%', label: 'Средняя маржа', change: '-2%', up: false },
+		{ icon: '📦', value: '1 842', label: 'Заказов', change: '+15%', up: true },
+		{ icon: '🔴', value: '5', label: 'Убыточных SKU', change: '-2', up: true }
+	];
 
-	// Форматирование чисел
 	function formatMoney(value: number): string {
 		return new Intl.NumberFormat('ru-RU').format(value) + ' ₽';
 	}
 
-	// Закрытие сайдбара на мобильных
+	function getMarginClass(margin: number): string {
+		if (margin >= 40) return 'high';
+		if (margin >= 20) return 'medium';
+		return 'low';
+	}
+
+	function getAbcClass(cls: string): string {
+		switch(cls) {
+			case 'A': return 'abc-a';
+			case 'B': return 'abc-b';
+			case 'C': return 'abc-c';
+			case 'D': return 'abc-d';
+			default: return '';
+		}
+	}
+
 	const handlePageClick = () => {
 		if ($mobile && $showSidebar) {
 			showSidebar.set(false);
@@ -54,6 +111,550 @@
 	<title>CFO | Adolf</title>
 </svelte:head>
 
+<style>
+	/* CFO Module Styles */
+	.cfo-container {
+		--cfo-text-primary: #1F2937;
+		--cfo-text-secondary: #6B7280;
+		--cfo-text-tertiary: #9CA3AF;
+		--cfo-bg-primary: #FFFFFF;
+		--cfo-bg-secondary: #F9FAFB;
+		--cfo-border: #E5E7EB;
+		--cfo-success: #10B981;
+		--cfo-warning: #F59E0B;
+		--cfo-error: #EF4444;
+	}
+
+	:global(.dark) .cfo-container {
+		--cfo-text-primary: #F9FAFB;
+		--cfo-text-secondary: #D1D5DB;
+		--cfo-text-tertiary: #9CA3AF;
+		--cfo-bg-primary: #1F2937;
+		--cfo-bg-secondary: #374151;
+		--cfo-border: #4B5563;
+	}
+
+	/* Tabs */
+	.cfo-tabs {
+		display: flex;
+		gap: 0.25rem;
+		border-bottom: 1px solid var(--cfo-border);
+		margin-bottom: 1rem;
+	}
+
+	.cfo-tab {
+		padding: 0.75rem 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--cfo-text-secondary);
+		border-bottom: 2px solid transparent;
+		transition: all 0.2s;
+		cursor: pointer;
+		background: none;
+		border-top: none;
+		border-left: none;
+		border-right: none;
+	}
+
+	.cfo-tab:hover {
+		color: var(--cfo-text-primary);
+	}
+
+	.cfo-tab.active {
+		color: var(--cfo-text-primary);
+		border-bottom-color: var(--cfo-text-primary);
+	}
+
+	/* Period Filter */
+	.cfo-period-filter {
+		display: flex;
+		gap: 0.25rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.cfo-period-btn {
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+		color: var(--cfo-text-secondary);
+		background: var(--cfo-bg-secondary);
+		border: 1px solid var(--cfo-border);
+		border-radius: 0.5rem;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.cfo-period-btn:hover {
+		background: var(--cfo-border);
+	}
+
+	.cfo-period-btn.active {
+		background: var(--cfo-text-primary);
+		color: var(--cfo-bg-primary);
+		border-color: var(--cfo-text-primary);
+	}
+
+	/* Report Card */
+	.cfo-report {
+		background: var(--cfo-bg-primary);
+		border: 1px solid var(--cfo-border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+
+	.cfo-report-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--cfo-border);
+	}
+
+	.cfo-report-title {
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--cfo-text-primary);
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.cfo-report-period {
+		font-size: 0.875rem;
+		color: var(--cfo-text-secondary);
+	}
+
+	/* Table */
+	.cfo-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.cfo-table th {
+		padding: 0.75rem 1rem;
+		text-align: left;
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--cfo-text-tertiary);
+		background: var(--cfo-bg-secondary);
+	}
+
+	.cfo-table th.text-right {
+		text-align: right;
+	}
+
+	.cfo-table td {
+		padding: 0.75rem 1rem;
+		font-size: 0.875rem;
+		color: var(--cfo-text-primary);
+		border-top: 1px solid var(--cfo-border);
+	}
+
+	.cfo-table td.text-right {
+		text-align: right;
+	}
+
+	.cfo-table tr.total {
+		background: var(--cfo-bg-secondary);
+		font-weight: 600;
+	}
+
+	/* Values */
+	.cfo-value {
+		font-family: ui-monospace, monospace;
+	}
+
+	.cfo-value.positive {
+		color: var(--cfo-success);
+	}
+
+	.cfo-value.negative {
+		color: var(--cfo-error);
+	}
+
+	/* Margin badges */
+	.cfo-margin {
+		display: inline-block;
+		padding: 0.125rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.cfo-margin.high {
+		background: #D1FAE5;
+		color: #059669;
+	}
+
+	.cfo-margin.medium {
+		background: #FEF3C7;
+		color: #D97706;
+	}
+
+	.cfo-margin.low {
+		background: #FEE2E2;
+		color: #DC2626;
+	}
+
+	:global(.dark) .cfo-margin.high {
+		background: #064E3B;
+		color: #34D399;
+	}
+
+	:global(.dark) .cfo-margin.medium {
+		background: #78350F;
+		color: #FBBF24;
+	}
+
+	:global(.dark) .cfo-margin.low {
+		background: #7F1D1D;
+		color: #F87171;
+	}
+
+	/* Summary */
+	.cfo-summary {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		background: var(--cfo-bg-secondary);
+		border-top: 1px solid var(--cfo-border);
+	}
+
+	.cfo-summary-item {
+		text-align: center;
+	}
+
+	.cfo-summary-label {
+		font-size: 0.75rem;
+		color: var(--cfo-text-tertiary);
+		margin-bottom: 0.25rem;
+	}
+
+	.cfo-summary-value {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--cfo-text-primary);
+		font-family: ui-monospace, monospace;
+	}
+
+	.cfo-summary-value.profit {
+		color: var(--cfo-success);
+	}
+
+	/* Actions */
+	.cfo-actions {
+		display: flex;
+		gap: 0.5rem;
+		padding: 1rem 1.25rem;
+		border-top: 1px solid var(--cfo-border);
+		flex-wrap: wrap;
+	}
+
+	.cfo-btn {
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		border-radius: 0.5rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		border: 1px solid var(--cfo-border);
+		background: var(--cfo-bg-primary);
+		color: var(--cfo-text-primary);
+	}
+
+	.cfo-btn:hover {
+		background: var(--cfo-bg-secondary);
+	}
+
+	.cfo-btn-primary {
+		background: var(--cfo-text-primary);
+		color: var(--cfo-bg-primary);
+		border-color: var(--cfo-text-primary);
+	}
+
+	.cfo-btn-primary:hover {
+		opacity: 0.9;
+	}
+
+	.cfo-btn-danger {
+		background: #FEE2E2;
+		color: #DC2626;
+		border-color: #FECACA;
+	}
+
+	:global(.dark) .cfo-btn-danger {
+		background: #7F1D1D;
+		color: #F87171;
+		border-color: #991B1B;
+	}
+
+	/* ABC */
+	.cfo-abc-distribution {
+		display: flex;
+		height: 2rem;
+		border-radius: 0.5rem;
+		overflow: hidden;
+		margin: 1rem 0;
+	}
+
+	.cfo-abc-segment {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: white;
+	}
+
+	.cfo-abc-segment.abc-a { background: #10B981; }
+	.cfo-abc-segment.abc-b { background: #3B82F6; }
+	.cfo-abc-segment.abc-c { background: #F59E0B; }
+	.cfo-abc-segment.abc-d { background: #EF4444; }
+
+	.cfo-abc-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.cfo-abc-legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+		color: var(--cfo-text-secondary);
+	}
+
+	.cfo-abc-legend-dot {
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 50%;
+	}
+
+	.cfo-abc-legend-dot.abc-a { background: #10B981; }
+	.cfo-abc-legend-dot.abc-b { background: #3B82F6; }
+	.cfo-abc-legend-dot.abc-c { background: #F59E0B; }
+	.cfo-abc-legend-dot.abc-d { background: #EF4444; }
+
+	.cfo-abc-class {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: white;
+	}
+
+	.cfo-abc-class.abc-a { background: #10B981; }
+	.cfo-abc-class.abc-b { background: #3B82F6; }
+	.cfo-abc-class.abc-c { background: #F59E0B; }
+	.cfo-abc-class.abc-d { background: #EF4444; }
+
+	/* Losers */
+	.cfo-loser-card {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem;
+		border: 1px solid var(--cfo-border);
+		border-radius: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.cfo-loser-sku {
+		font-family: ui-monospace, monospace;
+		font-size: 0.75rem;
+		color: var(--cfo-text-tertiary);
+	}
+
+	.cfo-loser-name {
+		font-weight: 500;
+		color: var(--cfo-text-primary);
+		margin: 0.25rem 0;
+	}
+
+	.cfo-loser-meta {
+		display: flex;
+		gap: 1rem;
+		font-size: 0.75rem;
+		color: var(--cfo-text-secondary);
+	}
+
+	.cfo-loser-loss {
+		text-align: right;
+	}
+
+	.cfo-loser-loss-value {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--cfo-error);
+		font-family: ui-monospace, monospace;
+	}
+
+	.cfo-loser-loss-label {
+		font-size: 0.75rem;
+		color: var(--cfo-text-tertiary);
+	}
+
+	/* MP Badge */
+	.cfo-mp-badge {
+		display: inline-block;
+		padding: 0.125rem 0.375rem;
+		border-radius: 0.25rem;
+		font-size: 0.625rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.cfo-mp-badge.wb { background: #7B2D8E; color: white; }
+	.cfo-mp-badge.oz { background: #005BFF; color: white; }
+	.cfo-mp-badge.ym { background: #FFCC00; color: black; }
+
+	/* Insights */
+	.cfo-insight-card {
+		display: flex;
+		gap: 1rem;
+		padding: 1rem;
+		border: 1px solid var(--cfo-border);
+		border-radius: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.cfo-insight-icon {
+		font-size: 1.5rem;
+		flex-shrink: 0;
+	}
+
+	.cfo-insight-title {
+		font-weight: 600;
+		color: var(--cfo-text-primary);
+		margin-bottom: 0.25rem;
+	}
+
+	.cfo-insight-text {
+		font-size: 0.875rem;
+		color: var(--cfo-text-secondary);
+		margin-bottom: 0.5rem;
+	}
+
+	.cfo-insight-impact {
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		display: inline-block;
+	}
+
+	.cfo-insight-impact.positive {
+		background: #D1FAE5;
+		color: #059669;
+	}
+
+	.cfo-insight-impact.negative {
+		background: #FEE2E2;
+		color: #DC2626;
+	}
+
+	.cfo-insight-impact.neutral {
+		background: #E5E7EB;
+		color: #4B5563;
+	}
+
+	:global(.dark) .cfo-insight-impact.positive {
+		background: #064E3B;
+		color: #34D399;
+	}
+
+	:global(.dark) .cfo-insight-impact.negative {
+		background: #7F1D1D;
+		color: #F87171;
+	}
+
+	:global(.dark) .cfo-insight-impact.neutral {
+		background: #374151;
+		color: #D1D5DB;
+	}
+
+	/* Metrics */
+	.cfo-metrics {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 1rem;
+		margin-bottom: 1.5rem;
+	}
+
+	@media (max-width: 768px) {
+		.cfo-metrics {
+			grid-template-columns: repeat(2, 1fr);
+		}
+		.cfo-summary {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	.cfo-metric-card {
+		background: var(--cfo-bg-primary);
+		border: 1px solid var(--cfo-border);
+		border-radius: 0.5rem;
+		padding: 1rem;
+		text-align: center;
+	}
+
+	.cfo-metric-icon {
+		font-size: 1.25rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.cfo-metric-value {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--cfo-text-primary);
+		font-family: ui-monospace, monospace;
+	}
+
+	.cfo-metric-value.positive {
+		color: var(--cfo-success);
+	}
+
+	.cfo-metric-value.negative {
+		color: var(--cfo-error);
+	}
+
+	.cfo-metric-label {
+		font-size: 0.75rem;
+		color: var(--cfo-text-tertiary);
+		margin-top: 0.25rem;
+	}
+
+	.cfo-metric-change {
+		font-size: 0.75rem;
+		font-weight: 500;
+		margin-top: 0.25rem;
+	}
+
+	.cfo-metric-change.up {
+		color: var(--cfo-success);
+	}
+
+	.cfo-metric-change.down {
+		color: var(--cfo-error);
+	}
+
+	/* Section nav */
+	.cfo-section-nav {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 1.5rem;
+		flex-wrap: wrap;
+	}
+</style>
+
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <div
@@ -63,8 +664,8 @@
 	on:click={handlePageClick}
 	role="main"
 >
-	<div class="flex-1 flex flex-col px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 md:pt-12 pb-6 sm:pb-8">
-		<!-- Кнопка сайдбара для мобильных -->
+	<div class="cfo-container flex-1 flex flex-col px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+		<!-- Mobile sidebar button -->
 		{#if $mobile && !$showSidebar}
 			<Tooltip content={$i18n.t('Open Sidebar')}>
 				<button
@@ -77,219 +678,301 @@
 			</Tooltip>
 		{/if}
 
-		<!-- Заголовок -->
-		<div class="max-w-7xl mx-auto w-full">
-			<div class="flex items-center justify-between mb-6 sm:mb-8">
-				<div class="flex items-center gap-3">
-					<div class="size-10 sm:size-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-						<svg class="size-6 sm:size-7 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-					</div>
-					<div>
-						<h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-							CFO
-						</h1>
-						<p class="text-sm text-gray-500 dark:text-gray-400">
-							Финансовая аналитика
-						</p>
-					</div>
-				</div>
-
-				<!-- Выбор периода -->
-				<div class="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-					{#each [
-						{ id: 'week', label: 'Неделя' },
-						{ id: 'month', label: 'Месяц' },
-						{ id: 'quarter', label: 'Квартал' }
-					] as period}
-						<button
-							type="button"
-							on:click={() => selectedPeriod = period.id}
-							class="px-3 py-1.5 text-sm font-medium rounded-lg transition-all
-								{selectedPeriod === period.id
-									? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-									: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
-						>
-							{period.label}
-						</button>
-					{/each}
-				</div>
+		<div class="max-w-6xl mx-auto w-full">
+			<!-- Header -->
+			<div class="mb-6">
+				<h1 class="text-2xl font-bold" style="color: var(--cfo-text-primary)">
+					💰 CFO
+				</h1>
+				<p class="text-sm" style="color: var(--cfo-text-secondary)">
+					Финансовая аналитика и управленческий учёт
+				</p>
 			</div>
 
-			<!-- Навигация по вкладкам -->
-			<div class="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+			<!-- Metrics Cards -->
+			<div class="cfo-metrics">
+				{#each metrics as m}
+					<div class="cfo-metric-card">
+						<div class="cfo-metric-icon">{m.icon}</div>
+						<div class="cfo-metric-value {m.label === 'Чистая прибыль' ? 'positive' : ''} {m.label === 'Убыточных SKU' && parseInt(m.value) > 0 ? 'negative' : ''}">{m.value}</div>
+						<div class="cfo-metric-label">{m.label}</div>
+						<div class="cfo-metric-change {m.up ? 'up' : 'down'}">
+							{m.up ? '↑' : '↓'} {m.change}
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Report Type Tabs -->
+			<div class="cfo-tabs">
 				{#each [
-					{ id: 'pnl', label: 'P&L отчёты', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-					{ id: 'abc', label: 'ABC-анализ', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
-					{ id: 'insights', label: 'AI-инсайты', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' }
+					{ id: 'categories', label: '📊 По категориям' },
+					{ id: 'brands', label: '🏷️ По брендам' },
+					{ id: 'marketplaces', label: '🛒 По МП' },
+					{ id: 'sku', label: '📦 По SKU' }
 				] as tab}
 					<button
-						type="button"
-						on:click={() => activeTab = tab.id}
-						class="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all
-							{activeTab === tab.id
-								? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-								: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+						class="cfo-tab {activeReportTab === tab.id ? 'active' : ''}"
+						on:click={() => activeReportTab = tab.id}
 					>
-						<svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={tab.icon} />
-						</svg>
 						{tab.label}
 					</button>
 				{/each}
 			</div>
 
-			<!-- Контент вкладок -->
-			{#if activeTab === 'pnl'}
-				<!-- P&L отчёты -->
-				<div class="space-y-6">
-					<!-- Сводка -->
-					<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-						<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
-							<p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Выручка</p>
-							<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatMoney(pnlData.summary.totalRevenue)}</p>
+			<!-- Period Filter -->
+			<div class="cfo-period-filter">
+				{#each [
+					{ id: 'today', label: 'Сегодня' },
+					{ id: 'week', label: 'Неделя' },
+					{ id: 'month', label: 'Месяц' },
+					{ id: 'quarter', label: 'Квартал' }
+				] as period}
+					<button
+						class="cfo-period-btn {selectedPeriod === period.id ? 'active' : ''}"
+						on:click={() => selectedPeriod = period.id}
+					>
+						{period.label}
+					</button>
+				{/each}
+				<button class="cfo-period-btn">📅 Выбрать</button>
+			</div>
+
+			<!-- Section Navigation -->
+			<div class="cfo-section-nav">
+				<button
+					class="cfo-btn {activeSection === 'pnl' ? 'cfo-btn-primary' : ''}"
+					on:click={() => activeSection = 'pnl'}
+				>
+					📊 P&L отчёт
+				</button>
+				<button
+					class="cfo-btn {activeSection === 'abc' ? 'cfo-btn-primary' : ''}"
+					on:click={() => activeSection = 'abc'}
+				>
+					🔤 ABC-анализ
+				</button>
+				<button
+					class="cfo-btn cfo-btn-danger {activeSection === 'losers' ? '' : ''}"
+					on:click={() => activeSection = 'losers'}
+				>
+					🔴 Убыточные SKU
+				</button>
+				<button
+					class="cfo-btn {activeSection === 'insights' ? 'cfo-btn-primary' : ''}"
+					on:click={() => activeSection = 'insights'}
+				>
+					🤖 AI-инсайты
+				</button>
+			</div>
+
+			<!-- P&L Report -->
+			{#if activeSection === 'pnl'}
+				<div class="cfo-report">
+					<div class="cfo-report-header">
+						<h2 class="cfo-report-title">
+							<span>💰</span>
+							P&L по категориям
+						</h2>
+						<span class="cfo-report-period">📅 13.01.2026 — 19.01.2026</span>
+					</div>
+
+					<table class="cfo-table">
+						<thead>
+							<tr>
+								<th>Категория</th>
+								<th class="text-right">Выручка</th>
+								<th class="text-right">Себестоимость</th>
+								<th class="text-right">Прибыль</th>
+								<th class="text-right">Маржа</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each pnlData as row}
+								<tr>
+									<td>{row.name}</td>
+									<td class="text-right"><span class="cfo-value">{formatMoney(row.revenue)}</span></td>
+									<td class="text-right"><span class="cfo-value">{formatMoney(row.cogs)}</span></td>
+									<td class="text-right"><span class="cfo-value positive">{formatMoney(row.profit)}</span></td>
+									<td class="text-right"><span class="cfo-margin {getMarginClass(row.margin)}">{row.margin}%</span></td>
+								</tr>
+							{/each}
+							<tr class="total">
+								<td><strong>Итого</strong></td>
+								<td class="text-right"><span class="cfo-value">{formatMoney(totals.revenue)}</span></td>
+								<td class="text-right"><span class="cfo-value">{formatMoney(totals.cogs)}</span></td>
+								<td class="text-right"><span class="cfo-value positive">{formatMoney(totals.profit)}</span></td>
+								<td class="text-right"><span class="cfo-margin {getMarginClass(totals.margin)}">{totals.margin}%</span></td>
+							</tr>
+						</tbody>
+					</table>
+
+					<div class="cfo-summary">
+						<div class="cfo-summary-item">
+							<div class="cfo-summary-label">Выручка</div>
+							<div class="cfo-summary-value">{formatMoney(totals.revenue)}</div>
 						</div>
-						<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
-							<p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Прибыль</p>
-							<p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatMoney(pnlData.summary.totalProfit)}</p>
+						<div class="cfo-summary-item">
+							<div class="cfo-summary-label">Себестоимость</div>
+							<div class="cfo-summary-value">{formatMoney(totals.cogs)}</div>
 						</div>
-						<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
-							<p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Маржинальность</p>
-							<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{pnlData.summary.avgMargin}%</p>
+						<div class="cfo-summary-item">
+							<div class="cfo-summary-label">Чистая прибыль</div>
+							<div class="cfo-summary-value profit">{formatMoney(totals.profit)}</div>
+						</div>
+						<div class="cfo-summary-item">
+							<div class="cfo-summary-label">Средняя маржа</div>
+							<div class="cfo-summary-value">{totals.margin}%</div>
 						</div>
 					</div>
 
-					<!-- Таблица по категориям -->
-					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
-						<div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-							<h3 class="font-semibold text-gray-900 dark:text-gray-100">P&L по категориям</h3>
-						</div>
-						<div class="overflow-x-auto">
-							<table class="w-full">
-								<thead class="bg-gray-50 dark:bg-gray-800/50">
-									<tr>
-										<th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Категория</th>
-										<th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Выручка</th>
-										<th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Себест.</th>
-										<th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Расходы МП</th>
-										<th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Прибыль</th>
-										<th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Маржа</th>
-									</tr>
-								</thead>
-								<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-									{#each pnlData.categories as cat}
-										<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-											<td class="px-5 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{cat.name}</td>
-											<td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300 text-right">{formatMoney(cat.revenue)}</td>
-											<td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300 text-right">{formatMoney(cat.cogs)}</td>
-											<td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300 text-right">{formatMoney(cat.expenses)}</td>
-											<td class="px-5 py-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400 text-right">{formatMoney(cat.profit)}</td>
-											<td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300 text-right">{cat.margin}%</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
+					<div class="cfo-actions">
+						<button class="cfo-btn">🏷️ По брендам</button>
+						<button class="cfo-btn">🛒 По МП</button>
+						<button class="cfo-btn">🔤 ABC-анализ</button>
+						<button class="cfo-btn">📥 Excel</button>
 					</div>
 				</div>
+			{/if}
 
-			{:else if activeTab === 'abc'}
-				<!-- ABC-анализ -->
-				<div class="space-y-6">
-					<!-- Сводка по классам -->
-					<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-						{#each abcData.classes as cls}
-							<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
-								<div class="flex items-center gap-2 mb-3">
-									<div class="size-8 rounded-lg flex items-center justify-center font-bold text-white
-										{cls.color === 'emerald' ? 'bg-emerald-500' : ''}
-										{cls.color === 'blue' ? 'bg-blue-500' : ''}
-										{cls.color === 'amber' ? 'bg-amber-500' : ''}
-										{cls.color === 'red' ? 'bg-red-500' : ''}">
-										{cls.class}
+			<!-- ABC Analysis -->
+			{#if activeSection === 'abc'}
+				<div class="cfo-report">
+					<div class="cfo-report-header">
+						<h2 class="cfo-report-title">
+							<span>🔤</span>
+							ABC-анализ товарного портфеля
+						</h2>
+					</div>
+
+					<div style="padding: 1.25rem;">
+						<!-- Distribution Bar -->
+						<div class="cfo-abc-distribution">
+							<div class="cfo-abc-segment abc-a" style="flex: 80;">A 80%</div>
+							<div class="cfo-abc-segment abc-b" style="flex: 15;">B 15%</div>
+							<div class="cfo-abc-segment abc-c" style="flex: 4;">C</div>
+							<div class="cfo-abc-segment abc-d" style="flex: 1;"></div>
+						</div>
+
+						<!-- Legend -->
+						<div class="cfo-abc-legend">
+							<div class="cfo-abc-legend-item">
+								<div class="cfo-abc-legend-dot abc-a"></div>
+								<span>A — Лидеры (80% прибыли)</span>
+							</div>
+							<div class="cfo-abc-legend-item">
+								<div class="cfo-abc-legend-dot abc-b"></div>
+								<span>B — Середняки (15% прибыли)</span>
+							</div>
+							<div class="cfo-abc-legend-item">
+								<div class="cfo-abc-legend-dot abc-c"></div>
+								<span>C — Аутсайдеры (4.5% прибыли)</span>
+							</div>
+							<div class="cfo-abc-legend-item">
+								<div class="cfo-abc-legend-dot abc-d"></div>
+								<span>D — Убыточные</span>
+							</div>
+						</div>
+
+						<hr style="border: none; border-top: 1px solid var(--cfo-border); margin: 1rem 0;">
+
+						<!-- ABC Table -->
+						<table class="cfo-table">
+							<thead>
+								<tr>
+									<th style="text-align: center;">Класс</th>
+									<th style="text-align: center;">SKU</th>
+									<th class="text-right">Доля выручки</th>
+									<th class="text-right">Доля прибыли</th>
+									<th>Описание</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each abcData as row}
+									<tr>
+										<td style="text-align: center;"><span class="cfo-abc-class {getAbcClass(row.class)}">{row.class}</span></td>
+										<td style="text-align: center;"><strong>{row.count}</strong></td>
+										<td class="text-right"><span class="cfo-value">{row.revenueShare}%</span></td>
+										<td class="text-right"><span class="cfo-value {row.profitShare < 0 ? 'negative' : ''}">{row.profitShare}%</span></td>
+										<td>{row.desc}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+
+					<div class="cfo-actions">
+						<button class="cfo-btn cfo-btn-danger">🔴 Убыточные SKU</button>
+						<button class="cfo-btn">🤖 AI-инсайты</button>
+						<button class="cfo-btn">📥 Excel</button>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Losers -->
+			{#if activeSection === 'losers'}
+				<div class="cfo-report">
+					<div class="cfo-report-header">
+						<h2 class="cfo-report-title">
+							<span>🔴</span>
+							Убыточные позиции
+						</h2>
+						<span style="background: #FEE2E2; color: #DC2626; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem;">
+							{losers.length}
+						</span>
+					</div>
+
+					<div style="padding: 1.25rem;">
+						{#each losers as item}
+							<div class="cfo-loser-card">
+								<div>
+									<div class="cfo-loser-sku">{item.sku}</div>
+									<h4 class="cfo-loser-name">{item.name}</h4>
+									<div class="cfo-loser-meta">
+										<span>📦 Продано: {item.sold} шт</span>
+										<span>💵 Выручка: {formatMoney(item.revenue)}</span>
+										<span class="cfo-mp-badge {item.mp.toLowerCase()}">{item.mp}</span>
 									</div>
-									<span class="text-sm text-gray-500 dark:text-gray-400">{cls.count} SKU</span>
 								</div>
-								<p class="text-lg font-bold {cls.profit < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}">
-									{cls.profit < 0 ? '−' : ''}{formatMoney(Math.abs(cls.profit))}
-								</p>
-								{#if cls.share > 0}
-									<p class="text-sm text-gray-500 dark:text-gray-400">{cls.share}% прибыли</p>
-								{:else}
-									<p class="text-sm text-red-500 dark:text-red-400">убыток</p>
-								{/if}
+								<div class="cfo-loser-loss">
+									<div class="cfo-loser-loss-value">{formatMoney(item.loss)}</div>
+									<div class="cfo-loser-loss-label">убыток</div>
+								</div>
 							</div>
 						{/each}
 					</div>
 
-					<!-- Информационный блок -->
-					<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5">
-						<div class="flex items-start gap-3">
-							<svg class="size-6 text-amber-600 dark:text-amber-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-							</svg>
-							<div>
-								<p class="font-semibold text-amber-800 dark:text-amber-200">Обнаружено {abcData.classes[3].count} убыточных SKU</p>
-								<p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
-									Общий убыток: {formatMoney(Math.abs(abcData.classes[3].profit))}. Рекомендуется проанализировать причины.
-								</p>
-							</div>
-						</div>
+					<div class="cfo-actions">
+						<button class="cfo-btn">🤖 AI-рекомендации</button>
+						<button class="cfo-btn">📥 Excel</button>
 					</div>
 				</div>
+			{/if}
 
-			{:else if activeTab === 'insights'}
-				<!-- AI-инсайты -->
-				<div class="space-y-6">
-					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
-						<div class="flex items-center gap-3 mb-4">
-							<div class="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-								<svg class="size-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-								</svg>
-							</div>
-							<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">AI-анализ за неделю</h3>
-						</div>
-
-						<div class="space-y-4 text-gray-700 dark:text-gray-300">
-							<div>
-								<h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Резюме</h4>
-								<p>Неделя показала стабильные результаты с общей маржинальностью 45%. Выручка составила 5.13 млн ₽, чистая прибыль — 2.31 млн ₽.</p>
-							</div>
-
-							<div>
-								<h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Ключевые проблемы</h4>
-								<ul class="list-disc list-inside space-y-1">
-									<li>23 SKU в убытке (−180 000 ₽). Основная причина — высокая логистика.</li>
-									<li>Категория «Аксессуары» показывает падение маржи на 3 п.п. к прошлой неделе.</li>
-								</ul>
-							</div>
-
-							<div>
-								<h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Рекомендации</h4>
-								<ul class="list-disc list-inside space-y-1">
-									<li>Перевести убыточные SKU на FBO для снижения логистики.</li>
-									<li>Пересмотреть цены в категории «Брюки» (+5-7%).</li>
-									<li>Платья класса A показывают маржу 52% — увеличить закупку.</li>
-								</ul>
-							</div>
-						</div>
+			<!-- AI Insights -->
+			{#if activeSection === 'insights'}
+				<div class="cfo-report">
+					<div class="cfo-report-header">
+						<h2 class="cfo-report-title">
+							<span>🤖</span>
+							AI-инсайты
+						</h2>
 					</div>
 
-					<!-- Плейсхолдер для чата -->
-					<div class="bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center">
-						<svg class="size-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-						</svg>
-						<p class="text-gray-500 dark:text-gray-400 mb-2">Задайте вопрос AI-ассистенту</p>
-						<p class="text-sm text-gray-400 dark:text-gray-500">
-							Например: «Покажи топ-10 убыточных SKU» или «Сравни маржу WB и Ozon»
-						</p>
+					<div style="padding: 1.25rem;">
+						{#each insights as insight}
+							<div class="cfo-insight-card">
+								<div class="cfo-insight-icon">{insight.icon}</div>
+								<div>
+									<h4 class="cfo-insight-title">{insight.title}</h4>
+									<p class="cfo-insight-text">{insight.text}</p>
+									<span class="cfo-insight-impact {insight.type}">
+										{#if insight.type === 'positive'}💰{:else if insight.type === 'negative'}📉{:else}🎯{/if}
+										{insight.type === 'neutral' ? 'Действие: ' : insight.type === 'positive' ? 'Потенциал: ' : 'Влияние: '}{insight.impact}
+									</span>
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 			{/if}
