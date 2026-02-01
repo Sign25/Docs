@@ -1039,6 +1039,7 @@
 	/* Section Tabs */
 	.cf-section-tabs {
 		display: flex;
+		justify-content: center;
 		gap: 0.5rem;
 		margin-bottom: 1.5rem;
 		flex-wrap: wrap;

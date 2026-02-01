@@ -96,10 +96,10 @@
 	<title>База знаний | ADOLF</title>
 </svelte:head>
 
-<div class="flex flex-col w-full min-h-screen max-h-screen overflow-hidden">
+<div class="h-screen max-h-[100dvh] w-full flex flex-col overflow-x-hidden overflow-y-auto transition-all duration-300 {$showSidebar ? 'md:max-w-[calc(100%-var(--sidebar-width))] md:ml-[var(--sidebar-width)]' : ''}">
 	<!-- Header -->
-	<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-		<div class="flex items-center gap-3">
+	<div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 sticky top-0 z-10">
+		<div class="flex items-center gap-2 sm:gap-3">
 			{#if $mobile}
 				<button
 					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -110,14 +110,14 @@
 					</svg>
 				</button>
 			{/if}
-			<img
-				src="{WEBUI_BASE_URL}/static/knowledge-icon.svg"
-				class="w-8 h-8 dark:invert"
-				alt="Knowledge"
-			/>
-			<h1 class="text-xl font-semibold text-gray-900 dark:text-white">База знаний</h1>
+			<svg class="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M12 21V7" />
+				<path d="m16 12 2 2 4-4" />
+				<path d="M22 6V4a1 1 0 0 0-1-1h-5a4 4 0 0 0-4 4 4 4 0 0 0-4-4H3a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h6a3 3 0 0 1 3 3 3 3 0 0 1 3-3h6a1 1 0 0 0 1-1v-1.3" />
+			</svg>
+			<h1 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">База знаний</h1>
 		</div>
-		<div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+		<div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
 			<span>{stats.totalDocuments} документов</span>
 			<span class="text-gray-300 dark:text-gray-600">|</span>
 			<span>Обновлено: {stats.lastUpdated}</span>
@@ -125,7 +125,7 @@
 	</div>
 
 	<!-- Navigation Tabs -->
-	<div class="flex items-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
+	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
 		<button
 			class="kb-btn px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'search' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'search'}

@@ -780,12 +780,11 @@
 							draggable="false"
 						>
 							<div class=" self-center flex items-center justify-center size-9">
-								<svg class="size-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M3 3v18h18"/>
-									<path d="M18 17V9"/>
-									<path d="M13 17V5"/>
-									<path d="M8 17v-3"/>
-								</svg>
+								<img
+									src="{WEBUI_BASE_URL}/static/cfo-icon.svg?v=1.1.50"
+									class="size-5 dark:invert"
+									alt="CFO"
+								/>
 							</div>
 						</a>
 					</Tooltip>
@@ -1010,12 +1009,11 @@
 							aria-label="Финансы (CFO)"
 						>
 							<div class="self-center">
-								<svg class="size-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M3 3v18h18"/>
-									<path d="M18 17V9"/>
-									<path d="M13 17V5"/>
-									<path d="M8 17v-3"/>
-								</svg>
+								<img
+									src="{WEBUI_BASE_URL}/static/cfo-icon.svg?v=1.1.50"
+									class="size-5 dark:invert"
+									alt="CFO"
+								/>
 							</div>
 
 							<div class="flex self-center translate-y-[0.5px]">
