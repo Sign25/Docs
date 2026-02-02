@@ -81,7 +81,7 @@
 						if (idx > 0) {
 							if (
 								columns.length === 4 &&
-								['admin', 'user', 'pending'].includes(columns[3].toLowerCase())
+								['pending', 'user', 'staff', 'manager', 'senior', 'director', 'admin'].includes(columns[3].toLowerCase())
 							) {
 								const res = await addUser(
 									localStorage.token,
@@ -185,9 +185,13 @@
 										placeholder={$i18n.t('Enter Your Role')}
 										required
 									>
-										<option value="pending"> {$i18n.t('pending')} </option>
-										<option value="user"> {$i18n.t('user')} </option>
-										<option value="admin"> {$i18n.t('admin')} </option>
+										<option value="pending">Ожидающий (Pending)</option>
+										<option value="user">Пользователь (User)</option>
+										<option value="staff">Сотрудник (Staff)</option>
+										<option value="manager">Менеджер (Manager)</option>
+										<option value="senior">Старший менеджер (Senior)</option>
+										<option value="director">Директор (Director)</option>
+										<option value="admin">Администратор (Admin)</option>
 									</select>
 								</div>
 							</div>
