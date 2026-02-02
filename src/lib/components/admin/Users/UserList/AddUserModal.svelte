@@ -25,7 +25,7 @@
 		name: '',
 		email: '',
 		password: '',
-		role: 'user'
+		role: 'staff'
 	};
 
 	$: if (show) {
@@ -33,7 +33,7 @@
 			name: '',
 			email: '',
 			password: '',
-			role: 'user'
+			role: 'staff'
 		};
 	}
 
@@ -81,7 +81,7 @@
 						if (idx > 0) {
 							if (
 								columns.length === 4 &&
-								['pending', 'user', 'staff', 'manager', 'senior', 'director', 'admin'].includes(columns[3].toLowerCase())
+								['pending', 'staff', 'manager', 'senior', 'director', 'admin'].includes(columns[3].toLowerCase())
 							) {
 								const res = await addUser(
 									localStorage.token,
@@ -186,7 +186,6 @@
 										required
 									>
 										<option value="pending">Ожидающий (Pending)</option>
-										<option value="user">Пользователь (User)</option>
 										<option value="staff">Сотрудник (Staff)</option>
 										<option value="manager">Менеджер (Manager)</option>
 										<option value="senior">Старший менеджер (Senior)</option>
