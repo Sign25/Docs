@@ -42,7 +42,7 @@ const MODULE_ACCESS: Record<ModuleName, string> = {
  * Check if user has at least the minimum required role
  */
 export function hasMinRole(userRole: string | undefined | null, requiredRole: string): boolean {
-	if (!userRole) return false;
+	if (!userRole || !requiredRole) return false;
 	const userLevel = ROLE_HIERARCHY[userRole.toLowerCase()] ?? -1;
 	const requiredLevel = ROLE_HIERARCHY[requiredRole.toLowerCase()] ?? 999;
 	return userLevel >= requiredLevel;
