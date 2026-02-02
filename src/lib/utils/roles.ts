@@ -3,6 +3,7 @@
 
 export const ROLE_HIERARCHY: Record<string, number> = {
 	pending: 0,
+	user: 1, // Alias for staff (for backward compatibility)
 	staff: 1,
 	manager: 2,
 	senior: 3,
