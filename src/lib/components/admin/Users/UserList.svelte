@@ -37,6 +37,26 @@
 
 	const i18n = getContext('i18n');
 
+	// Get badge color for role
+	const getRoleBadgeType = (role) => {
+		switch (role) {
+			case 'pending':
+				return 'warning'; // Желтый - ожидает активации
+			case 'user':
+			case 'staff':
+				return 'success'; // Зеленый - сотрудник
+			case 'manager':
+			case 'senior':
+				return 'info'; // Синий - менеджмент
+			case 'director':
+				return 'purple'; // Фиолетовый - директор
+			case 'admin':
+				return 'error'; // Красный - администратор
+			default:
+				return 'muted';
+		}
+	};
+
 	let page = 1;
 
 	let users = null;
@@ -350,7 +370,7 @@
 								}}
 							>
 								<Badge
-									type={user.role === 'admin' ? 'info' : user.role === 'user' ? 'success' : 'muted'}
+									type={getRoleBadgeType(user.role)}
 									content={$i18n.t(user.role)}
 								/>
 							</button>
