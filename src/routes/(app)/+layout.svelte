@@ -146,7 +146,7 @@
 			await goto('/auth');
 			return;
 		}
-		if (!['user', 'admin'].includes($user?.role)) {
+		if ($user?.role === 'pending') {
 			return;
 		}
 
