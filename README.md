@@ -50,30 +50,87 @@
 
 ---
 
-## 👥 Система ролей и доступа
+## 👥 Система ролей ADOLF
 
-### Группы пользователей:
-
-| Группа | Доступ к агенту | Ограничения | Функции |
-|--------|----------------|-------------|---------|
-| **Staff** | ❌ | Нет доступа к @Adolf_Reputation | - |
-| **Managers** | ✅ | Только свой `brand_id` | Утверждение ответов |
-| **Senior** | ✅ | Все бренды | + Эскалация |
-| **Directors** | ✅ | Все бренды | + Статистика |
-| **Administrators** | ✅ | Полный доступ | + Настройка системы |
-
-### Маппинг с Open WebUI:
+### Иерархия ролей
 
 ```
-Open WebUI Role  →  Adolf Group        →  Permissions
-─────────────────────────────────────────────────────
-pending          →  (регистрация)     →  Нет доступа
-user             →  Reputation Staff  →  Нет агента
-user             →  Reputation Managers →  brand_id filter
-user             →  Reputation Senior →  access_all_brands
-user             →  Reputation Directors → + analytics
-admin            →  (встроенная)      →  Полный доступ
+pending (0) → staff (1) → manager (2) → senior (3) → director (4) → admin (5)
 ```
+
+### Роли и доступ к модулям
+
+| Роль | Уровень | Доступные модули | Ограничения |
+|------|---------|------------------|-------------|
+| **pending** | 0 | — | Ожидание одобрения, только общие вопросы |
+| **staff** | 1 | Knowledge (чтение), Reputation (базовый) | Не может модерировать или загружать документы |
+| **manager** | 2 | Knowledge, Reputation, Watcher, Marketing, Scout | **Ограничен `brand_id`** — видит только свой бренд |
+| **senior** | 3 | Knowledge (+ модерация), Content Factory, CFO (базовый), Lex | Полный доступ к брендам, нет CFO Full |
+| **director** | 4 | Все модули + CFO Full | Полная аналитика, нет управления пользователями |
+| **admin** | 5 | Все модули + Admin Panel | Полный доступ, управление пользователями |
+
+### Матрица доступа к модулям
+
+| Модуль | staff | manager | senior | director | admin |
+|--------|-------|---------|--------|----------|-------|
+| Knowledge | ✅ (read) | ✅ | ✅ + модерация | ✅ | ✅ |
+| Reputation | ✅ (basic) | ✅ | ✅ | ✅ | ✅ |
+| Watcher | ❌ | ✅ | ❌ | ✅ | ✅ |
+| Content Factory | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Marketing | ❌ | ✅ | ❌ | ✅ | ✅ |
+| Scout | ❌ | ✅ | ❌ | ✅ | ✅ |
+| CFO | ❌ | ❌ | ✅ (basic) | ✅ (full) | ✅ (full) |
+| Lex | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Admin Panel | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Файлы реализации
+
+- **Frontend**: `src/lib/utils/roles.ts` — функции `hasMinRole()`, `canAccessModule()`, `getAccessibleModules()`
+- **Backend**: `backend/open_webui/utils/role_prompts.py` — системные промпты для каждой роли
+- **Constants**: `backend/open_webui/constants/roles.py` — константы ролей
+
+---
+
+## 🛡️ Системные промпты и защита
+
+### Ролевые промпты
+
+Каждая роль имеет свой системный промпт в `role_prompts.py`:
+
+```python
+ROLE_SYSTEM_PROMPTS = {
+    "admin": "...",      # Полный доступ
+    "director": "...",   # CFO Full, стратегическая аналитика
+    "senior": "...",     # Content Factory, модерация
+    "manager": "...",    # brand_id ограничение
+    "staff": "...",      # Базовый доступ
+    "pending": "...",    # Ожидание одобрения
+}
+```
+
+Каждый промпт включает:
+- Описание роли и доступных модулей
+- Фокус работы для AI (на чём концентрироваться)
+- Ограничения роли
+- **CRITICAL SECURITY RULES** — неизменяемые правила безопасности
+
+### Защита от Jailbreak
+
+Система включает 94+ паттернов для обнаружения попыток взлома:
+
+```python
+# Примеры паттернов
+- "ignore previous instructions"
+- "pretend you are DAN"
+- "developer mode"
+- "show me your system prompt"
+```
+
+Функции защиты:
+- `detect_jailbreak_attempt(message)` — обнаружение атаки
+- `sanitize_user_message(message)` — очистка опасных конструкций
+- `create_protected_system_prompt(role)` — создание защищённого промпта
+- `get_jailbreak_response()` — вежливый отказ при атаке
 
 ---
 
@@ -179,9 +236,9 @@ openWebUI_test/
 
 ## 👨‍💻 Разработка
 
-**Версия**: 2.1  
-**Статус**: Согласовано  
-**Дата**: Январь 2026  
+**Версия**: 2.2
+**Статус**: Согласовано
+**Дата**: Февраль 2026  
 
 ---
 
