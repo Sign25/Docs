@@ -87,7 +87,7 @@ class Filter:
         print(f"inlet:body:{body}")
         print(f"inlet:user:{__user__}")
 
-        if __user__.get("role", "admin") in ["user", "admin"]:
+        if __user__.get("role", "admin") != "pending":
             messages = body.get("messages", [])
 
             max_turns = min(__user__["valves"].max_turns, self.valves.max_turns)
