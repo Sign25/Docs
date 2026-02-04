@@ -1480,7 +1480,7 @@
 							</button>
 						</div>
 
-						<!-- Таблица или пустое состояние -->
+						<!-- Пустое состояние или список товаров -->
 						{#if batchQueue.length === 0}
 							<div class="p-8 sm:p-12 text-center">
 								<div class="size-16 sm:size-20 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
@@ -1495,7 +1495,68 @@
 								</p>
 							</div>
 						{:else}
-							<div class="overflow-x-auto">
+							<!-- Мобильная версия - карточки -->
+							<div class="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+								{#each batchQueue as item}
+									<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+										<div class="flex items-start gap-3">
+											<!-- Фото -->
+											{#if item.photos && item.photos.length > 0}
+												<img
+													src={item.photos[0]}
+													alt=""
+													class="size-14 rounded-xl object-cover flex-shrink-0"
+												/>
+											{:else}
+												<div class="size-14 rounded-xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+													<svg class="size-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+															d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+													</svg>
+												</div>
+											{/if}
+											<!-- Инфо -->
+											<div class="flex-1 min-w-0">
+												<div class="flex items-start justify-between gap-2">
+													<p class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2">
+														{item.name}
+													</p>
+													{#if item.status === 'pending' && !isBatchProcessing}
+														<button
+															type="button"
+															on:click={() => handleRemoveFromBatchQueue(item.id)}
+															class="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+														>
+															<svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+															</svg>
+														</button>
+													{/if}
+												</div>
+												<div class="flex items-center gap-2 mt-1.5">
+													<span class="text-xs px-1.5 py-0.5 rounded font-medium
+														{item.marketplace === 'wb' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' : ''}
+														{item.marketplace === 'ozon' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : ''}
+														{item.marketplace === 'ym' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}">
+														{marketplaces.find(m => m.id === item.marketplace)?.short}
+													</span>
+													<span class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+														{item.sku}
+													</span>
+												</div>
+												<div class="mt-2">
+													<span class="px-2.5 py-1 text-xs font-medium rounded-full {getBatchStatusColor(item.status)}">
+														{getBatchStatusText(item.status)}
+													</span>
+												</div>
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+
+							<!-- Десктопная версия - таблица -->
+							<div class="hidden md:block overflow-x-auto">
 								<table class="w-full">
 									<thead class="bg-gray-50 dark:bg-gray-800/50">
 										<tr>
@@ -1522,13 +1583,13 @@
 																	<img
 																		src={photo}
 																		alt=""
-																		class="size-8 sm:size-10 rounded-lg object-cover border-2 border-white dark:border-gray-900"
+																		class="size-10 rounded-lg object-cover border-2 border-white dark:border-gray-900"
 																		style="z-index: {3 - idx}"
 																	/>
 																{/each}
 															</div>
 														{:else}
-															<div class="size-8 sm:size-10 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+															<div class="size-10 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
 																<svg class="size-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 																		d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1536,7 +1597,7 @@
 															</div>
 														{/if}
 														<div class="min-w-0">
-															<p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px]">
+															<p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px] lg:max-w-[300px]">
 																{item.name}
 															</p>
 															<span class="text-xs px-1.5 py-0.5 rounded font-medium
