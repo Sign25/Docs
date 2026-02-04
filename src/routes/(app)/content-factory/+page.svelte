@@ -7,11 +7,9 @@
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import {
 		getProduct,
-		getProductWithGroup,
 		generateContent,
 		regenerateContent,
 		approveDraft,
-		batchApplyToGroup,
 		type ProductData,
 		type ValidationResult,
 		type GroupProduct
@@ -66,15 +64,14 @@
 	let productData: {
 		marketplace: 'wb' | 'ozon' | 'ym';
 		sku: string;
-		nm_id?: string;
 		photos: string[];
 		title: string;
 		description: string;
 		validation?: ValidationResult;
 		// Данные о склейке
-		imt_id?: string;
+		imt_id?: number | null;
 		group_count?: number;
-		group_products?: GroupProduct[];
+		products?: GroupProduct[];
 	} | null = null;
 
 	// Индекс текущей фотографии в галерее
@@ -228,15 +225,12 @@
 
 		isLoading = true;
 		try {
-			// Для batch режима получаем информацию о склейке
-			const data = processingMode === 'batch'
-				? await getProductWithGroup(sku)
-				: await getProduct(sku);
+			// Получаем данные товара (API всегда возвращает информацию о склейке если есть)
+			const data = await getProduct({ sku, marketplace });
 
 			productData = {
 				marketplace,
 				sku,
-				nm_id: data.nm_id,
 				photos: data.media_urls || [],
 				title: data.title || '',
 				description: data.description || '',
@@ -244,16 +238,16 @@
 				// Данные о склейке
 				imt_id: data.imt_id,
 				group_count: data.group_count,
-				group_products: data.group_products
+				products: data.products
 			};
 
 			// Инициализация списка размеров для batch режима
-			if (processingMode === 'batch' && data.group_products) {
-				batchSizes = data.group_products.map(p => ({
-					nmId: p.nm_id,
+			if (processingMode === 'batch' && data.products) {
+				batchSizes = data.products.map(p => ({
+					nmId: p.sku, // используем sku как идентификатор
 					sku: p.sku,
-					size: p.size || '',
-					color: p.color || '',
+					size: p.vendor_code || '',
+					color: '',
 					selected: true,
 					status: 'pending' as const
 				}));
@@ -340,7 +334,7 @@
 
 		try {
 			// Получаем данные товара для отображения названия и фото
-			const data = await getProduct(sku, marketplace);
+			const data = await getProduct({ sku, marketplace });
 
 			// Добавляем в очередь сразу со статусом processing
 			batchQueue = [...batchQueue, {
@@ -372,32 +366,22 @@
 		try {
 			// Если данные товара не переданы, получаем их
 			if (!productInfo) {
-				productInfo = await getProductWithGroup(sku, marketplace);
-			} else {
-				// Получаем информацию о группе
-				productInfo = await getProductWithGroup(sku, marketplace);
+				productInfo = await getProduct({ sku, marketplace });
 			}
 
 			// Генерируем контент
 			const generated = await generateContent({
 				sku: sku,
-				marketplace: marketplace,
-				nm_id: productInfo.nm_id
+				marketplace: marketplace
 			});
 
-			// Если есть склейка, применяем ко всем
-			if (productInfo.group_products && productInfo.group_products.length > 0) {
-				const targetNmIds = productInfo.group_products.map((p: GroupProduct) => p.nm_id);
-				await batchApplyToGroup(generated.draft_id, targetNmIds);
-			} else {
-				// Применяем только к этому товару
-				await approveDraft(generated.draft_id, {
-					title: productInfo.title,
-					description: productInfo.description,
-					seo_tags: generated.seo_tags || [],
-					update_all_in_group: false
-				});
-			}
+			// Утверждаем и публикуем (update_all_in_group для склеек)
+			await approveDraft(generated.draft_id, {
+				title: generated.title,
+				description: generated.description,
+				seo_tags: generated.seo_tags || [],
+				update_all_in_group: productInfo.products && productInfo.products.length > 1
+			});
 
 			// Успех
 			batchQueue = batchQueue.map(q =>
@@ -438,28 +422,22 @@
 			);
 
 			try {
-				// Получаем данные товара с группой
-				const productInfo = await getProductWithGroup(item.sku, item.marketplace);
+				// Получаем данные товара
+				const productInfo = await getProduct({ sku: item.sku, marketplace: item.marketplace });
 
 				// Генерируем контент
 				const generated = await generateContent({
 					sku: item.sku,
-					marketplace: item.marketplace,
-					nm_id: productInfo.nm_id
+					marketplace: item.marketplace
 				});
 
-				// Если есть склейка, применяем ко всем
-				if (productInfo.group_products && productInfo.group_products.length > 0) {
-					const targetNmIds = productInfo.group_products.map(p => p.nm_id);
-					await batchApplyToGroup(generated.draft_id, targetNmIds);
-				} else {
-					// Применяем только к этому товару
-					await approveDraft(generated.draft_id, {
-						title: productInfo.title,
-						description: productInfo.description,
-						update_all_in_group: false
-					});
-				}
+				// Утверждаем и публикуем (update_all_in_group для склеек)
+				await approveDraft(generated.draft_id, {
+					title: generated.title,
+					description: generated.description,
+					seo_tags: generated.seo_tags || [],
+					update_all_in_group: productInfo.products && productInfo.products.length > 1
+				});
 
 				// Успех
 				batchQueue = batchQueue.map((q, idx) =>
@@ -506,53 +484,32 @@
 		}
 	}
 
-	// Пакетная обработка - применить ко всем размерам
+	// Пакетная обработка - применить ко всем товарам в склейке
 	async function handleBatchApply() {
 		if (!productData || !draftData) return;
-
-		const selectedSizes = batchSizes.filter(s => s.selected);
-		if (selectedSizes.length === 0) {
-			toast.error('Выберите хотя бы один размер');
-			return;
-		}
 
 		isBatchProcessing = true;
 
 		// Обновляем статусы на processing
-		batchSizes = batchSizes.map(s =>
-			s.selected ? { ...s, status: 'processing' as const } : s
-		);
+		batchSizes = batchSizes.map(s => ({ ...s, status: 'processing' as const }));
 
 		try {
-			const result = await batchApplyToGroup(
-				draftData.draft_id,
-				selectedSizes.map(s => s.nmId)
-			);
-
-			// Обновляем статусы на основе результата
-			batchSizes = batchSizes.map(s => {
-				if (!s.selected) return s;
-				const itemResult = result.results.find(r => r.nm_id === s.nmId);
-				if (itemResult) {
-					return {
-						...s,
-						status: itemResult.success ? 'success' as const : 'error' as const,
-						error: itemResult.error
-					};
-				}
-				return s;
+			// Используем approveDraft с update_all_in_group: true
+			const result = await approveDraft(draftData.draft_id, {
+				title: productData.title,
+				description: productData.description,
+				seo_tags: draftData.seo_tags,
+				update_all_in_group: true
 			});
 
-			if (result.success) {
-				toast.success(`Контент применён к ${result.success_count} из ${result.total_count} товаров`);
-			} else {
-				toast.warning(`Применено: ${result.success_count}, ошибок: ${result.failed_count}`);
-			}
+			// Обновляем статусы на success
+			batchSizes = batchSizes.map(s => ({ ...s, status: 'success' as const }));
+
+			const updatedCount = result.updated_nm_ids?.length || batchSizes.length;
+			toast.success(`Контент применён к ${updatedCount} товарам в склейке`);
 		} catch (error: any) {
 			// Помечаем все как ошибки
-			batchSizes = batchSizes.map(s =>
-				s.selected ? { ...s, status: 'error' as const, error: error.message } : s
-			);
+			batchSizes = batchSizes.map(s => ({ ...s, status: 'error' as const, error: error.message }));
 			toast.error(error.message || 'Ошибка пакетной обработки');
 		} finally {
 			isBatchProcessing = false;
@@ -631,25 +588,17 @@
 		applyToGroup = toGroup;
 
 		try {
-			if (toGroup && productData.group_products && productData.group_products.length > 0) {
-				// Применить ко всей склейке
-				const targetNmIds = productData.group_products.map(p => p.nm_id);
-				const result = await batchApplyToGroup(draftData.draft_id, targetNmIds);
+			// Используем update_all_in_group для применения ко всей склейке
+			const result = await approveDraft(draftData.draft_id, {
+				title: productData.title,
+				description: productData.description,
+				seo_tags: draftData.seo_tags,
+				update_all_in_group: toGroup
+			});
 
-				if (result.success) {
-					toast.success(`Контент применён к ${result.success_count} из ${result.total_count} товаров`);
-				} else {
-					toast.warning(`Применено: ${result.success_count}, ошибок: ${result.failed_count}`);
-				}
+			if (toGroup && result.updated_nm_ids && result.updated_nm_ids.length > 1) {
+				toast.success(`Контент применён к ${result.updated_nm_ids.length} товарам`);
 			} else {
-				// Применить только к одному товару
-				const result = await approveDraft(draftData.draft_id, {
-					title: productData.title,
-					description: productData.description,
-					seo_tags: draftData.seo_tags,
-					update_all_in_group: false
-				});
-
 				toast.success(result.message || 'Карточка опубликована!');
 			}
 
@@ -1900,33 +1849,39 @@
 							</p>
 
 							<!-- Товары в склейке (миниатюры) -->
-							{#if productData.group_products && productData.group_products.length > 0}
+							{#if productData.products && productData.products.length > 1}
 								<div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 									<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">
-										Товары в склейке ({productData.group_products.length})
+										Товары в склейке ({productData.products.length})
 									</p>
 									<div class="flex flex-wrap gap-1.5 justify-center">
-										{#each productData.group_products.slice(0, 8) as groupItem}
+										{#each productData.products.slice(0, 8) as groupItem}
 											<div
 												class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
-												title="{groupItem.color || ''} {groupItem.size || ''} - {groupItem.sku}"
+												title="{groupItem.vendor_code || ''} - {groupItem.sku}"
 											>
-												{#if productData.photos && productData.photos[0]}
+												{#if groupItem.main_photo}
+													<img
+														src={groupItem.main_photo}
+														alt="{groupItem.vendor_code || groupItem.sku}"
+														class="w-full h-full object-cover"
+													/>
+												{:else if productData.photos && productData.photos[0]}
 													<img
 														src={productData.photos[0]}
-														alt="{groupItem.color || ''} {groupItem.size || ''}"
+														alt="{groupItem.sku}"
 														class="w-full h-full object-cover opacity-80"
 													/>
 												{:else}
 													<div class="w-full h-full flex items-center justify-center text-gray-400">
-														<span class="text-xs">{groupItem.size || '?'}</span>
+														<span class="text-xs">?</span>
 													</div>
 												{/if}
 											</div>
 										{/each}
-										{#if productData.group_products.length > 8}
+										{#if productData.products.length > 8}
 											<div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 text-xs font-medium">
-												+{productData.group_products.length - 8}
+												+{productData.products.length - 8}
 											</div>
 										{/if}
 									</div>
