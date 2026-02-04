@@ -1726,10 +1726,10 @@
 							type="button"
 							on:click={handleNext}
 							disabled={(inputMode === 'sku' && !skuInput.trim()) || (inputMode === 'link' && !linkInput.trim()) || isLoading}
-							class="w-full py-2.5 sm:py-3 md:py-3.5 bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-gray-900
+							class="w-full py-2.5 sm:py-3 md:py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white
 								disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
 								font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-3
-								shadow-lg hover:shadow-xl disabled:shadow-none"
+								shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 disabled:shadow-none"
 						>
 							{#if isLoading}
 								<svg class="animate-spin size-5 sm:size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1870,6 +1870,40 @@
 							<p class="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-3 sm:mt-4 text-center font-medium">
 								Артикул: <span class="text-gray-600 dark:text-gray-300">{productData.sku}</span>
 							</p>
+
+							<!-- Товары в склейке (миниатюры) -->
+							{#if productData.group_products && productData.group_products.length > 0}
+								<div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+									<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">
+										Товары в склейке ({productData.group_products.length})
+									</p>
+									<div class="flex flex-wrap gap-1.5 justify-center">
+										{#each productData.group_products.slice(0, 8) as groupItem}
+											<div
+												class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
+												title="{groupItem.color || ''} {groupItem.size || ''} - {groupItem.sku}"
+											>
+												{#if productData.photos && productData.photos[0]}
+													<img
+														src={productData.photos[0]}
+														alt="{groupItem.color || ''} {groupItem.size || ''}"
+														class="w-full h-full object-cover opacity-80"
+													/>
+												{:else}
+													<div class="w-full h-full flex items-center justify-center text-gray-400">
+														<span class="text-xs">{groupItem.size || '?'}</span>
+													</div>
+												{/if}
+											</div>
+										{/each}
+										{#if productData.group_products.length > 8}
+											<div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 text-xs font-medium">
+												+{productData.group_products.length - 8}
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/if}
 						</div>
 
 						<!-- Редактируемые поля -->
