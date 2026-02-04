@@ -63,8 +63,11 @@ export interface GenerateResponse {
 /**
  * Получить данные товара по артикулу
  */
-export const getProduct = async (sku: string): Promise<ProductData> => {
-	const response = await fetch(`${CONTENT_FACTORY_API_BASE_URL}/product?sku=${encodeURIComponent(sku)}`, {
+export const getProduct = async (sku: string, marketplace?: 'wb' | 'ozon' | 'ym'): Promise<ProductData> => {
+	const params = new URLSearchParams({ sku });
+	if (marketplace) params.append('marketplace', marketplace);
+
+	const response = await fetch(`${CONTENT_FACTORY_API_BASE_URL}/product?${params.toString()}`, {
 		method: 'GET',
 		headers: {
 			'Accept': 'application/json',
@@ -83,8 +86,11 @@ export const getProduct = async (sku: string): Promise<ProductData> => {
 /**
  * Получить данные товара с информацией о склейке (product group)
  */
-export const getProductWithGroup = async (sku: string): Promise<ProductData> => {
-	const response = await fetch(`${CONTENT_FACTORY_API_BASE_URL}/product?sku=${encodeURIComponent(sku)}&include_group=true`, {
+export const getProductWithGroup = async (sku: string, marketplace?: 'wb' | 'ozon' | 'ym'): Promise<ProductData> => {
+	const params = new URLSearchParams({ sku, include_group: 'true' });
+	if (marketplace) params.append('marketplace', marketplace);
+
+	const response = await fetch(`${CONTENT_FACTORY_API_BASE_URL}/product?${params.toString()}`, {
 		method: 'GET',
 		headers: {
 			'Accept': 'application/json',

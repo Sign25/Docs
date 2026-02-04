@@ -297,7 +297,7 @@
 		managerNotes = '';
 	}
 
-	// Добавить товар в очередь автоматической обработки
+	// Добавить товар в очередь и сразу начать обработку
 	async function handleAddToBatchQueue() {
 		let sku: string | null = null;
 		let marketplace: 'wb' | 'ozon' | 'ym' = addBatchMarketplace;
@@ -336,29 +336,81 @@
 
 		isAddingBatchItem = true;
 
+		const itemId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 		try {
 			// Получаем данные товара для отображения названия и фото
 			const data = await getProduct(sku, marketplace);
 
+			// Добавляем в очередь сразу со статусом processing
 			batchQueue = [...batchQueue, {
-				id: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				id: itemId,
 				name: data.title || `Товар ${sku}`,
 				sku: sku,
 				marketplace: marketplace,
-				status: 'pending',
+				status: 'processing',
 				photos: data.media_urls?.slice(0, 3)
 			}];
-
-			toast.success('Товар добавлен в очередь');
 
 			// Очищаем поля модального окна
 			addBatchSku = '';
 			addBatchLink = '';
 			showAddBatchModal = false;
+			isAddingBatchItem = false;
+
+			// Автоматически запускаем обработку этого товара
+			await processQueueItem(itemId, sku, marketplace, data);
+
 		} catch (error: any) {
 			toast.error(error.message || 'Ошибка загрузки данных товара');
-		} finally {
 			isAddingBatchItem = false;
+		}
+	}
+
+	// Обработать один элемент очереди
+	async function processQueueItem(itemId: string, sku: string, marketplace: 'wb' | 'ozon' | 'ym', productInfo?: any) {
+		try {
+			// Если данные товара не переданы, получаем их
+			if (!productInfo) {
+				productInfo = await getProductWithGroup(sku, marketplace);
+			} else {
+				// Получаем информацию о группе
+				productInfo = await getProductWithGroup(sku, marketplace);
+			}
+
+			// Генерируем контент
+			const generated = await generateContent({
+				sku: sku,
+				marketplace: marketplace,
+				nm_id: productInfo.nm_id
+			});
+
+			// Если есть склейка, применяем ко всем
+			if (productInfo.group_products && productInfo.group_products.length > 0) {
+				const targetNmIds = productInfo.group_products.map((p: GroupProduct) => p.nm_id);
+				await batchApplyToGroup(generated.draft_id, targetNmIds);
+			} else {
+				// Применяем только к этому товару
+				await approveDraft(generated.draft_id, {
+					title: productInfo.title,
+					description: productInfo.description,
+					seo_tags: generated.seo_tags || [],
+					update_all_in_group: false
+				});
+			}
+
+			// Успех
+			batchQueue = batchQueue.map(q =>
+				q.id === itemId ? { ...q, status: 'success' as const } : q
+			);
+			toast.success(`Товар ${sku} обработан успешно`);
+
+		} catch (error: any) {
+			// Ошибка
+			batchQueue = batchQueue.map(q =>
+				q.id === itemId ? { ...q, status: 'error' as const, error: error.message } : q
+			);
+			toast.error(`Ошибка обработки ${sku}: ${error.message}`);
 		}
 	}
 
@@ -1436,7 +1488,7 @@
 			<!-- ШАГ 1: Ввод данных -->
 			{#if processingMode === 'batch'}
 				<!-- АВТОМАТИЧЕСКАЯ ОБРАБОТКА - Таблица очереди -->
-				<div class="w-full max-w-md sm:max-w-2xl md:max-w-3xl mt-4 sm:mt-6 md:mt-8">
+				<div class="w-full max-w-2xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mt-4 sm:mt-6 md:mt-8">
 					<!-- Заголовок -->
 					<div class="text-center mb-4 sm:mb-6 md:mb-8">
 						<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
@@ -1572,33 +1624,6 @@
 										{/each}
 									</tbody>
 								</table>
-							</div>
-
-							<!-- Кнопка запуска -->
-							<div class="p-4 sm:p-5 border-t border-gray-200 dark:border-gray-700">
-								<button
-									type="button"
-									on:click={handleStartBatchProcessing}
-									disabled={isBatchProcessing || batchQueue.filter(q => q.status === 'pending').length === 0}
-									class="w-full py-3 sm:py-3.5 bg-green-600 hover:bg-green-700 text-white
-										disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
-										font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base
-										flex items-center justify-center gap-2 shadow-lg shadow-green-500/30 hover:shadow-green-500/40 disabled:shadow-none"
-								>
-									{#if isBatchProcessing}
-										<svg class="animate-spin size-5" fill="none" viewBox="0 0 24 24">
-											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-										</svg>
-										Обработка...
-									{:else}
-										<svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-										</svg>
-										Запустить обработку ({batchQueue.filter(q => q.status === 'pending').length})
-									{/if}
-								</button>
 							</div>
 						{/if}
 					</div>
