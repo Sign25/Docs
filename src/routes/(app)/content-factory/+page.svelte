@@ -37,6 +37,23 @@
 	}[] = [];
 	let isBatchProcessing = false;
 
+	// Очередь для автоматической обработки
+	let batchQueue: {
+		id: string;
+		name: string;
+		sku: string;
+		marketplace: 'wb' | 'ozon' | 'ym';
+		status: 'pending' | 'processing' | 'success' | 'error';
+		error?: string;
+		photos?: string[];
+	}[] = [];
+	let showAddBatchModal = false;
+	let addBatchInputMode: 'sku' | 'link' = 'sku';
+	let addBatchSku = '';
+	let addBatchLink = '';
+	let addBatchMarketplace: 'wb' | 'ozon' | 'ym' = 'wb';
+	let isAddingBatchItem = false;
+
 	// Режим ввода: 'sku' или 'link'
 	let inputMode: 'sku' | 'link' = 'sku';
 
@@ -275,8 +292,166 @@
 		skuInput = '';
 		linkInput = '';
 		batchSizes = [];
+		batchQueue = [];
 		currentPhotoIndex = 0;
 		managerNotes = '';
+	}
+
+	// Добавить товар в очередь автоматической обработки
+	async function handleAddToBatchQueue() {
+		let sku: string | null = null;
+		let marketplace: 'wb' | 'ozon' | 'ym' = addBatchMarketplace;
+
+		if (addBatchInputMode === 'sku') {
+			if (!addBatchSku.trim()) {
+				toast.error('Введите артикул товара');
+				return;
+			}
+			sku = addBatchSku.trim();
+		} else {
+			if (!addBatchLink.trim()) {
+				toast.error('Введите ссылку на товар');
+				return;
+			}
+
+			const detected = detectMarketplace(addBatchLink);
+			if (!detected) {
+				toast.error('Не удалось определить маркетплейс по ссылке');
+				return;
+			}
+			marketplace = detected;
+			sku = extractSkuFromUrl(addBatchLink);
+		}
+
+		if (!sku) {
+			toast.error('Не удалось определить артикул товара');
+			return;
+		}
+
+		// Проверка на дубликат
+		if (batchQueue.some(item => item.sku === sku && item.marketplace === marketplace)) {
+			toast.error('Этот товар уже добавлен в очередь');
+			return;
+		}
+
+		isAddingBatchItem = true;
+
+		try {
+			// Получаем данные товара для отображения названия и фото
+			const data = await getProduct(sku, marketplace);
+
+			batchQueue = [...batchQueue, {
+				id: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				name: data.title || `Товар ${sku}`,
+				sku: sku,
+				marketplace: marketplace,
+				status: 'pending',
+				photos: data.media_urls?.slice(0, 3)
+			}];
+
+			toast.success('Товар добавлен в очередь');
+
+			// Очищаем поля модального окна
+			addBatchSku = '';
+			addBatchLink = '';
+			showAddBatchModal = false;
+		} catch (error: any) {
+			toast.error(error.message || 'Ошибка загрузки данных товара');
+		} finally {
+			isAddingBatchItem = false;
+		}
+	}
+
+	// Удалить товар из очереди
+	function handleRemoveFromBatchQueue(id: string) {
+		batchQueue = batchQueue.filter(item => item.id !== id);
+	}
+
+	// Запустить автоматическую обработку очереди
+	async function handleStartBatchProcessing() {
+		if (batchQueue.length === 0) {
+			toast.error('Очередь пуста');
+			return;
+		}
+
+		isBatchProcessing = true;
+
+		for (let i = 0; i < batchQueue.length; i++) {
+			const item = batchQueue[i];
+			if (item.status !== 'pending') continue;
+
+			// Обновляем статус на processing
+			batchQueue = batchQueue.map((q, idx) =>
+				idx === i ? { ...q, status: 'processing' as const } : q
+			);
+
+			try {
+				// Получаем данные товара с группой
+				const productInfo = await getProductWithGroup(item.sku, item.marketplace);
+
+				// Генерируем контент
+				const generated = await generateContent({
+					sku: item.sku,
+					marketplace: item.marketplace,
+					nm_id: productInfo.nm_id
+				});
+
+				// Если есть склейка, применяем ко всем
+				if (productInfo.group_products && productInfo.group_products.length > 0) {
+					const targetNmIds = productInfo.group_products.map(p => p.nm_id);
+					await batchApplyToGroup(generated.draft_id, targetNmIds);
+				} else {
+					// Применяем только к этому товару
+					await approveDraft(generated.draft_id, {
+						title: productInfo.title,
+						description: productInfo.description,
+						update_all_in_group: false
+					});
+				}
+
+				// Успех
+				batchQueue = batchQueue.map((q, idx) =>
+					idx === i ? { ...q, status: 'success' as const } : q
+				);
+			} catch (error: any) {
+				// Ошибка
+				batchQueue = batchQueue.map((q, idx) =>
+					idx === i ? { ...q, status: 'error' as const, error: error.message } : q
+				);
+			}
+		}
+
+		isBatchProcessing = false;
+
+		const successCount = batchQueue.filter(q => q.status === 'success').length;
+		const errorCount = batchQueue.filter(q => q.status === 'error').length;
+
+		if (errorCount === 0) {
+			toast.success(`Все ${successCount} товаров обработаны успешно!`);
+		} else {
+			toast.warning(`Обработано: ${successCount}, ошибок: ${errorCount}`);
+		}
+	}
+
+	// Получить цвет статуса для batch очереди
+	function getBatchStatusColor(status: string): string {
+		switch (status) {
+			case 'pending': return 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+			case 'processing': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400';
+			case 'success': return 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400';
+			case 'error': return 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400';
+			default: return 'bg-gray-200 dark:bg-gray-700';
+		}
+	}
+
+	function getBatchStatusText(status: string): string {
+		switch (status) {
+			case 'pending': return 'В очереди';
+			case 'processing': return 'Обработка...';
+			case 'success': return 'Готово';
+			case 'error': return 'Ошибка';
+			default: return status;
+		}
 	}
 
 	// Пакетная обработка - применить ко всем размерам
@@ -1259,7 +1434,187 @@
 				</div>
 			{:else if currentStep === 1}
 			<!-- ШАГ 1: Ввод данных -->
-			<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
+			{#if processingMode === 'batch'}
+				<!-- АВТОМАТИЧЕСКАЯ ОБРАБОТКА - Таблица очереди -->
+				<div class="w-full max-w-md sm:max-w-2xl md:max-w-3xl mt-4 sm:mt-6 md:mt-8">
+					<!-- Заголовок -->
+					<div class="text-center mb-4 sm:mb-6 md:mb-8">
+						<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+							<img
+								src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
+								class="size-7 sm:size-8 md:size-9 dark:invert"
+								alt=""
+							/>
+							<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+								Автоматическая обработка
+							</h1>
+						</div>
+						<p class="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
+							Добавьте товары для автоматической генерации контента
+						</p>
+					</div>
+
+					<!-- Карточка с таблицей -->
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg">
+						<!-- Заголовок таблицы -->
+						<div class="flex items-center justify-between p-4 sm:p-5 border-b border-gray-200 dark:border-gray-700">
+							<h2 class="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
+								Очередь обработки ({batchQueue.length})
+							</h2>
+							<button
+								type="button"
+								on:click={() => showAddBatchModal = true}
+								disabled={isBatchProcessing}
+								class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700
+									disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg sm:rounded-xl
+									transition-all duration-200 text-xs sm:text-sm"
+							>
+								<svg class="size-4 sm:size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+								</svg>
+								Добавить
+							</button>
+						</div>
+
+						<!-- Таблица или пустое состояние -->
+						{#if batchQueue.length === 0}
+							<div class="p-8 sm:p-12 text-center">
+								<div class="size-16 sm:size-20 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+									<svg class="size-8 sm:size-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+											d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+									</svg>
+								</div>
+								<p class="text-gray-500 dark:text-gray-400 text-sm sm:text-base mb-2">Очередь пуста</p>
+								<p class="text-gray-400 dark:text-gray-500 text-xs sm:text-sm">
+									Нажмите "Добавить" чтобы добавить товары для обработки
+								</p>
+							</div>
+						{:else}
+							<div class="overflow-x-auto">
+								<table class="w-full">
+									<thead class="bg-gray-50 dark:bg-gray-800/50">
+										<tr>
+											<th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Товар
+											</th>
+											<th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Артикул
+											</th>
+											<th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Статус
+											</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+										{#each batchQueue as item}
+											<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+												<td class="px-4 py-3">
+													<div class="flex items-center gap-3">
+														<!-- Миниатюры фото -->
+														{#if item.photos && item.photos.length > 0}
+															<div class="flex -space-x-2">
+																{#each item.photos.slice(0, 3) as photo, idx}
+																	<img
+																		src={photo}
+																		alt=""
+																		class="size-8 sm:size-10 rounded-lg object-cover border-2 border-white dark:border-gray-900"
+																		style="z-index: {3 - idx}"
+																	/>
+																{/each}
+															</div>
+														{:else}
+															<div class="size-8 sm:size-10 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+																<svg class="size-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+																		d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+																</svg>
+															</div>
+														{/if}
+														<div class="min-w-0">
+															<p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px]">
+																{item.name}
+															</p>
+															<span class="text-xs px-1.5 py-0.5 rounded font-medium
+																{item.marketplace === 'wb' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' : ''}
+																{item.marketplace === 'ozon' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : ''}
+																{item.marketplace === 'ym' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}">
+																{marketplaces.find(m => m.id === item.marketplace)?.short}
+															</span>
+														</div>
+													</div>
+												</td>
+												<td class="px-4 py-3">
+													<span class="text-sm text-gray-600 dark:text-gray-300 font-mono">
+														{item.sku}
+													</span>
+												</td>
+												<td class="px-4 py-3">
+													<div class="flex items-center justify-end gap-2">
+														<span class="px-2.5 py-1 text-xs font-medium rounded-full {getBatchStatusColor(item.status)}">
+															{getBatchStatusText(item.status)}
+														</span>
+														{#if item.status === 'pending' && !isBatchProcessing}
+															<button
+																type="button"
+																on:click={() => handleRemoveFromBatchQueue(item.id)}
+																class="p-1 text-gray-400 hover:text-red-500 transition-colors"
+																title="Удалить"
+															>
+																<svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+																</svg>
+															</button>
+														{/if}
+													</div>
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+
+							<!-- Кнопка запуска -->
+							<div class="p-4 sm:p-5 border-t border-gray-200 dark:border-gray-700">
+								<button
+									type="button"
+									on:click={handleStartBatchProcessing}
+									disabled={isBatchProcessing || batchQueue.filter(q => q.status === 'pending').length === 0}
+									class="w-full py-3 sm:py-3.5 bg-green-600 hover:bg-green-700 text-white
+										disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+										font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base
+										flex items-center justify-center gap-2 shadow-lg shadow-green-500/30 hover:shadow-green-500/40 disabled:shadow-none"
+								>
+									{#if isBatchProcessing}
+										<svg class="animate-spin size-5" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+										</svg>
+										Обработка...
+									{:else}
+										<svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
+										Запустить обработку ({batchQueue.filter(q => q.status === 'pending').length})
+									{/if}
+								</button>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Кнопка назад -->
+					<button
+						type="button"
+						on:click={handleBackToModeSelection}
+						class="w-full mt-3 sm:mt-4 text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+					>
+						← Назад к выбору режима
+					</button>
+				</div>
+			{:else}
+				<!-- РУЧНАЯ ОБРАБОТКА - Форма ввода артикула -->
+				<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
 				<!-- Заголовок -->
 				<div class="text-center mb-4 sm:mb-6 md:mb-8">
 					<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
@@ -1269,13 +1624,11 @@
 							alt=""
 						/>
 						<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-							{processingMode === 'batch' ? 'Автоматическая обработка' : 'Ручная обработка'}
+							Ручная обработка
 						</h1>
 					</div>
 					<p class="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
-						{processingMode === 'batch'
-							? 'Применить контент ко всем размерам карточки'
-							: 'Генерация SEO-контента для одного товара'}
+						Генерация SEO-контента для одного товара
 					</p>
 				</div>
 
@@ -1407,6 +1760,7 @@
 					← Назад к выбору режима
 				</button>
 			</div>
+			{/if}
 
 		{:else if currentStep === 2 && productData}
 			<!-- ШАГ 2: Карточка товара -->
@@ -2140,3 +2494,145 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Модальное окно добавления товара в очередь -->
+{#if showAddBatchModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<!-- Backdrop -->
+		<button
+			type="button"
+			class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+			on:click={() => showAddBatchModal = false}
+		></button>
+
+		<!-- Modal -->
+		<div class="relative bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+			<!-- Header -->
+			<div class="flex items-center justify-between p-4 sm:p-5 border-b border-gray-200 dark:border-gray-700">
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+					Добавить товар
+				</h3>
+				<button
+					type="button"
+					on:click={() => showAddBatchModal = false}
+					class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+				>
+					<svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<!-- Tabs -->
+			<div class="cf-tabs border-b border-gray-200 dark:border-gray-700">
+				<button
+					type="button"
+					on:click={() => addBatchInputMode = 'sku'}
+					class="cf-tab {addBatchInputMode === 'sku' ? 'active' : ''}"
+				>
+					Артикул
+				</button>
+				<button
+					type="button"
+					on:click={() => addBatchInputMode = 'link'}
+					class="cf-tab {addBatchInputMode === 'link' ? 'active' : ''}"
+				>
+					Ссылка
+				</button>
+			</div>
+
+			<!-- Content -->
+			<div class="p-4 sm:p-5">
+				{#if addBatchInputMode === 'sku'}
+					<div class="space-y-4">
+						<!-- Маркетплейс -->
+						<div>
+							<label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+								Маркетплейс
+							</label>
+							<div class="grid grid-cols-3 gap-2">
+								{#each marketplaces as mp}
+									<button
+										type="button"
+										on:click={() => addBatchMarketplace = mp.id}
+										class="py-2 text-xs sm:text-sm font-semibold rounded-xl border-2 transition-all duration-200
+											{addBatchMarketplace === mp.id
+												? 'border-gray-900 dark:border-gray-100 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+												: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'}"
+									>
+										{mp.short}
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<!-- Артикул -->
+						<div>
+							<label for="add-batch-sku" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+								Артикул товара
+							</label>
+							<input
+								type="text"
+								id="add-batch-sku"
+								bind:value={addBatchSku}
+								placeholder="Например: 123456789"
+								class="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700
+									bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+									placeholder-gray-400 dark:placeholder-gray-500
+									focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500
+									transition-all duration-200 text-sm"
+								on:keydown={(e) => e.key === 'Enter' && handleAddToBatchQueue()}
+							/>
+						</div>
+					</div>
+				{:else}
+					<div>
+						<label for="add-batch-link" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+							Ссылка на товар
+						</label>
+						<input
+							type="url"
+							id="add-batch-link"
+							bind:value={addBatchLink}
+							placeholder="https://www.wildberries.ru/catalog/..."
+							class="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700
+								bg-gray-50 dark:bg-gray-850 text-gray-900 dark:text-gray-100
+								placeholder-gray-400 dark:placeholder-gray-500
+								focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500
+								transition-all duration-200 text-sm"
+							on:keydown={(e) => e.key === 'Enter' && handleAddToBatchQueue()}
+						/>
+						<p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+							Маркетплейс определится автоматически
+						</p>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="p-4 sm:p-5 border-t border-gray-200 dark:border-gray-700">
+				<button
+					type="button"
+					on:click={handleAddToBatchQueue}
+					disabled={isAddingBatchItem || (addBatchInputMode === 'sku' && !addBatchSku.trim()) || (addBatchInputMode === 'link' && !addBatchLink.trim())}
+					class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white
+						disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+						font-semibold rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2"
+				>
+					{#if isAddingBatchItem}
+						<svg class="animate-spin size-4" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+						</svg>
+						Добавление...
+					{:else}
+						<svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+						</svg>
+						Добавить в очередь
+					{/if}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}

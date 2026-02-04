@@ -403,6 +403,10 @@ def get_filtered_models(models, user, db=None):
                     )
                 ):
                     filtered_models.append(model)
+            else:
+                # No model_info in DB means no access restrictions configured
+                # Model is available to all users by default
+                filtered_models.append(model)
 
         return filtered_models
     else:

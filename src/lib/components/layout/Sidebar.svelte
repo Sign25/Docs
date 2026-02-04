@@ -765,7 +765,7 @@
 				<!-- CFO кнопка для сжатой панели -->
 				{#if canAccessModule($user?.role, 'cfo')}
 				<div class="">
-					<Tooltip content="Финансы (CFO)" placement="right">
+					<Tooltip content="Финансовый директор" placement="right">
 						<a
 							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
 							href="/cfo"
@@ -776,7 +776,7 @@
 								goto('/cfo');
 								itemClickHandler();
 							}}
-							aria-label="Финансы (CFO)"
+							aria-label="Финансовый директор"
 							draggable="false"
 						>
 							<div class=" self-center flex items-center justify-center size-9">
@@ -1006,7 +1006,7 @@
 							href="/cfo"
 							on:click={itemClickHandler}
 							draggable="false"
-							aria-label="Финансы (CFO)"
+							aria-label="Финансовый директор"
 						>
 							<div class="self-center">
 								<img
@@ -1017,7 +1017,7 @@
 							</div>
 
 							<div class="flex self-center translate-y-[0.5px]">
-								<div class=" self-center text-sm font-primary">Финансы (CFO)</div>
+								<div class=" self-center text-sm font-primary">Финансовый директор</div>
 							</div>
 						</a>
 					</div>
