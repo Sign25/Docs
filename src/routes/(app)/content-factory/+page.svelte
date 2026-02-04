@@ -2033,7 +2033,7 @@
 								type="button"
 								on:click={handleGenerate}
 								disabled={isGenerating}
-								class="w-full py-2.5 sm:py-3 md:py-3.5 bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-gray-200 active:bg-gray-700 dark:active:bg-gray-300 text-white
+								class="w-full py-2.5 sm:py-3 md:py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white
 									disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
 									font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 sm:gap-3
 									shadow-lg hover:shadow-xl disabled:shadow-none"
