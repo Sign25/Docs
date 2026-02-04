@@ -1405,21 +1405,21 @@
 		>
 			📝 Генерация
 		</button>
-		<Tooltip content="🚧 В разработке" placement="bottom">
+		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📋 Черновики <span class="ml-1">🔒</span>
 			</button>
 		</Tooltip>
-		<Tooltip content="🚧 В разработке" placement="bottom">
+		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📸 ТЗ дизайнеру <span class="ml-1">🔒</span>
 			</button>
 		</Tooltip>
-		<Tooltip content="🚧 В разработке" placement="bottom">
+		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>

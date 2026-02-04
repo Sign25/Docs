@@ -127,14 +127,14 @@
 
 	<!-- Navigation Tabs -->
 	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
-		<Tooltip content="🚧 В разработке" placement="bottom">
+		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				🔍 Поиск <span class="ml-1">🔒</span>
 			</button>
 		</Tooltip>
-		<Tooltip content="🚧 В разработке" placement="bottom">
+		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
@@ -148,7 +148,7 @@
 			📤 Загрузка
 		</button>
 		{#if canModerate}
-			<Tooltip content="🚧 В разработке" placement="bottom">
+			<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 				<button
 					class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 				>
@@ -159,7 +159,7 @@
 				</button>
 			</Tooltip>
 		{/if}
-		<Tooltip content="🚧 В разработке" placement="bottom">
+		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
