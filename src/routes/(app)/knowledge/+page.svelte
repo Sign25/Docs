@@ -6,8 +6,8 @@
 
 	const i18n = getContext('i18n');
 
-	// Section state
-	let activeSection: 'search' | 'catalog' | 'upload' | 'moderation' | 'stats' = 'search';
+	// Section state (default to 'upload' as other sections are under development)
+	let activeSection: 'search' | 'catalog' | 'upload' | 'moderation' | 'stats' = 'upload';
 
 	// Search state
 	let searchQuery = '';
@@ -127,16 +127,18 @@
 	<!-- Navigation Tabs -->
 	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
 		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'search' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
-			on:click={() => activeSection = 'search'}
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+			disabled
+			title="Раздел в разработке"
 		>
-			🔍 Поиск
+			🔍 Поиск <span class="ml-1">🔒</span>
 		</button>
 		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'catalog' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
-			on:click={() => activeSection = 'catalog'}
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+			disabled
+			title="Раздел в разработке"
 		>
-			📂 Каталог
+			📂 Каталог <span class="ml-1">🔒</span>
 		</button>
 		<button
 			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'upload' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
@@ -146,20 +148,22 @@
 		</button>
 		{#if canModerate}
 			<button
-				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'moderation' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
-				on:click={() => activeSection = 'moderation'}
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+				disabled
+				title="Раздел в разработке"
 			>
-				⏳ Модерация
+				⏳ Модерация <span class="ml-1">🔒</span>
 				{#if stats.pendingModeration > 0}
-					<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">{stats.pendingModeration}</span>
+					<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500/50 text-white rounded-full">{stats.pendingModeration}</span>
 				{/if}
 			</button>
 		{/if}
 		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'stats' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
-			on:click={() => activeSection = 'stats'}
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+			disabled
+			title="Раздел в разработке"
 		>
-			📊 Статистика
+			📊 Статистика <span class="ml-1">🔒</span>
 		</button>
 	</div>
 
