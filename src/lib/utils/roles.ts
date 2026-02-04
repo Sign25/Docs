@@ -29,7 +29,7 @@ const MODULE_ACCESS: Record<ModuleName, string> = {
 	knowledge: 'staff',
 	knowledge_moderation: 'senior',
 	content_factory: 'senior',
-	cfo: 'senior',
+	cfo: 'director',           // Финансовый директор - только director+
 	cfo_full: 'director',
 	reputation: 'staff',
 	watcher: 'manager',
