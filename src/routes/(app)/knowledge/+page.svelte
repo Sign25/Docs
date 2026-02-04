@@ -110,11 +110,11 @@
 					</svg>
 				</button>
 			{/if}
-			<svg class="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M12 21V7" />
-				<path d="m16 12 2 2 4-4" />
-				<path d="M22 6V4a1 1 0 0 0-1-1h-5a4 4 0 0 0-4 4 4 4 0 0 0-4-4H3a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h6a3 3 0 0 1 3 3 3 3 0 0 1 3-3h6a1 1 0 0 0 1-1v-1.3" />
-			</svg>
+			<img
+				src="{WEBUI_BASE_URL}/static/knowledge-icon.svg?v=1.1.48"
+				class="size-7 sm:size-8 dark:invert"
+				alt=""
+			/>
 			<h1 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">База знаний</h1>
 		</div>
 		<div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -127,26 +127,26 @@
 	<!-- Navigation Tabs -->
 	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
 		<button
-			class="kb-btn px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'search' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'search' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'search'}
 		>
 			🔍 Поиск
 		</button>
 		<button
-			class="kb-btn px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'catalog' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'catalog' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'catalog'}
 		>
 			📂 Каталог
 		</button>
 		<button
-			class="kb-btn px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'upload' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'upload' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'upload'}
 		>
 			📤 Загрузка
 		</button>
 		{#if canModerate}
 			<button
-				class="kb-btn px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'moderation' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'moderation' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 				on:click={() => activeSection = 'moderation'}
 			>
 				⏳ Модерация
@@ -156,7 +156,7 @@
 			</button>
 		{/if}
 		<button
-			class="kb-btn px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'stats' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'stats' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'stats'}
 		>
 			📊 Статистика
@@ -391,7 +391,7 @@
 </div>
 
 <style>
-	.kb-btn {
+	.module-tab {
 		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 	}
 

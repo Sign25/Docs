@@ -7,11 +7,14 @@
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import {
 		getProduct,
+		getProductWithGroup,
 		generateContent,
 		regenerateContent,
 		approveDraft,
+		batchApplyToGroup,
 		type ProductData,
-		type ValidationResult
+		type ValidationResult,
+		type GroupProduct
 	} from '$lib/apis/content-factory';
 
 	const i18n = getContext('i18n');
@@ -23,7 +26,15 @@
 	let currentStep: 1 | 2 | 3 = 1;
 
 	// Данные для пакетной обработки (размеры)
-	let batchSizes: { nmId: string; size: string; selected: boolean }[] = [];
+	let batchSizes: {
+		nmId: string;
+		sku: string;
+		size: string;
+		color: string;
+		selected: boolean;
+		status: 'pending' | 'processing' | 'success' | 'error';
+		error?: string;
+	}[] = [];
 	let isBatchProcessing = false;
 
 	// Режим ввода: 'sku' или 'link'
@@ -38,10 +49,15 @@
 	let productData: {
 		marketplace: 'wb' | 'ozon' | 'ym';
 		sku: string;
+		nm_id?: string;
 		photos: string[];
 		title: string;
 		description: string;
 		validation?: ValidationResult;
+		// Данные о склейке
+		imt_id?: string;
+		group_count?: number;
+		group_products?: GroupProduct[];
 	} | null = null;
 
 	// Индекс текущей фотографии в галерее
@@ -51,6 +67,7 @@
 	let isLoading = false;
 	let isGenerating = false;
 	let isApproving = false;
+	let applyToGroup = false;
 
 	// Данные сгенерированного черновика
 	let draftData: {
@@ -194,16 +211,36 @@
 
 		isLoading = true;
 		try {
-			const data = await getProduct(sku);
+			// Для batch режима получаем информацию о склейке
+			const data = processingMode === 'batch'
+				? await getProductWithGroup(sku)
+				: await getProduct(sku);
 
 			productData = {
 				marketplace,
 				sku,
+				nm_id: data.nm_id,
 				photos: data.media_urls || [],
 				title: data.title || '',
 				description: data.description || '',
-				validation: data.validation
+				validation: data.validation,
+				// Данные о склейке
+				imt_id: data.imt_id,
+				group_count: data.group_count,
+				group_products: data.group_products
 			};
+
+			// Инициализация списка размеров для batch режима
+			if (processingMode === 'batch' && data.group_products) {
+				batchSizes = data.group_products.map(p => ({
+					nmId: p.nm_id,
+					sku: p.sku,
+					size: p.size || '',
+					color: p.color || '',
+					selected: true,
+					status: 'pending' as const
+				}));
+			}
 
 			currentPhotoIndex = 0;
 			currentStep = 2;
@@ -253,11 +290,42 @@
 		}
 
 		isBatchProcessing = true;
+
+		// Обновляем статусы на processing
+		batchSizes = batchSizes.map(s =>
+			s.selected ? { ...s, status: 'processing' as const } : s
+		);
+
 		try {
-			// TODO: API call для пакетной обработки
-			// await batchApplyContent(draftData.draft_id, selectedSizes.map(s => s.nmId));
-			toast.success(`Контент применён к ${selectedSizes.length} размерам`);
+			const result = await batchApplyToGroup(
+				draftData.draft_id,
+				selectedSizes.map(s => s.nmId)
+			);
+
+			// Обновляем статусы на основе результата
+			batchSizes = batchSizes.map(s => {
+				if (!s.selected) return s;
+				const itemResult = result.results.find(r => r.nm_id === s.nmId);
+				if (itemResult) {
+					return {
+						...s,
+						status: itemResult.success ? 'success' as const : 'error' as const,
+						error: itemResult.error
+					};
+				}
+				return s;
+			});
+
+			if (result.success) {
+				toast.success(`Контент применён к ${result.success_count} из ${result.total_count} товаров`);
+			} else {
+				toast.warning(`Применено: ${result.success_count}, ошибок: ${result.failed_count}`);
+			}
 		} catch (error: any) {
+			// Помечаем все как ошибки
+			batchSizes = batchSizes.map(s =>
+				s.selected ? { ...s, status: 'error' as const, error: error.message } : s
+			);
 			toast.error(error.message || 'Ошибка пакетной обработки');
 		} finally {
 			isBatchProcessing = false;
@@ -329,18 +397,34 @@
 	}
 
 	// Утверждение и публикация
-	async function handleApprove() {
+	async function handleApprove(toGroup: boolean = false) {
 		if (!draftData || !productData) return;
 
 		isApproving = true;
-		try {
-			const result = await approveDraft(draftData.draft_id, {
-				title: productData.title,
-				description: productData.description,
-				seo_tags: draftData.seo_tags
-			});
+		applyToGroup = toGroup;
 
-			toast.success(result.message || 'Карточка опубликована на Wildberries!');
+		try {
+			if (toGroup && productData.group_products && productData.group_products.length > 0) {
+				// Применить ко всей склейке
+				const targetNmIds = productData.group_products.map(p => p.nm_id);
+				const result = await batchApplyToGroup(draftData.draft_id, targetNmIds);
+
+				if (result.success) {
+					toast.success(`Контент применён к ${result.success_count} из ${result.total_count} товаров`);
+				} else {
+					toast.warning(`Применено: ${result.success_count}, ошибок: ${result.failed_count}`);
+				}
+			} else {
+				// Применить только к одному товару
+				const result = await approveDraft(draftData.draft_id, {
+					title: productData.title,
+					description: productData.description,
+					seo_tags: draftData.seo_tags,
+					update_all_in_group: false
+				});
+
+				toast.success(result.message || 'Карточка опубликована!');
+			}
 
 			// Сброс и возврат к началу
 			handleBack();
@@ -349,6 +433,7 @@
 			console.error('Error approving:', error);
 		} finally {
 			isApproving = false;
+			applyToGroup = false;
 		}
 	}
 
@@ -1036,13 +1121,9 @@
 		color: var(--cf-text-primary);
 	}
 
-	/* Section Tabs */
-	.cf-section-tabs {
-		display: flex;
-		justify-content: center;
-		gap: 0.5rem;
-		margin-bottom: 1.5rem;
-		flex-wrap: wrap;
+	/* Module Tab (unified style) */
+	.module-tab {
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 	}
 
 	/* Divider */
@@ -1062,49 +1143,63 @@
 	on:click={handlePageClick}
 	role="main"
 >
-	<div class="flex-1 flex flex-col items-center px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 md:pt-12 pb-6 sm:pb-8">
-		<!-- Кнопка сайдбара для мобильных -->
-		{#if $mobile && !$showSidebar}
-			<Tooltip content={$i18n.t('Open Sidebar')}>
+	<!-- Header -->
+	<div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 sticky top-0 z-10">
+		<div class="flex items-center gap-2 sm:gap-3">
+			{#if $mobile}
 				<button
-					class="fixed left-3 top-3 cursor-pointer flex rounded-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition p-2.5 z-50 shadow-lg border border-gray-200 dark:border-gray-700"
-					on:click|stopPropagation={() => showSidebar.set(true)}
-					aria-label="Open Sidebar"
+					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+					on:click|stopPropagation={() => showSidebar.set(!$showSidebar)}
 				>
-					<Sidebar />
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+					</svg>
 				</button>
-			</Tooltip>
-		{/if}
-
-		<!-- Навигация по секциям -->
-		<div class="w-full max-w-6xl mx-auto mb-6">
-			<div class="cf-section-tabs">
-				<button
-					class="cf-btn {activeSection === 'generate' ? 'cf-btn-primary' : ''}"
-					on:click={() => activeSection = 'generate'}
-				>
-					📝 Генерация
-				</button>
-				<button
-					class="cf-btn {activeSection === 'drafts' ? 'cf-btn-primary' : ''}"
-					on:click={() => activeSection = 'drafts'}
-				>
-					📋 Черновики
-				</button>
-				<button
-					class="cf-btn {activeSection === 'visual-prompt' ? 'cf-btn-primary' : ''}"
-					on:click={() => activeSection = 'visual-prompt'}
-				>
-					📸 ТЗ дизайнеру
-				</button>
-				<button
-					class="cf-btn {activeSection === 'stats' ? 'cf-btn-primary' : ''}"
-					on:click={() => activeSection = 'stats'}
-				>
-					📊 Статистика
-				</button>
-			</div>
+			{/if}
+			<img
+				src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.2.29"
+				class="size-7 sm:size-8 dark:invert"
+				alt=""
+			/>
+			<h1 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Контент-Фабрика</h1>
 		</div>
+		<div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+			<span>{stats[0].value} сгенерировано</span>
+			<span class="text-gray-300 dark:text-gray-600">|</span>
+			<span>{stats[2].value} одобрено</span>
+		</div>
+	</div>
+
+	<!-- Navigation Tabs -->
+	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'generate' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'generate'}
+		>
+			📝 Генерация
+		</button>
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'drafts' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'drafts'}
+		>
+			📋 Черновики
+		</button>
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'visual-prompt' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'visual-prompt'}
+		>
+			📸 ТЗ дизайнеру
+		</button>
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'stats' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'stats'}
+		>
+			📊 Статистика
+		</button>
+	</div>
+
+	<!-- Main Content -->
+	<div class="flex-1 flex flex-col items-center px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto">
 
 		{#if activeSection === 'generate'}
 			{#if processingMode === null}
@@ -1724,30 +1819,174 @@
 							</button>
 						</div>
 
-						<!-- Кнопка утверждения -->
-						<button
-							type="button"
-							on:click={handleApprove}
-							disabled={isApproving || isGenerating}
-							class="w-full py-4 sm:py-5 md:py-6 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white
-								disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
-								font-bold rounded-xl sm:rounded-2xl transition-all duration-200 text-base sm:text-lg md:text-xl flex items-center justify-center gap-2 sm:gap-3
-								shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 disabled:shadow-none"
-						>
-							{#if isApproving}
-								<svg class="animate-spin size-5 sm:size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Публикация...
-							{:else}
-								<svg class="size-5 sm:size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-								</svg>
-								<span class="hidden sm:inline">Утвердить и опубликовать на Wildberries</span>
-								<span class="sm:hidden">Опубликовать на WB</span>
-							{/if}
-						</button>
+						<!-- Таблица склеек для batch режима -->
+						{#if processingMode === 'batch' && batchSizes.length > 0}
+							<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg">
+								<div class="flex items-center justify-between mb-4">
+									<p class="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+										Товары в склейке ({batchSizes.length})
+									</p>
+									<div class="flex gap-2">
+										<button
+											type="button"
+											on:click={() => toggleAllSizes(true)}
+											class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+										>
+											Все
+										</button>
+										<button
+											type="button"
+											on:click={() => toggleAllSizes(false)}
+											class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+										>
+											Снять
+										</button>
+									</div>
+								</div>
+
+								<div class="overflow-x-auto">
+									<table class="w-full text-sm">
+										<thead>
+											<tr class="border-b border-gray-200 dark:border-gray-700">
+												<th class="py-2 px-2 text-left font-medium text-gray-500 dark:text-gray-400 w-10"></th>
+												<th class="py-2 px-2 text-left font-medium text-gray-500 dark:text-gray-400">Артикул</th>
+												<th class="py-2 px-2 text-left font-medium text-gray-500 dark:text-gray-400">Размер</th>
+												<th class="py-2 px-2 text-left font-medium text-gray-500 dark:text-gray-400">Цвет</th>
+												<th class="py-2 px-2 text-right font-medium text-gray-500 dark:text-gray-400">Статус</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each batchSizes as item, index}
+												<tr class="border-b border-gray-100 dark:border-gray-800 last:border-0">
+													<td class="py-2 px-2">
+														<input
+															type="checkbox"
+															bind:checked={item.selected}
+															disabled={isBatchProcessing || item.status === 'success'}
+															class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+														/>
+													</td>
+													<td class="py-2 px-2 font-mono text-xs text-gray-700 dark:text-gray-300">
+														{item.sku || item.nmId}
+													</td>
+													<td class="py-2 px-2 text-gray-600 dark:text-gray-400">
+														{item.size || '—'}
+													</td>
+													<td class="py-2 px-2 text-gray-600 dark:text-gray-400">
+														{item.color || '—'}
+													</td>
+													<td class="py-2 px-2 text-right">
+														{#if item.status === 'pending'}
+															<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+																Ожидает
+															</span>
+														{:else if item.status === 'processing'}
+															<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+																<svg class="animate-spin size-3" fill="none" viewBox="0 0 24 24">
+																	<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+																	<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+																</svg>
+																Обработка
+															</span>
+														{:else if item.status === 'success'}
+															<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+																<svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+																</svg>
+																Готово
+															</span>
+														{:else if item.status === 'error'}
+															<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" title={item.error}>
+																<svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+																</svg>
+																Ошибка
+															</span>
+														{/if}
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+
+								<!-- Кнопка применить к выбранным -->
+								<button
+									type="button"
+									on:click={handleBatchApply}
+									disabled={isBatchProcessing || batchSizes.filter(s => s.selected && s.status !== 'success').length === 0}
+									class="mt-4 w-full py-3 bg-green-600 hover:bg-green-700 text-white
+										disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+										font-semibold rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2"
+								>
+									{#if isBatchProcessing}
+										<svg class="animate-spin size-4" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+										</svg>
+										Применяется...
+									{:else}
+										<svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+										</svg>
+										Применить к выбранным ({batchSizes.filter(s => s.selected && s.status !== 'success').length})
+									{/if}
+								</button>
+							</div>
+						{/if}
+
+						<!-- Кнопки утверждения (только для ручного режима) -->
+						{#if processingMode !== 'batch'}
+						<div class="grid grid-cols-2 gap-3 sm:gap-4">
+							<!-- Применить к одному товару -->
+							<button
+								type="button"
+								on:click={() => handleApprove(false)}
+								disabled={isApproving || isGenerating}
+								class="py-3 sm:py-4 bg-gray-700 hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 text-white
+									disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+									font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base flex items-center justify-center gap-2
+									shadow-md hover:shadow-lg disabled:shadow-none"
+							>
+								{#if isApproving && !applyToGroup}
+									<svg class="animate-spin size-4 sm:size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+								{:else}
+									<svg class="size-4 sm:size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+									</svg>
+								{/if}
+								<span class="hidden sm:inline">Только этот товар</span>
+								<span class="sm:hidden">Один товар</span>
+							</button>
+
+							<!-- Применить ко всей склейке -->
+							<button
+								type="button"
+								on:click={() => handleApprove(true)}
+								disabled={isApproving || isGenerating}
+								class="py-3 sm:py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white
+									disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600
+									font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base flex items-center justify-center gap-2
+									shadow-md shadow-green-500/30 hover:shadow-lg hover:shadow-green-500/40 disabled:shadow-none"
+							>
+								{#if isApproving && applyToGroup}
+									<svg class="animate-spin size-4 sm:size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+								{:else}
+									<svg class="size-4 sm:size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+									</svg>
+								{/if}
+								<span class="hidden sm:inline">Вся склейка</span>
+								<span class="sm:hidden">Склейка</span>
+							</button>
+						</div>
+						{/if}
 					</div>
 				</div>
 			</div>
