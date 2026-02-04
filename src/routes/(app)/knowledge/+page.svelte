@@ -126,20 +126,28 @@
 
 	<!-- Navigation Tabs -->
 	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
-		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-			disabled
-			title="Раздел в разработке"
-		>
-			🔍 Поиск <span class="ml-1">🔒</span>
-		</button>
-		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-			disabled
-			title="Раздел в разработке"
-		>
-			📂 Каталог <span class="ml-1">🔒</span>
-		</button>
+		<div class="relative group">
+			<button
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+			>
+				🔍 Поиск <span class="ml-1">🔒</span>
+			</button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+				Раздел в разработке
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+			</div>
+		</div>
+		<div class="relative group">
+			<button
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+			>
+				📂 Каталог <span class="ml-1">🔒</span>
+			</button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+				Раздел в разработке
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+			</div>
+		</div>
 		<button
 			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'upload' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'upload'}
@@ -147,24 +155,32 @@
 			📤 Загрузка
 		</button>
 		{#if canModerate}
-			<button
-				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-				disabled
-				title="Раздел в разработке"
-			>
-				⏳ Модерация <span class="ml-1">🔒</span>
-				{#if stats.pendingModeration > 0}
-					<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500/50 text-white rounded-full">{stats.pendingModeration}</span>
-				{/if}
-			</button>
+			<div class="relative group">
+				<button
+					class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+				>
+					⏳ Модерация <span class="ml-1">🔒</span>
+					{#if stats.pendingModeration > 0}
+						<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500/50 text-white rounded-full">{stats.pendingModeration}</span>
+					{/if}
+				</button>
+				<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+					Раздел в разработке
+					<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+				</div>
+			</div>
 		{/if}
-		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-			disabled
-			title="Раздел в разработке"
-		>
-			📊 Статистика <span class="ml-1">🔒</span>
-		</button>
+		<div class="relative group">
+			<button
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+			>
+				📊 Статистика <span class="ml-1">🔒</span>
+			</button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+				Раздел в разработке
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+			</div>
+		</div>
 	</div>
 
 	<!-- Main Content -->

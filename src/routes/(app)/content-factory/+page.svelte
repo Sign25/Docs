@@ -1405,27 +1405,39 @@
 		>
 			📝 Генерация
 		</button>
-		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-			disabled
-			title="Раздел в разработке"
-		>
-			📋 Черновики <span class="ml-1">🔒</span>
-		</button>
-		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-			disabled
-			title="Раздел в разработке"
-		>
-			📸 ТЗ дизайнеру <span class="ml-1">🔒</span>
-		</button>
-		<button
-			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-			disabled
-			title="Раздел в разработке"
-		>
-			📊 Статистика <span class="ml-1">🔒</span>
-		</button>
+		<div class="relative group">
+			<button
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+			>
+				📋 Черновики <span class="ml-1">🔒</span>
+			</button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+				Раздел в разработке
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+			</div>
+		</div>
+		<div class="relative group">
+			<button
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+			>
+				📸 ТЗ дизайнеру <span class="ml-1">🔒</span>
+			</button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+				Раздел в разработке
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+			</div>
+		</div>
+		<div class="relative group">
+			<button
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+			>
+				📊 Статистика <span class="ml-1">🔒</span>
+			</button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+				Раздел в разработке
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+			</div>
+		</div>
 	</div>
 
 	<!-- Main Content -->
