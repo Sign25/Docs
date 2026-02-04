@@ -1405,36 +1405,27 @@
 		>
 			📝 Генерация
 		</button>
-		<div class="relative group">
+		<Tooltip content="🚧 В разработке" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📋 Черновики <span class="ml-1">🔒</span>
 			</button>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-				🚧 В разработке
-			</div>
-		</div>
-		<div class="relative group">
+		</Tooltip>
+		<Tooltip content="🚧 В разработке" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📸 ТЗ дизайнеру <span class="ml-1">🔒</span>
 			</button>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-				🚧 В разработке
-			</div>
-		</div>
-		<div class="relative group">
+		</Tooltip>
+		<Tooltip content="🚧 В разработке" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📊 Статистика <span class="ml-1">🔒</span>
 			</button>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-				🚧 В разработке
-			</div>
-		</div>
+		</Tooltip>
 	</div>
 
 	<!-- Main Content -->

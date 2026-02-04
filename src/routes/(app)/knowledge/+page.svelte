@@ -3,6 +3,7 @@
 	import { user, showSidebar, mobile } from '$lib/stores';
 	import { canAccessModule } from '$lib/utils/roles';
 	import { WEBUI_BASE_URL } from '$lib/constants';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -126,26 +127,20 @@
 
 	<!-- Navigation Tabs -->
 	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
-		<div class="relative group">
+		<Tooltip content="🚧 В разработке" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				🔍 Поиск <span class="ml-1">🔒</span>
 			</button>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-				🚧 В разработке
-			</div>
-		</div>
-		<div class="relative group">
+		</Tooltip>
+		<Tooltip content="🚧 В разработке" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📂 Каталог <span class="ml-1">🔒</span>
 			</button>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-				🚧 В разработке
-			</div>
-		</div>
+		</Tooltip>
 		<button
 			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'upload' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'upload'}
@@ -153,7 +148,7 @@
 			📤 Загрузка
 		</button>
 		{#if canModerate}
-			<div class="relative group">
+			<Tooltip content="🚧 В разработке" placement="bottom">
 				<button
 					class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 				>
@@ -162,21 +157,15 @@
 						<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500/50 text-white rounded-full">{stats.pendingModeration}</span>
 					{/if}
 				</button>
-				<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-					🚧 В разработке
-				</div>
-			</div>
+			</Tooltip>
 		{/if}
-		<div class="relative group">
+		<Tooltip content="🚧 В разработке" placement="bottom">
 			<button
 				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
 			>
 				📊 Статистика <span class="ml-1">🔒</span>
 			</button>
-			<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-4 py-2 bg-black/90 dark:bg-white/95 text-white dark:text-gray-900 text-xs font-medium rounded-full shadow-lg backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-50">
-				🚧 В разработке
-			</div>
-		</div>
+		</Tooltip>
 	</div>
 
 	<!-- Main Content -->
