@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { user, showSidebar, mobile } from '$lib/stores';
 	import { canAccessModule } from '$lib/utils/roles';
 	import { WEBUI_BASE_URL } from '$lib/constants';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import { uploadFile } from '$lib/apis/files';
+	import {
+		getKnowledgeBases,
+		createNewKnowledge,
+		addFileToKnowledgeById
+	} from '$lib/apis/knowledge';
 
 	const i18n = getContext('i18n');
 
@@ -29,6 +35,13 @@
 	let uploadFiles: File[] = [];
 	let uploadCategory = 'other';
 	let isUploading = false;
+	let uploadProgress: { [key: string]: 'pending' | 'uploading' | 'success' | 'error' } = {};
+	let uploadErrors: { [key: string]: string } = {};
+
+	// Knowledge bases
+	let knowledgeBases: any[] = [];
+	let selectedKnowledgeBase: string = '';
+	let isLoadingKnowledgeBases = false;
 
 	// Moderation state
 	let pendingDocuments = [
@@ -48,6 +61,51 @@
 	// Role check for moderation
 	$: canModerate = canAccessModule($user?.role, 'knowledge_moderation');
 
+	// Load knowledge bases on mount
+	onMount(async () => {
+		await loadKnowledgeBases();
+	});
+
+	async function loadKnowledgeBases() {
+		if (!localStorage.token) return;
+		isLoadingKnowledgeBases = true;
+		try {
+			const result = await getKnowledgeBases(localStorage.token);
+			if (result?.items) {
+				knowledgeBases = result.items;
+				// Auto-select the first one or create default if none exist
+				if (knowledgeBases.length > 0) {
+					selectedKnowledgeBase = knowledgeBases[0].id;
+				}
+			}
+		} catch (error) {
+			console.error('Error loading knowledge bases:', error);
+		} finally {
+			isLoadingKnowledgeBases = false;
+		}
+	}
+
+	async function createDefaultKnowledgeBase() {
+		if (!localStorage.token) return null;
+		try {
+			const kb = await createNewKnowledge(
+				localStorage.token,
+				'ADOLF База знаний',
+				'Корпоративная база знаний компании',
+				null // public access
+			);
+			if (kb) {
+				knowledgeBases = [kb, ...knowledgeBases];
+				selectedKnowledgeBase = kb.id;
+				return kb.id;
+			}
+		} catch (error) {
+			console.error('Error creating knowledge base:', error);
+			toast.error('Не удалось создать базу знаний');
+		}
+		return null;
+	}
+
 	// Search handler
 	async function handleSearch() {
 		if (!searchQuery.trim()) return;
@@ -65,11 +123,70 @@
 	// Upload handler
 	async function handleUpload() {
 		if (uploadFiles.length === 0) return;
+		if (!localStorage.token) {
+			toast.error('Необходима авторизация');
+			return;
+		}
+
+		// Ensure we have a knowledge base
+		let kbId = selectedKnowledgeBase;
+		if (!kbId) {
+			kbId = await createDefaultKnowledgeBase();
+			if (!kbId) {
+				toast.error('Не удалось создать базу знаний');
+				return;
+			}
+		}
+
 		isUploading = true;
-		// TODO: Implement actual upload via API
-		await new Promise(resolve => setTimeout(resolve, 1000));
+		let successCount = 0;
+		let errorCount = 0;
+
+		// Initialize progress
+		uploadFiles.forEach((file, idx) => {
+			uploadProgress[idx] = 'pending';
+		});
+		uploadProgress = { ...uploadProgress };
+
+		for (let i = 0; i < uploadFiles.length; i++) {
+			const file = uploadFiles[i];
+			uploadProgress[i] = 'uploading';
+			uploadProgress = { ...uploadProgress };
+
+			try {
+				// 1. Upload file to /files API
+				const uploadedFile = await uploadFile(localStorage.token, file);
+
+				if (uploadedFile?.id) {
+					// 2. Add file to knowledge base
+					await addFileToKnowledgeById(localStorage.token, kbId, uploadedFile.id);
+					uploadProgress[i] = 'success';
+					successCount++;
+				} else {
+					throw new Error('Файл не был загружен');
+				}
+			} catch (error: any) {
+				console.error(`Error uploading ${file.name}:`, error);
+				uploadProgress[i] = 'error';
+				uploadErrors[i] = error?.message || error || 'Ошибка загрузки';
+				errorCount++;
+			}
+			uploadProgress = { ...uploadProgress };
+			uploadErrors = { ...uploadErrors };
+		}
+
 		isUploading = false;
-		uploadFiles = [];
+
+		if (errorCount === 0) {
+			toast.success(`Загружено ${successCount} файл(ов)`);
+			uploadFiles = [];
+			uploadProgress = {};
+			uploadErrors = {};
+		} else if (successCount > 0) {
+			toast.warning(`Загружено: ${successCount}, ошибок: ${errorCount}`);
+		} else {
+			toast.error('Ошибка загрузки файлов');
+		}
 	}
 
 	// File drop handler
@@ -90,6 +207,17 @@
 
 	function removeFile(index: number) {
 		uploadFiles = uploadFiles.filter((_, i) => i !== index);
+		delete uploadProgress[index];
+		delete uploadErrors[index];
+	}
+
+	function getProgressIcon(status: string | undefined) {
+		switch (status) {
+			case 'uploading': return '⏳';
+			case 'success': return '✅';
+			case 'error': return '❌';
+			default: return '📄';
+		}
 	}
 </script>
 
@@ -127,20 +255,18 @@
 
 	<!-- Navigation Tabs -->
 	<div class="flex items-center justify-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
-		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
-			<button
-				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
-			>
-				🔍 Поиск <span class="ml-1">🔒</span>
-			</button>
-		</Tooltip>
-		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
-			<button
-				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
-			>
-				📂 Каталог <span class="ml-1">🔒</span>
-			</button>
-		</Tooltip>
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'search' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'search'}
+		>
+			🔍 Поиск
+		</button>
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'catalog' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'catalog'}
+		>
+			📂 Каталог
+		</button>
 		<button
 			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'upload' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			on:click={() => activeSection = 'upload'}
@@ -148,24 +274,22 @@
 			📤 Загрузка
 		</button>
 		{#if canModerate}
-			<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
-				<button
-					class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
-				>
-					⏳ Модерация <span class="ml-1">🔒</span>
-					{#if stats.pendingModeration > 0}
-						<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500/50 text-white rounded-full">{stats.pendingModeration}</span>
-					{/if}
-				</button>
-			</Tooltip>
-		{/if}
-		<Tooltip content="<span style='font-size: 14px;'>🔧 Раздел в разработке...</span>" placement="bottom">
 			<button
-				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
+				class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'moderation' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+				on:click={() => activeSection = 'moderation'}
 			>
-				📊 Статистика <span class="ml-1">🔒</span>
+				⏳ Модерация
+				{#if stats.pendingModeration > 0}
+					<span class="ml-1 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">{stats.pendingModeration}</span>
+				{/if}
 			</button>
-		</Tooltip>
+		{/if}
+		<button
+			class="module-tab px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap {activeSection === 'stats' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}"
+			on:click={() => activeSection = 'stats'}
+		>
+			📊 Статистика
+		</button>
 	</div>
 
 	<!-- Main Content -->
@@ -259,46 +383,70 @@
 						<p class="text-xs text-gray-400 dark:text-gray-500 mt-2">PDF, DOC, DOCX, TXT, MD</p>
 					</div>
 
+					<!-- Knowledge base selector -->
+					{#if knowledgeBases.length > 0}
+						<div class="mt-4">
+							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">База знаний</label>
+							<select
+								bind:value={selectedKnowledgeBase}
+								class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+								disabled={isUploading}
+							>
+								{#each knowledgeBases as kb}
+									<option value={kb.id}>{kb.name}</option>
+								{/each}
+							</select>
+						</div>
+					{:else if !isLoadingKnowledgeBases}
+						<p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+							База знаний будет создана автоматически при загрузке
+						</p>
+					{/if}
+
 					<!-- File list -->
 					{#if uploadFiles.length > 0}
 						<div class="mt-4 space-y-2">
 							{#each uploadFiles as file, index}
-								<div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-									<div class="flex items-center gap-3">
-										<span class="text-lg">📄</span>
-										<span class="text-sm text-gray-700 dark:text-gray-200">{file.name}</span>
-										<span class="text-xs text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
+								<div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg
+									{uploadProgress[index] === 'error' ? 'border border-red-300 dark:border-red-700' : ''}
+									{uploadProgress[index] === 'success' ? 'border border-green-300 dark:border-green-700' : ''}">
+									<div class="flex items-center gap-3 flex-1 min-w-0">
+										<span class="text-lg flex-shrink-0">{getProgressIcon(uploadProgress[index])}</span>
+										<span class="text-sm text-gray-700 dark:text-gray-200 truncate">{file.name}</span>
+										<span class="text-xs text-gray-400 flex-shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
 									</div>
-									<button
-										class="text-red-500 hover:text-red-700 transition"
-										on:click={() => removeFile(index)}
-									>
-										✕
-									</button>
+									{#if !isUploading && uploadProgress[index] !== 'success'}
+										<button
+											class="text-red-500 hover:text-red-700 transition ml-2 flex-shrink-0"
+											on:click={() => removeFile(index)}
+										>
+											✕
+										</button>
+									{/if}
 								</div>
+								{#if uploadErrors[index]}
+									<p class="text-xs text-red-500 dark:text-red-400 ml-9">{uploadErrors[index]}</p>
+								{/if}
 							{/each}
-						</div>
-
-						<!-- Category selection -->
-						<div class="mt-4">
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Категория</label>
-							<select
-								bind:value={uploadCategory}
-								class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-							>
-								{#each categories as category}
-									<option value={category.id}>{category.name}</option>
-								{/each}
-							</select>
 						</div>
 
 						<!-- Upload button -->
 						<button
-							class="mt-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50"
+							class="mt-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 							on:click={handleUpload}
-							disabled={isUploading}
+							disabled={isUploading || uploadFiles.every((_, i) => uploadProgress[i] === 'success')}
 						>
-							{isUploading ? 'Загрузка...' : `Загрузить ${uploadFiles.length} файл(ов)`}
+							{#if isUploading}
+								<span class="flex items-center justify-center gap-2">
+									<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+									</svg>
+									Загрузка...
+								</span>
+							{:else}
+								Загрузить {uploadFiles.filter((_, i) => uploadProgress[i] !== 'success').length} файл(ов)
+							{/if}
 						</button>
 					{/if}
 				</div>
