@@ -56,6 +56,7 @@ from open_webui.utils.filter import (
 )
 
 from open_webui.env import GLOBAL_LOG_LEVEL, BYPASS_MODEL_ACCESS_CONTROL
+from open_webui.constants import should_bypass_model_access
 
 
 logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL)
@@ -201,7 +202,8 @@ async def generate_chat_completion(
         )
     else:
         # Check if user has access to the model
-        if not bypass_filter and user.role != "admin":
+        # Bypass for all authenticated users (staff, manager, senior, director, admin)
+        if not bypass_filter and not should_bypass_model_access(user.role):
             try:
                 check_model_access(user, model)
             except Exception as e:

@@ -83,6 +83,26 @@ def has_admin_access(user_role: str) -> bool:
     return user_role == UserRole.ADMIN
 
 
+def should_bypass_model_access(user_role: str) -> bool:
+    """
+    Check if user should bypass model access control.
+    All authenticated users except pending can access models.
+
+    Args:
+        user_role: User's current role
+
+    Returns:
+        True if user should bypass model access control
+    """
+    return user_role in [
+        UserRole.STAFF,
+        UserRole.MANAGER,
+        UserRole.SENIOR,
+        UserRole.DIRECTOR,
+        UserRole.ADMIN
+    ]
+
+
 def can_access_reputation_agent(user_role: str) -> bool:
     """
     Check if user can access @Adolf_Reputation agent

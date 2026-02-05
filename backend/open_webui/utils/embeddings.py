@@ -7,6 +7,7 @@ from open_webui.models.users import UserModel
 from open_webui.models.models import Models
 from open_webui.utils.models import check_model_access
 from open_webui.env import GLOBAL_LOG_LEVEL, BYPASS_MODEL_ACCESS_CONTROL
+from open_webui.constants import should_bypass_model_access
 
 from open_webui.routers.openai import embeddings as openai_embeddings
 from open_webui.routers.ollama import (
@@ -67,8 +68,9 @@ async def generate_embeddings(
     model = models[model_id]
 
     # Access filtering
+    # Bypass for all authenticated users (staff, manager, senior, director, admin)
     if not getattr(request.state, "direct", False):
-        if not bypass_filter and user.role != "admin":
+        if not bypass_filter and not should_bypass_model_access(user.role):
             check_model_access(user, model)
 
     # Ollama backend

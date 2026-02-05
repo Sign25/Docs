@@ -539,7 +539,7 @@ from open_webui.tasks import (
 from open_webui.utils.redis import get_sentinels_from_env
 
 
-from open_webui.constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES, should_bypass_model_access
 
 
 if SAFE_MODE:
@@ -1581,9 +1581,8 @@ async def chat_completion(
             model_info = Models.get_model_by_id(model_id)
 
             # Check if user has access to the model
-            if not BYPASS_MODEL_ACCESS_CONTROL and (
-                user.role != "admin" or not BYPASS_ADMIN_ACCESS_CONTROL
-            ):
+            # Bypass for all authenticated users (staff, manager, senior, director, admin)
+            if not BYPASS_MODEL_ACCESS_CONTROL and not should_bypass_model_access(user.role):
                 try:
                     check_model_access(user, model)
                 except Exception as e:

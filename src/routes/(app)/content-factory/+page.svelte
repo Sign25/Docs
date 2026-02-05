@@ -930,11 +930,24 @@
 	.cf-mode-card {
 		background: var(--cf-bg-primary);
 		border: 2px solid var(--cf-border);
-		border-radius: 1rem;
-		padding: 2rem;
+		border-radius: 0.75rem;
+		padding: 1.25rem 1rem;
 		cursor: pointer;
 		transition: all 0.2s;
 		text-align: center;
+	}
+
+	@media (min-width: 640px) {
+		.cf-mode-card {
+			border-radius: 1rem;
+			padding: 1.5rem;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.cf-mode-card {
+			padding: 2rem;
+		}
 	}
 
 	.cf-mode-card:hover {
@@ -947,26 +960,70 @@
 	}
 
 	.cf-mode-icon {
-		width: 4rem;
-		height: 4rem;
-		margin: 0 auto 1rem;
-		border-radius: 1rem;
+		width: 3rem;
+		height: 3rem;
+		margin: 0 auto 0.75rem;
+		border-radius: 0.75rem;
 		background: var(--cf-bg-secondary);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
+	@media (min-width: 640px) {
+		.cf-mode-icon {
+			width: 3.5rem;
+			height: 3.5rem;
+			margin-bottom: 0.875rem;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.cf-mode-icon {
+			width: 4rem;
+			height: 4rem;
+			margin-bottom: 1rem;
+			border-radius: 1rem;
+		}
+	}
+
 	.cf-mode-title {
-		font-size: 1.125rem;
+		font-size: 0.9375rem;
 		font-weight: 700;
 		color: var(--cf-text-primary);
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.25rem;
+	}
+
+	@media (min-width: 640px) {
+		.cf-mode-title {
+			font-size: 1rem;
+			margin-bottom: 0.375rem;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.cf-mode-title {
+			font-size: 1.125rem;
+			margin-bottom: 0.5rem;
+		}
 	}
 
 	.cf-mode-desc {
-		font-size: 0.875rem;
+		font-size: 0.75rem;
 		color: var(--cf-text-secondary);
+		line-height: 1.4;
+	}
+
+	@media (min-width: 640px) {
+		.cf-mode-desc {
+			font-size: 0.8125rem;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.cf-mode-desc {
+			font-size: 0.875rem;
+		}
 	}
 
 	/* MP Badge */
@@ -1378,61 +1435,44 @@
 	</div>
 
 	<!-- Main Content -->
-	<div class="flex-1 flex flex-col items-center px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto">
+	<div class="flex-1 flex flex-col items-center px-4 sm:px-6 lg:px-8 py-4 sm:py-5 md:py-6 overflow-y-auto">
 
 		{#if activeSection === 'generate'}
 			{#if processingMode === null}
 				<!-- ЭКРАН ВЫБОРА РЕЖИМА -->
-				<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
-					<!-- Заголовок -->
-					<div class="text-center mb-6 sm:mb-8 md:mb-10">
-						<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-							<img
-								src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
-								class="size-8 sm:size-9 md:size-10 dark:invert"
-								alt=""
-							/>
-							<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">
-								Контент-Фабрика
-							</h1>
-						</div>
-						<p class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
-							Выберите режим обработки
-						</p>
-					</div>
-
+				<div class="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl px-2 sm:px-0">
 					<!-- Карточки выбора режима -->
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-					<!-- Один артикул -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+					<!-- Ручная обработка -->
 					<button
 						type="button"
 						on:click={() => processingMode = 'single'}
 						class="cf-mode-card group"
 					>
 						<div class="cf-mode-icon group-hover:scale-110 transition-transform">
-							<svg class="size-7 sm:size-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="size-5 sm:size-6 md:size-7 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 									d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 							</svg>
 						</div>
 						<h3 class="cf-mode-title">Ручная обработка</h3>
-						<p class="cf-mode-desc">Генерация контента для одного товара</p>
+						<p class="cf-mode-desc">Один товар с предпросмотром</p>
 					</button>
 
-					<!-- Пакетная обработка -->
+					<!-- Автоматическая обработка -->
 					<button
 						type="button"
 						on:click={() => processingMode = 'batch'}
 						class="cf-mode-card group"
 					>
 						<div class="cf-mode-icon group-hover:scale-110 transition-transform">
-							<svg class="size-7 sm:size-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="size-5 sm:size-6 md:size-7 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 									d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
 							</svg>
 						</div>
 						<h3 class="cf-mode-title">Автоматическая обработка</h3>
-						<p class="cf-mode-desc">Применить контент ко всем размерам карточки</p>
+						<p class="cf-mode-desc">Пакетная генерация для очереди</p>
 					</button>
 				</div>
 				</div>
@@ -1440,23 +1480,7 @@
 			<!-- ШАГ 1: Ввод данных -->
 			{#if processingMode === 'batch'}
 				<!-- АВТОМАТИЧЕСКАЯ ОБРАБОТКА - Таблица очереди -->
-				<div class="w-full max-w-2xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mt-4 sm:mt-6 md:mt-8">
-					<!-- Заголовок -->
-					<div class="text-center mb-4 sm:mb-6 md:mb-8">
-						<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-							<img
-								src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
-								class="size-7 sm:size-8 md:size-9 dark:invert"
-								alt=""
-							/>
-							<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-								Автоматическая обработка
-							</h1>
-						</div>
-						<p class="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
-							Добавьте товары для автоматической генерации контента
-						</p>
-					</div>
+				<div class="w-full max-w-2xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mt-4 sm:mt-6">
 
 					<!-- Карточка с таблицей -->
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg">
@@ -1652,23 +1676,7 @@
 				</div>
 			{:else}
 				<!-- РУЧНАЯ ОБРАБОТКА - Форма ввода артикула -->
-				<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6 md:mt-8">
-				<!-- Заголовок -->
-				<div class="text-center mb-4 sm:mb-6 md:mb-8">
-					<div class="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-						<img
-							src="{WEBUI_BASE_URL}/static/content-factory-icon.svg?v=1.1.40"
-							class="size-7 sm:size-8 md:size-9 dark:invert"
-							alt=""
-						/>
-						<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-							Ручная обработка
-						</h1>
-					</div>
-					<p class="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
-						Генерация SEO-контента для одного товара
-					</p>
-				</div>
+				<div class="w-full max-w-md sm:max-w-lg md:max-w-xl mt-4 sm:mt-6">
 
 				<!-- Карточка формы -->
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg">
