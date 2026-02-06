@@ -17,15 +17,13 @@
     "latex": true,
     "codeblocks": "system"
   },
-  "appearance": {
-    "default": "system"
-  },
   "navbar": {
     "links": [
       {
         "label": "GitHub",
         "href": "https://github.com/Sign25/Docs",
-        "icon": "github"
+        "icon": "github",
+        "iconType": "brands"
       }
     ]
   },
@@ -46,7 +44,7 @@
       },
       {
         "tab": "Core",
-        "icon": "brain-circuit",
+        "icon": "microchip",
         "groups": [
           {
             "group": "Введение",
