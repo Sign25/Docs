@@ -15,12 +15,12 @@
 | 2 | [Ozon Integration](adolf_logistic_2_ozon_integration_v2_0.md) | 2.0 ✅ | Ozon Seller API, endpoints, маппинг, rate limits |
 | 3 | [Stock Monitor](adolf_logistic_3_stock_monitor_v2_0.md) | 2.0 ✅ | Мониторинг остатков FBO + 1С, velocity, прогноз, алерты |
 | 4 | [Supply Task Engine](adolf_logistic_4_supply_task_engine_v2_0.md) | 2.0 ✅ | Наряд-задания, расчёт дефицита, жизненный цикл |
-| 5 | ~~Recommendation Engine~~ → **1С Integration** | 1.0 🔄 | Файловый импорт XLSX/XML из 1С |
-| 6 | [Database](adolf_logistic_6_database_v1_0.md) | 1.0 🔄 | Схема БД (требует обновления под Ozon) |
+| 5 | [1С Integration](adolf_logistic_5_1c_integration_v2_0.md) | 2.0 ✅ | Файловый импорт XLSX/XML из 1С |
+| 6 | [Database](adolf_logistic_6_database_v2_0.md) | 2.0 ✅ | Схема БД: кластеры, остатки FBO/1С, наряд-задания |
 | 7 | [Open WebUI](adolf_logistic_7_open_webui_v1_0.md) | 1.0 🔄 | Интерфейс (требует обновления) |
 | 8 | [Celery](adolf_logistic_8_celery_v1_0.md) | 1.0 🔄 | Фоновые задачи (требует обновления) |
 
-**Прогресс миграции v1.0 → v2.0:** 5/9 документов обновлено
+**Прогресс миграции v1.0 → v2.0:** 7/9 документов обновлено
 
 ---
 
