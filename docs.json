@@ -49,9 +49,7 @@
         "groups": [
           {
             "group": "Введение",
-            "pages": [
-              "core/adolf_core_0_introduction"
-            ]
+            "pages": []
           },
           {
             "group": "Open WebUI",
