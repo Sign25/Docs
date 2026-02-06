@@ -24,7 +24,8 @@
     "links": [
       {
         "label": "GitHub",
-        "href": "https://github.com/Sign25/Docs"
+        "href": "https://github.com/Sign25/Docs",
+        "icon": "github"
       }
     ]
   },
@@ -235,7 +236,8 @@
               "shop/adolf_shop_6_celery"
             ]
           }
-        ]
+        ],
+        "icon": "puzzle-piece"
       }
     ]
   },
