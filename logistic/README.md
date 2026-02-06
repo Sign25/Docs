@@ -2,7 +2,8 @@
 
 **Версия модуля:** 2.0  
 **Маркетплейс:** Ozon (Seller API)  
-**Дата обновления:** Февраль 2026
+**Дата обновления:** Февраль 2026  
+**Статус миграции:** ✅ Завершена (9/9)
 
 ---
 
@@ -17,10 +18,8 @@
 | 4 | [Supply Task Engine](adolf_logistic_4_supply_task_engine_v2_0.md) | 2.0 ✅ | Наряд-задания, расчёт дефицита, жизненный цикл |
 | 5 | [1С Integration](adolf_logistic_5_1c_integration_v2_0.md) | 2.0 ✅ | Файловый импорт XLSX/XML из 1С |
 | 6 | [Database](adolf_logistic_6_database_v2_0.md) | 2.0 ✅ | Схема БД: кластеры, остатки FBO/1С, наряд-задания |
-| 7 | [Open WebUI](adolf_logistic_7_open_webui_v1_0.md) | 1.0 🔄 | Интерфейс (требует обновления) |
-| 8 | [Celery](adolf_logistic_8_celery_v1_0.md) | 1.0 🔄 | Фоновые задачи (требует обновления) |
-
-**Прогресс миграции v1.0 → v2.0:** 7/9 документов обновлено
+| 7 | [Open WebUI](adolf_logistic_7_open_webui_v2_0.md) | 2.0 ✅ | Диалоговый интерфейс: 8 tools для FBO + 1С + задания |
+| 8 | [Celery](adolf_logistic_8_celery_v2_0.md) | 2.0 ✅ | 9 фоновых задач: Ozon sync + 1С import + supply tasks |
 
 ---
 
@@ -34,6 +33,9 @@
 | Пороги | Абсолютные (< 10 шт) | По дням до обнуления (< 3 дн.) |
 | Анализ | Постфактум кросс-докинг | Превентивные наряд-задания |
 | Velocity | Простое деление | Ozon avg_daily + WMA fallback |
+| Celery tasks | 6 задач (WB sync + forecast) | 9 задач (Ozon + 1С + supply tasks) |
+| Open WebUI tools | 5 tools (WB stocks + cross-dock) | 8 tools (FBO + 1С + task workflow) |
+| БД таблиц | 11 (WB-centric) | 8 (Ozon + 1С focused) |
 
 ---
 
@@ -43,3 +45,17 @@
 - **Импорт:** 1С XLSX/XML (2 раза в день: 08:00, 14:00)
 - **Backend:** FastAPI, Celery, Redis, PostgreSQL
 - **AI:** GPT-5 mini (routine), Claude Opus 4.5 (analytics)
+- **UI:** Open WebUI (Pipeline + 8 Tools)
+
+---
+
+## Удалённые документы v1.0
+
+| Документ | Причина |
+|----------|---------|
+| adolf_logistic_2_wb_integration_v1_0.md | Заменён на Ozon Integration v2.0 |
+| adolf_logistic_4_order_analyzer_v1_0.md | Заменён на Supply Task Engine v2.0 |
+| adolf_logistic_5_recommendation_engine_v1_0.md | Заменён на 1С Integration v2.0 |
+| adolf_logistic_6_database_v1_0.md | Заменён на Database v2.0 |
+| adolf_logistic_7_open_webui_v1_0.md | Заменён на Open WebUI v2.0 |
+| adolf_logistic_8_celery_v1_0.md | Заменён на Celery v2.0 |
