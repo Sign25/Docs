@@ -2,6 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "linden",
   "name": "ADOLF Platform",
+  "description": "AI-driven e-commerce automation platform documentation",
   "logo": {
     "light": "/images/logo-light.svg",
     "dark": "/images/logo-dark.svg"
@@ -11,6 +12,13 @@
     "primary": "#22C55E",
     "light": "#16B886",
     "dark": "#0A7B5E"
+  },
+  "styling": {
+    "latex": true,
+    "codeblocks": "system"
+  },
+  "appearance": {
+    "default": "system"
   },
   "navbar": {
     "links": [
@@ -234,27 +242,6 @@
   "footer": {
     "socials": {
       "github": "https://github.com/Sign25/Docs"
-    }
-  },
-  "search": {
-    "prompt": "Поиск по документации ADOLF..."
-  },
-  "styling": {
-    "latex": true,
-    "codeblocks": {
-      "rounded": true
-    }
-  },
-  "appearance": {
-    "default": "system"
-  },
-  "seo": {
-    "indexHiddenPages": false
-  },
-  "errors": {
-    "404": {
-      "title": "Страница не найдена",
-      "description": "Запрашиваемая страница не существует или была перемещена."
     }
   }
 }
