@@ -8,7 +8,7 @@
   },
   "favicon": "/images/favicon.svg",
   "colors": {
-    "primary": "#0D9373",
+    "primary": "#22C55E",
     "light": "#16B886",
     "dark": "#0A7B5E"
   },
@@ -71,7 +71,7 @@
         "groups": [
           {
             "group": "Knowledge",
-            "icon": "book-atlas",
+            "icon": "book-open",
             "pages": [
               "knowledge/adolf_knowledge_1_introduction",
               "knowledge/adolf_knowledge_2_data_sources",
@@ -87,7 +87,7 @@
           },
           {
             "group": "Reputation",
-            "icon": "star",
+            "icon": "thumbs-up",
             "pages": [
               "reputation/adolf_reputation_0_introduction",
               "reputation/adolf_reputation_1_architecture",
@@ -115,7 +115,7 @@
           },
           {
             "group": "Content Factory",
-            "icon": "conveyor-belt-boxes",
+            "icon": "industry",
             "pages": [
               "content_factory/adolf_content_factory_0_introduction",
               "content_factory/adolf_content_factory_1_architecture",
