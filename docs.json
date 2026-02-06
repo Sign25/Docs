@@ -10,11 +10,7 @@
   "colors": {
     "primary": "#0D9373",
     "light": "#16B886",
-    "dark": "#0A7B5E",
-    "background": {
-      "light": "#FAFBFC",
-      "dark": "#0F1117"
-    }
+    "dark": "#0A7B5E"
   },
   "navbar": {
     "links": [
