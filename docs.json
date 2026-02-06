@@ -1,0 +1,264 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "linden",
+  "name": "ADOLF Platform",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg"
+  },
+  "favicon": "/images/favicon.svg",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#16B886",
+    "dark": "#0A7B5E",
+    "background": {
+      "light": "#FAFBFC",
+      "dark": "#0F1117"
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/Sign25/Docs"
+      }
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Обзор",
+        "icon": "house",
+        "groups": [
+          {
+            "group": "Платформа ADOLF",
+            "pages": [
+              "ADOLF_OVERVIEW",
+              "adolf_fastapi_reference"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Core",
+        "icon": "brain-circuit",
+        "groups": [
+          {
+            "group": "Введение",
+            "pages": [
+              "core/adolf_core_0_introduction"
+            ]
+          },
+          {
+            "group": "Open WebUI",
+            "icon": "window-maximize",
+            "pages": [
+              "core/adolf_core_1_1_open_webui_overview",
+              "core/adolf_core_1_2_open_webui_pipelines",
+              "core/adolf_core_1_3_open_webui_tools",
+              "core/adolf_core_1_4_open_webui_pwa_auth"
+            ]
+          },
+          {
+            "group": "Инфраструктура",
+            "icon": "server",
+            "pages": [
+              "core/adolf_core_2_5_postgresql",
+              "core/adolf_core_2_6_notifications",
+              "core/adolf_core_3_1_launcher"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Модули",
+        "groups": [
+          {
+            "group": "Knowledge",
+            "icon": "book-atlas",
+            "pages": [
+              "knowledge/adolf_knowledge_1_introduction",
+              "knowledge/adolf_knowledge_2_data_sources",
+              "knowledge/adolf_knowledge_3_rag_pipeline",
+              "knowledge/adolf_knowledge_4_access_control",
+              "knowledge/adolf_knowledge_5_kb_management",
+              "knowledge/adolf_knowledge_6_user_scenarios",
+              "knowledge/adolf_knowledge_7_integrations",
+              "knowledge/adolf_knowledge_8_analytics",
+              "knowledge/adolf_knowledge_9_celery",
+              "knowledge/adolf_knowledge_glossary"
+            ]
+          },
+          {
+            "group": "Reputation",
+            "icon": "star",
+            "pages": [
+              "reputation/adolf_reputation_0_introduction",
+              "reputation/adolf_reputation_1_architecture",
+              "reputation/adolf_reputation_2_polling",
+              "reputation/adolf_reputation_3_ai_pipeline",
+              "reputation/adolf_reputation_4_open_webui",
+              "reputation/adolf_reputation_5_database",
+              "reputation/adolf_reputation_6_scenarios",
+              "reputation/adolf_reputation_7_celery"
+            ]
+          },
+          {
+            "group": "Watcher",
+            "icon": "binoculars",
+            "pages": [
+              "watcher/adolf_watcher_0_introduction",
+              "watcher/adolf_watcher_1_architecture",
+              "watcher/adolf_watcher_2_agent",
+              "watcher/adolf_watcher_3_task_dispatcher",
+              "watcher/adolf_watcher_4_ai_parser",
+              "watcher/adolf_watcher_5_database",
+              "watcher/adolf_watcher_6_open_webui",
+              "watcher/adolf_watcher_7_celery"
+            ]
+          },
+          {
+            "group": "Content Factory",
+            "icon": "conveyor-belt-boxes",
+            "pages": [
+              "content_factory/adolf_content_factory_0_introduction",
+              "content_factory/adolf_content_factory_1_architecture",
+              "content_factory/adolf_content_factory_2_marketplace_adapters",
+              "content_factory/adolf_content_factory_3_ai_pipeline",
+              "content_factory/adolf_content_factory_4_open_webui",
+              "content_factory/adolf_content_factory_5_database",
+              "content_factory/adolf_content_factory_6_scenarios",
+              "content_factory/adolf_content_factory_7_celery"
+            ]
+          },
+          {
+            "group": "Marketing",
+            "icon": "bullhorn",
+            "pages": [
+              "marketing/adolf_marketing_0_introduction",
+              "marketing/adolf_marketing_1_architecture",
+              "marketing/adolf_marketing_2_marketplace_adapters",
+              "marketing/adolf_marketing_3_ai_pipeline",
+              "marketing/adolf_marketing_4_open_webui",
+              "marketing/adolf_marketing_5_database",
+              "marketing/adolf_marketing_6_scenarios",
+              "marketing/adolf_marketing_7_celery"
+            ]
+          },
+          {
+            "group": "Scout",
+            "icon": "magnifying-glass-chart",
+            "pages": [
+              "scout/adolf_scout_0_introduction",
+              "scout/adolf_scout_1_architecture",
+              "scout/adolf_scout_2_data_sources",
+              "scout/adolf_scout_3_ai_pipeline",
+              "scout/adolf_scout_4_open_webui",
+              "scout/adolf_scout_5_database",
+              "scout/adolf_scout_6_scenarios",
+              "scout/adolf_scout_7_celery"
+            ]
+          },
+          {
+            "group": "CFO",
+            "icon": "chart-line-up",
+            "pages": [
+              "cfo/adolf_cfo_0_introduction",
+              "cfo/adolf_cfo_1_architecture",
+              "cfo/adolf_cfo_2_data_ingestion",
+              "cfo/adolf_cfo_3_ai_pipeline",
+              "cfo/adolf_cfo_4_open_webui",
+              "cfo/adolf_cfo_5_database",
+              "cfo/adolf_cfo_6_scenarios",
+              "cfo/adolf_cfo_7_celery"
+            ]
+          },
+          {
+            "group": "Lex",
+            "icon": "scale-balanced",
+            "pages": [
+              "lex/adolf_lex_0_introduction",
+              "lex/adolf_lex_1_architecture",
+              "lex/adolf_lex_2_data_sources",
+              "lex/adolf_lex_3_ai_pipeline",
+              "lex/adolf_lex_4_open_webui",
+              "lex/adolf_lex_5_database",
+              "lex/adolf_lex_6_scenarios",
+              "lex/adolf_lex_7_celery",
+              "lex/adolf_lex_8_celery"
+            ]
+          },
+          {
+            "group": "Logistic",
+            "icon": "truck-fast",
+            "pages": [
+              "logistic/adolf_logistic_0_introduction",
+              "logistic/adolf_logistic_1_architecture",
+              "logistic/adolf_logistic_2_ozon_integration",
+              "logistic/adolf_logistic_3_stock_monitor",
+              "logistic/adolf_logistic_4_supply_task_engine",
+              "logistic/adolf_logistic_5_1c_integration",
+              "logistic/adolf_logistic_6_database",
+              "logistic/adolf_logistic_7_open_webui",
+              "logistic/adolf_logistic_8_celery"
+            ]
+          },
+          {
+            "group": "Office",
+            "icon": "building",
+            "pages": [
+              "office/adolf_office_0_introduction",
+              "office/adolf_office_1_architecture",
+              "office/adolf_office_2_database",
+              "office/adolf_office_3_api",
+              "office/adolf_office_4_open_webui",
+              "office/adolf_office_5_scenarios",
+              "office/adolf_office_6_celery",
+              "office/adolf_office_7_visual",
+              "office/adolf_office_8_integration"
+            ]
+          },
+          {
+            "group": "Shop",
+            "icon": "cart-shopping",
+            "pages": [
+              "shop/adolf_shop_0_introduction",
+              "shop/adolf_shop_1_architecture",
+              "shop/adolf_shop_2_mcp_integration",
+              "shop/adolf_shop_3_ai_pipeline",
+              "shop/adolf_shop_4_open_webui",
+              "shop/adolf_shop_5_scenarios",
+              "shop/adolf_shop_6_celery"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Sign25/Docs"
+    }
+  },
+  "search": {
+    "prompt": "Поиск по документации ADOLF..."
+  },
+  "styling": {
+    "latex": true,
+    "codeblocks": {
+      "rounded": true
+    }
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "seo": {
+    "indexHiddenPages": false
+  },
+  "errors": {
+    "404": {
+      "title": "Страница не найдена",
+      "description": "Запрашиваемая страница не существует или была перемещена."
+    }
+  }
+}
