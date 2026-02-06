@@ -30,51 +30,8 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Обзор",
-        "icon": "house",
-        "groups": [
-          {
-            "group": "Платформа ADOLF",
-            "pages": [
-              "ADOLF_OVERVIEW",
-              "adolf_fastapi_reference"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Core",
-        "icon": "microchip",
-        "groups": [
-          {
-            "group": "Введение",
-            "pages": [
-              "core/adolf_core_0_introduction"
-            ]
-          },
-          {
-            "group": "Open WebUI",
-            "icon": "window-maximize",
-            "pages": [
-              "core/adolf_core_1_1_open_webui_overview",
-              "core/adolf_core_1_2_open_webui_pipelines",
-              "core/adolf_core_1_3_open_webui_tools",
-              "core/adolf_core_1_4_open_webui_pwa_auth"
-            ]
-          },
-          {
-            "group": "Инфраструктура",
-            "icon": "server",
-            "pages": [
-              "core/adolf_core_2_5_postgresql",
-              "core/adolf_core_2_6_notifications",
-              "core/adolf_core_3_1_launcher"
-            ]
-          }
-        ]
-      },
-      {
         "tab": "Модули",
+        "icon": "puzzle-piece",
         "groups": [
           {
             "group": "Knowledge",
@@ -234,8 +191,51 @@
               "shop/adolf_shop_6_celery"
             ]
           }
-        ],
-        "icon": "puzzle-piece"
+        ]
+      },
+      {
+        "tab": "Core",
+        "icon": "microchip",
+        "groups": [
+          {
+            "group": "Введение",
+            "pages": [
+              "core/adolf_core_0_introduction"
+            ]
+          },
+          {
+            "group": "Open WebUI",
+            "icon": "window-maximize",
+            "pages": [
+              "core/adolf_core_1_1_open_webui_overview",
+              "core/adolf_core_1_2_open_webui_pipelines",
+              "core/adolf_core_1_3_open_webui_tools",
+              "core/adolf_core_1_4_open_webui_pwa_auth"
+            ]
+          },
+          {
+            "group": "Инфраструктура",
+            "icon": "server",
+            "pages": [
+              "core/adolf_core_2_5_postgresql",
+              "core/adolf_core_2_6_notifications",
+              "core/adolf_core_3_1_launcher"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Обзор",
+        "icon": "house",
+        "groups": [
+          {
+            "group": "Платформа ADOLF",
+            "pages": [
+              "ADOLF_OVERVIEW",
+              "adolf_fastapi_reference"
+            ]
+          }
+        ]
       }
     ]
   },
@@ -243,5 +243,8 @@
     "socials": {
       "github": "https://github.com/Sign25/Docs"
     }
+  },
+  "appearance": {
+    "default": "system"
   }
 }
