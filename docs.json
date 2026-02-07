@@ -17,21 +17,21 @@
     "default": "system"
   },
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "API Reference",
+          "icon": "square-terminal",
+          "href": "/adolf_fastapi_reference"
+        },
+        {
+          "anchor": "GitHub",
+          "icon": "github",
+          "href": "https://github.com/Sign25/Docs"
+        }
+      ]
+    },
     "tabs": [
-      {
-        "tab": "Overview",
-        "icon": "house",
-        "groups": [
-          {
-            "group": "Platform",
-            "pages": [
-              "index",
-              "ADOLF_OVERVIEW",
-              "adolf_fastapi_reference"
-            ]
-          }
-        ]
-      },
       {
         "tab": "Core",
         "icon": "server",
@@ -65,6 +65,20 @@
         ]
       },
       {
+        "tab": "Overview",
+        "icon": "house",
+        "groups": [
+          {
+            "group": "Platform",
+            "pages": [
+              "index",
+              "ADOLF_OVERVIEW",
+              "adolf_fastapi_reference"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Knowledge",
         "icon": "book-open",
         "groups": [
@@ -82,6 +96,67 @@
               "knowledge/adolf_knowledge_8_analytics",
               "knowledge/adolf_knowledge_9_celery",
               "knowledge/adolf_knowledge_glossary"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Logistic",
+        "icon": "truck-fast",
+        "groups": [
+          {
+            "group": "Warehouse & Supply",
+            "icon": "warehouse",
+            "pages": [
+              "logistic/adolf_logistic_0_introduction",
+              "logistic/adolf_logistic_1_architecture",
+              "logistic/adolf_logistic_2_ozon_integration",
+              "logistic/adolf_logistic_3_stock_monitor",
+              "logistic/adolf_logistic_4_supply_task_engine",
+              "logistic/adolf_logistic_5_1c_integration",
+              "logistic/adolf_logistic_6_database",
+              "logistic/adolf_logistic_7_open_webui",
+              "logistic/adolf_logistic_8_celery"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Content",
+        "icon": "pen-nib",
+        "groups": [
+          {
+            "group": "SEO Content Factory",
+            "icon": "file-lines",
+            "pages": [
+              "content_factory/adolf_content_factory_0_introduction",
+              "content_factory/adolf_content_factory_1_architecture",
+              "content_factory/adolf_content_factory_2_marketplace_adapters",
+              "content_factory/adolf_content_factory_3_ai_pipeline",
+              "content_factory/adolf_content_factory_4_open_webui",
+              "content_factory/adolf_content_factory_5_database",
+              "content_factory/adolf_content_factory_6_scenarios",
+              "content_factory/adolf_content_factory_7_celery"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CFO",
+        "icon": "chart-pie",
+        "groups": [
+          {
+            "group": "Financial Analytics",
+            "icon": "money-bill-trend-up",
+            "pages": [
+              "cfo/adolf_cfo_0_introduction",
+              "cfo/adolf_cfo_1_architecture",
+              "cfo/adolf_cfo_2_data_ingestion",
+              "cfo/adolf_cfo_3_ai_pipeline",
+              "cfo/adolf_cfo_4_open_webui",
+              "cfo/adolf_cfo_5_database",
+              "cfo/adolf_cfo_6_scenarios",
+              "cfo/adolf_cfo_7_celery"
             ]
           }
         ]
@@ -127,26 +202,6 @@
         ]
       },
       {
-        "tab": "Content",
-        "icon": "pen-nib",
-        "groups": [
-          {
-            "group": "SEO Content Factory",
-            "icon": "file-lines",
-            "pages": [
-              "content_factory/adolf_content_factory_0_introduction",
-              "content_factory/adolf_content_factory_1_architecture",
-              "content_factory/adolf_content_factory_2_marketplace_adapters",
-              "content_factory/adolf_content_factory_3_ai_pipeline",
-              "content_factory/adolf_content_factory_4_open_webui",
-              "content_factory/adolf_content_factory_5_database",
-              "content_factory/adolf_content_factory_6_scenarios",
-              "content_factory/adolf_content_factory_7_celery"
-            ]
-          }
-        ]
-      },
-      {
         "tab": "Marketing",
         "icon": "bullhorn",
         "groups": [
@@ -182,26 +237,6 @@
               "scout/adolf_scout_5_database",
               "scout/adolf_scout_6_scenarios",
               "scout/adolf_scout_7_celery"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "CFO",
-        "icon": "chart-pie",
-        "groups": [
-          {
-            "group": "Financial Analytics",
-            "icon": "money-bill-trend-up",
-            "pages": [
-              "cfo/adolf_cfo_0_introduction",
-              "cfo/adolf_cfo_1_architecture",
-              "cfo/adolf_cfo_2_data_ingestion",
-              "cfo/adolf_cfo_3_ai_pipeline",
-              "cfo/adolf_cfo_4_open_webui",
-              "cfo/adolf_cfo_5_database",
-              "cfo/adolf_cfo_6_scenarios",
-              "cfo/adolf_cfo_7_celery"
             ]
           }
         ]
@@ -266,44 +301,8 @@
             ]
           }
         ]
-      },
-      {
-        "tab": "Logistic",
-        "icon": "truck-fast",
-        "groups": [
-          {
-            "group": "Warehouse & Supply",
-            "icon": "warehouse",
-            "pages": [
-              "logistic/adolf_logistic_0_introduction",
-              "logistic/adolf_logistic_1_architecture",
-              "logistic/adolf_logistic_2_ozon_integration",
-              "logistic/adolf_logistic_3_stock_monitor",
-              "logistic/adolf_logistic_4_supply_task_engine",
-              "logistic/adolf_logistic_5_1c_integration",
-              "logistic/adolf_logistic_6_database",
-              "logistic/adolf_logistic_7_open_webui",
-              "logistic/adolf_logistic_8_celery"
-            ]
-          }
-        ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "API Reference",
-          "icon": "square-terminal",
-          "href": "/adolf_fastapi_reference"
-        },
-        {
-          "anchor": "GitHub",
-          "icon": "github",
-          "iconType": "brands",
-          "href": "https://github.com/Sign25/Docs"
-        }
-      ]
-    }
+    ]
   },
   "navbar": {
     "links": [
