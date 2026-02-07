@@ -3,9 +3,9 @@ title: "Раздел 1: Архитектура"
 mode: "wide"
 ---
 
-> Версия: 1.0 (черновик)  
-> Статус: MVP  
-> Дата: 2025-01-24
+&gt; Версия: 1.0 (черновик)  
+&gt; Статус: MVP  
+&gt; Дата: 2025-01-24
 
 ## Принцип работы
 
@@ -151,9 +151,9 @@ graph TB
 | Метод | Endpoint | Описание |
 |-------|----------|----------|
 | GET | /api/v1/office/agents | Все агенты (сгруппированы по модулям) |
-| GET | /api/v1/office/agents/{agent_id} | Детальный статус агента |
-| GET | /api/v1/office/history/{agent_id} | История за 24ч |
-| PUT | /api/v1/office/agents/{agent_id} | Обновление статуса (для агентов) |
+| GET | /api/v1/office/agents/\{agent_id\} | Детальный статус агента |
+| GET | /api/v1/office/history/\{agent_id\} | История за 24ч |
+| PUT | /api/v1/office/agents/\{agent_id\} | Обновление статуса (для агентов) |
 
 ## Ответственность агентов
 
