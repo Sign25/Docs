@@ -521,8 +521,8 @@ Lex использует инфраструктуру Watcher:
 
 | Действие | Проверка |
 |----------|----------|
-| Просмотр цен | role ∈ {manager, senior, director, admin} |
-| Добавление SKU | role ∈ {manager, senior, director, admin} |
+| Просмотр цен | role ∈ \{manager, senior, director, admin\} |
+| Добавление SKU | role ∈ \{manager, senior, director, admin\} |
 | Настройка алертов | role = admin |
 | Управление агентами | role = admin |
 | Выполнение задач | valid api_key |
@@ -823,7 +823,7 @@ graph TB
 | Агенты подключаются | WebSocket сессии активны |
 | Task Dispatcher работает | Задачи распределяются равномерно |
 | IP Semaphore работает | Нет коллизий IP в логах |
-| AI Parser отвечает | Время ответа < 5 сек |
+| AI Parser отвечает | Время ответа &lt; 5 сек |
 | Алерты генерируются | Уведомления приходят в Open WebUI |
 | Данные сохраняются | Записи в price_history появляются |
 | Интеграции работают | Marketing, Scout получают данные |
