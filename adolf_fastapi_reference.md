@@ -145,7 +145,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ### 2.3 Celery Tasks
 
-#### GET /tasks/\{task_id}
+#### GET /tasks/\{task_id\}
 
 Статус асинхронной задачи Celery.
 
@@ -223,7 +223,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### DELETE /auth/api-keys/\{key_id}
+#### DELETE /auth/api-keys/\{key_id\}
 
 Отзыв API ключа.
 
@@ -258,7 +258,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ### 4.2 Информация о товаре
 
-#### GET /knowledge/product/\{sku}
+#### GET /knowledge/product/\{sku\}
 
 Структурированные данные о товаре (внутренний endpoint для модулей).
 
@@ -296,7 +296,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### GET /reputation/items/\{id}
+#### GET /reputation/items/\{id\}
 
 Детали элемента.
 
@@ -460,7 +460,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### PUT /content/drafts/\{id}
+#### PUT /content/drafts/\{id\}
 
 Редактирование черновика.
 
@@ -504,7 +504,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### PUT /marketing/campaigns/\{id}
+#### PUT /marketing/campaigns/\{id\}
 
 Обновление настроек.
 
@@ -592,7 +592,7 @@ AI-рекомендации по ставкам.
 
 ---
 
-#### GET /scout/analyses/\{id}
+#### GET /scout/analyses/\{id\}
 
 Результаты анализа.
 
@@ -620,7 +620,7 @@ AI-рекомендации по ставкам.
 
 ---
 
-#### GET /cfo/pnl/sku/\{sku}
+#### GET /cfo/pnl/sku/\{sku\}
 
 Детальный P&L по SKU.
 
@@ -678,7 +678,7 @@ AI-инсайты по финансам.
 
 ---
 
-#### GET /lex/documents/\{id}
+#### GET /lex/documents/\{id\}
 
 Детали документа с действиями.
 
@@ -789,7 +789,7 @@ WebSocket для real-time уведомлений.
 
 ### 15.1 Конфигурация модуля
 
-#### GET /launcher/config/\{module}
+#### GET /launcher/config/\{module\}
 
 Получение конфигурации баннеров для модуля.
 
@@ -1014,7 +1014,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### GET /office/agents/\{agent_id}
+#### GET /office/agents/\{agent_id\}
 
 Детальный статус одного агента.
 
@@ -1050,7 +1050,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### GET /office/history/\{agent_id}
+#### GET /office/history/\{agent_id\}
 
 История статусов агента за 24 часа.
 
@@ -1094,7 +1094,7 @@ WebSocket для real-time уведомлений.
 
 ### 16.2 Запись (для агентов)
 
-#### PUT /office/agents/\{agent_id}
+#### PUT /office/agents/\{agent_id\}
 
 Регистрация или обновление статуса агента (UPSERT).
 
@@ -1136,7 +1136,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### POST /office/heartbeat/\{agent_id}
+#### POST /office/heartbeat/\{agent_id\}
 
 Обновление last_activity без изменения статуса.
 
@@ -1227,7 +1227,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### GET /logistic/stocks/\{sku}
+#### GET /logistic/stocks/\{sku\}
 
 Детальные остатки по артикулу.
 
