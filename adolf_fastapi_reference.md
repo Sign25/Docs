@@ -145,7 +145,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ### 2.3 Celery Tasks
 
-#### GET /tasks/{task_id}
+#### GET /tasks/\{task_id}
 
 Статус асинхронной задачи Celery.
 
@@ -223,7 +223,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### DELETE /auth/api-keys/{key_id}
+#### DELETE /auth/api-keys/\{key_id}
 
 Отзыв API ключа.
 
@@ -258,7 +258,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ### 4.2 Информация о товаре
 
-#### GET /knowledge/product/{sku}
+#### GET /knowledge/product/\{sku}
 
 Структурированные данные о товаре (внутренний endpoint для модулей).
 
@@ -276,7 +276,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /knowledge/documents/{id}/approve
+#### POST /knowledge/documents/\{id\}/approve
 
 Модерация документа.
 
@@ -296,7 +296,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### GET /reputation/items/{id}
+#### GET /reputation/items/\{id}
 
 Детали элемента.
 
@@ -304,7 +304,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /reputation/items/{id}/approve
+#### POST /reputation/items/\{id\}/approve
 
 Утверждение сгенерированного ответа.
 
@@ -312,7 +312,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /reputation/items/{id}/edit
+#### POST /reputation/items/\{id\}/edit
 
 Редактирование и утверждение ответа.
 
@@ -320,7 +320,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /reputation/items/{id}/regenerate
+#### POST /reputation/items/\{id\}/regenerate
 
 Перегенерация ответа с инструкциями.
 
@@ -414,7 +414,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /watcher/tasks/{task_id}/report
+#### POST /watcher/tasks/\{task_id\}/report
 
 Отправка результата задачи.
 
@@ -460,7 +460,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### PUT /content/drafts/{id}
+#### PUT /content/drafts/\{id}
 
 Редактирование черновика.
 
@@ -468,7 +468,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /content/drafts/{id}/approve
+#### POST /content/drafts/\{id\}/approve
 
 Утверждение черновика.
 
@@ -476,7 +476,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /content/drafts/{id}/publish
+#### POST /content/drafts/\{id\}/publish
 
 Публикация на маркетплейс.
 
@@ -504,7 +504,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### PUT /marketing/campaigns/{id}
+#### PUT /marketing/campaigns/\{id}
 
 Обновление настроек.
 
@@ -512,7 +512,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /marketing/campaigns/{id}/pause
+#### POST /marketing/campaigns/\{id\}/pause
 
 Приостановка кампании.
 
@@ -520,7 +520,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /marketing/campaigns/{id}/resume
+#### POST /marketing/campaigns/\{id\}/resume
 
 Возобновление кампании.
 
@@ -530,7 +530,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ### 8.2 Ключевые слова
 
-#### GET /marketing/campaigns/{id}/keywords
+#### GET /marketing/campaigns/\{id\}/keywords
 
 Список ключевых слов кампании.
 
@@ -538,7 +538,7 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-#### POST /marketing/campaigns/{id}/keywords
+#### POST /marketing/campaigns/\{id\}/keywords
 
 Добавление ключевых слов.
 
@@ -592,7 +592,7 @@ AI-рекомендации по ставкам.
 
 ---
 
-#### GET /scout/analyses/{id}
+#### GET /scout/analyses/\{id}
 
 Результаты анализа.
 
@@ -620,7 +620,7 @@ AI-рекомендации по ставкам.
 
 ---
 
-#### GET /cfo/pnl/sku/{sku}
+#### GET /cfo/pnl/sku/\{sku}
 
 Детальный P&L по SKU.
 
@@ -678,7 +678,7 @@ AI-инсайты по финансам.
 
 ---
 
-#### GET /lex/documents/{id}
+#### GET /lex/documents/\{id}
 
 Детали документа с действиями.
 
@@ -736,7 +736,7 @@ AI-инсайты по финансам.
 
 ---
 
-#### POST /notifications/{id}/read
+#### POST /notifications/\{id\}/read
 
 Отметить как прочитанное.
 
@@ -784,12 +784,12 @@ WebSocket для real-time уведомлений.
 
 ## 15. Launcher — Баннерное подменю
 
-> **Версия:** Core 3.1  
-> **Назначение:** Двухуровневая навигация с визуальным выбором действий
+&gt; **Версия:** Core 3.1  
+&gt; **Назначение:** Двухуровневая навигация с визуальным выбором действий
 
 ### 15.1 Конфигурация модуля
 
-#### GET /launcher/config/{module}
+#### GET /launcher/config/\{module}
 
 Получение конфигурации баннеров для модуля.
 
@@ -945,8 +945,8 @@ WebSocket для real-time уведомлений.
 
 ## 16. Office — Дашборд AI-агентов
 
-> **Версия:** 1.0  
-> **Назначение:** Визуальный мониторинг состояния AI-агентов системы
+&gt; **Версия:** 1.0  
+&gt; **Назначение:** Визуальный мониторинг состояния AI-агентов системы
 
 ### 16.1 Чтение (Dashboard)
 
@@ -1014,7 +1014,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### GET /office/agents/{agent_id}
+#### GET /office/agents/\{agent_id}
 
 Детальный статус одного агента.
 
@@ -1050,7 +1050,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### GET /office/history/{agent_id}
+#### GET /office/history/\{agent_id}
 
 История статусов агента за 24 часа.
 
@@ -1094,7 +1094,7 @@ WebSocket для real-time уведомлений.
 
 ### 16.2 Запись (для агентов)
 
-#### PUT /office/agents/{agent_id}
+#### PUT /office/agents/\{agent_id}
 
 Регистрация или обновление статуса агента (UPSERT).
 
@@ -1136,7 +1136,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### POST /office/heartbeat/{agent_id}
+#### POST /office/heartbeat/\{agent_id}
 
 Обновление last_activity без изменения статуса.
 
@@ -1167,8 +1167,8 @@ WebSocket для real-time уведомлений.
 
 ## 17. Logistic — Управление логистикой
 
-> **Версия:** 1.0  
-> **Назначение:** Оптимизация распределения товаров по складам WB, минимизация кросс-докинга
+&gt; **Версия:** 1.0  
+&gt; **Назначение:** Оптимизация распределения товаров по складам WB, минимизация кросс-докинга
 
 ### 17.1 Остатки
 
@@ -1227,7 +1227,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### GET /logistic/stocks/{sku}
+#### GET /logistic/stocks/\{sku}
 
 Детальные остатки по артикулу.
 
@@ -1493,7 +1493,7 @@ WebSocket для real-time уведомлений.
 
 ---
 
-#### POST /logistic/alerts/{id}/read
+#### POST /logistic/alerts/\{id\}/read
 
 Отметить алерт как прочитанный.
 
@@ -1577,8 +1577,8 @@ WebSocket для real-time уведомлений.
 
 ## 18. Shop — Интернет-магазин (WooCommerce)
 
-> **Важно:** Модуль Shop не имеет собственных REST API endpoints.  
-> Все данные получаются через **WooCommerce MCP** напрямую из Open WebUI.
+&gt; **Важно:** Модуль Shop не имеет собственных REST API endpoints.  
+&gt; Все данные получаются через **WooCommerce MCP** напрямую из Open WebUI.
 
 ### 18.1 Архитектура
 
