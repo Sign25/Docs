@@ -1,0 +1,10 @@
+# Mintlify auto-ignores:
+# .git, .github, .claude, .agents, .idea, node_modules,
+# LICENSE.md, CHANGELOG.md, CONTRIBUTING.md
+
+# Service directories
+config/
+ui_reference/
+
+# Module READMEs (not in navigation)
+logistic/README.md
