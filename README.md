@@ -1,4 +1,8 @@
-# ADOLF Documentation
+---
+title: "ADOLF Documentation"
+description: "ADOLF Platform - AI-driven e-commerce automation"
+mode: "wide"
+---
 
 Техническая документация проекта ADOLF (AI-Driven Operations for Logistics and Fashion Development) — платформы автоматизации e-commerce для ОХАНА МАРКЕТ.
 
