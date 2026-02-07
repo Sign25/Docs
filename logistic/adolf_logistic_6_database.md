@@ -823,11 +823,11 @@ COMMIT;
 | Таблица | Записей/месяц | Размер/месяц | Примечание |
 |---------|---------------|--------------|------------|
 | `cluster_stock_snapshots` | ~3.5M (2400 SKU × 31 cluster × 48/day) | ~500 MB | Основной объём, партиционировать |
-| `warehouse_stocks` | ~2400 (текущее состояние) | < 1 MB | Upsert, не растёт |
-| `warehouse_stocks_history` | ~144K (2400 × 60 imports) | ~20 MB | Очищать > 90 дней |
-| `supply_tasks` | ~600 (20/day × 30) | < 1 MB | Архивировать shipped/cancelled |
-| `import_logs` | ~60 | < 1 MB | — |
-| `alerts` | ~1000 | < 1 MB | Очищать прочитанные > 90 дней |
+| `warehouse_stocks` | ~2400 (текущее состояние) | &lt; 1 MB | Upsert, не растёт |
+| `warehouse_stocks_history` | ~144K (2400 × 60 imports) | ~20 MB | Очищать &gt; 90 дней |
+| `supply_tasks` | ~600 (20/day × 30) | &lt; 1 MB | Архивировать shipped/cancelled |
+| `import_logs` | ~60 | &lt; 1 MB | — |
+| `alerts` | ~1000 | &lt; 1 MB | Очищать прочитанные &gt; 90 дней |
 
 **Рекомендация:** Очистка `logistic_cleanup_old_data(90)` ежедневно через Celery.
 
