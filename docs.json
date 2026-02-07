@@ -32,6 +32,7 @@
           {
             "group": "Platform",
             "pages": [
+              "index",
               "ADOLF_OVERVIEW",
               "adolf_fastapi_reference"
             ]
