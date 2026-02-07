@@ -235,7 +235,7 @@ CLASSIFICATION_PROMPT = """
     "tags": ["...", "..."],
     "category": "...",
     "key_points": ["...", "..."]
-}
+\}
 ```
 """
 ```
