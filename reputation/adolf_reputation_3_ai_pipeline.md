@@ -229,7 +229,7 @@ CLASSIFICATION_PROMPT = """
 
 Ответ в JSON:
 ```json
-{
+\{
     "sentiment": "...",
     "sentiment_score": 0.0,
     "tags": ["...", "..."],
