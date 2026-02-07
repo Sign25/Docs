@@ -2035,7 +2035,7 @@ async def health_check(
 | Задачи распределяются | GET /tasks/next возвращает задачи |
 | IP Semaphore работает | Нет коллизий в логах |
 | WebSocket работает | Агенты подключаются |
-| Команды доставляются | POST /agents/{id}/command → ACK |
+| Команды доставляются | POST /agents/\{id\}/command → ACK |
 
 ---
 
