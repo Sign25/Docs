@@ -1225,8 +1225,8 @@ class WatcherNotificationService:
 | Тип алерта | Severity | Получатели |
 |------------|----------|------------|
 | `dumping_detected` | critical | Manager (по бренду), Senior, Director |
-| `price_drop` (>20%) | warning | Manager (по бренду), Senior |
-| `price_drop` (<20%) | info | Manager (по бренду) |
+| `price_drop` (&gt;20%) | warning | Manager (по бренду), Senior |
+| `price_drop` (&lt;20%) | info | Manager (по бренду) |
 | `out_of_stock` | warning | Manager (по бренду) |
 | `agent_offline` | warning | Admin |
 | `cookies_expired` | warning | Admin |
