@@ -1227,11 +1227,11 @@ celery -A app.core.celery_config flower \
 
 | Метрика | Описание | Порог алерта |
 |---------|----------|--------------|
-| `bid_cycle_duration` | Длительность Bid Cycle | > 5 мин |
-| `bid_cycle_errors` | Ошибки в Bid Cycle | > 0 |
-| `stats_collection_lag` | Задержка сбора статистики | > 20 мин |
-| `api_errors_rate` | Частота ошибок API МП | > 5% |
-| `queue_length` | Размер очереди задач | > 100 |
+| `bid_cycle_duration` | Длительность Bid Cycle | &gt; 5 мин |
+| `bid_cycle_errors` | Ошибки в Bid Cycle | &gt; 0 |
+| `stats_collection_lag` | Задержка сбора статистики | &gt; 20 мин |
+| `api_errors_rate` | Частота ошибок API МП | &gt; 5% |
+| `queue_length` | Размер очереди задач | &gt; 100 |
 | `worker_status` | Статус воркеров | offline |
 
 ### 7.4.3 Redis-ключи мониторинга
@@ -1512,7 +1512,7 @@ def handle_failed_task(self, task_id, exception, traceback):
 | Stats собираются | Таблица `marketing_stats` пополняется |
 | Алерты отправляются | Уведомления появляются при срабатывании Safety Logic |
 | Flower доступен | http://localhost:5555 открывается |
-| Очереди не растут | Queue length < 50 в Flower |
+| Очереди не растут | Queue length &lt; 50 в Flower |
 | Office статус | Агенты отображаются в Office Dashboard |
 
 ---
