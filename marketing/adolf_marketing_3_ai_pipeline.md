@@ -1055,11 +1055,11 @@ Analytics Engine использует AI для выявления паттер�
 
 | Тип | Описание | Порог |
 |-----|----------|-------|
-| `spending_spike` | Резкий рост расходов | >150% от среднего |
-| `ctr_drop` | Падение CTR | <50% от среднего |
-| `drr_spike` | Рост ДРР | >200% от целевого |
-| `conversion_drop` | Падение конверсии | <50% от среднего |
-| `position_loss` | Потеря позиций | Падение >5 позиций |
+| `spending_spike` | Резкий рост расходов | &gt;150% от среднего |
+| `ctr_drop` | Падение CTR | &lt;50% от среднего |
+| `drr_spike` | Рост ДРР | &gt;200% от целевого |
+| `conversion_drop` | Падение конверсии | &lt;50% от среднего |
+| `position_loss` | Потеря позиций | Падение &gt;5 позиций |
 
 **Промпт для детекции (GPT-5 mini):**
 
@@ -1294,10 +1294,10 @@ current_ctr = Gauge(
 
 | Алерт | Условие | Severity |
 |-------|---------|----------|
-| BidCycleStuck | Cycle duration > 10 min | critical |
-| HighErrorRate | Errors > 10% of operations | warning |
-| SafetyTriggerSpike | Safety actions > 50% of keywords | warning |
-| APIRateLimitHit | 429 errors > 5/min | warning |
+| BidCycleStuck | Cycle duration &gt; 10 min | critical |
+| HighErrorRate | Errors &gt; 10% of operations | warning |
+| SafetyTriggerSpike | Safety actions &gt; 50% of keywords | warning |
+| APIRateLimitHit | 429 errors &gt; 5/min | warning |
 
 ---
 
