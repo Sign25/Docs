@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" fill="none">
-  <rect x="0" y="4" width="32" height="32" rx="8" fill="#22C55E"/>
-  <path d="M10 24l6-14 6 14M12.5 20h7" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="42" y="28" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700" fill="#171717">ADOLF</text>
-  <text x="112" y="28" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="400" fill="#6B7280">docs</text>
-</svg>
