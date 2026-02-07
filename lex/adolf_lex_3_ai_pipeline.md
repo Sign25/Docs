@@ -220,8 +220,8 @@ FILTER_USER_PROMPT = """
         "fashion_retail": 0.X,
         "consumer_rights": 0.X,
         "taxation": 0.X
-    \}}
-\}}
+    \}\}
+\}\}
 ```
 
 Где:
@@ -472,7 +472,7 @@ CLASSIFIER_USER_PROMPT = """
     "reasoning": "Объяснение классификации (1-2 предложения)",
     "subjects": ["субъекты", "регулирования"],
     "effective_scope": "На кого распространяется документ"
-\}}
+\}\}
 ```
 """
 ```
@@ -730,20 +730,20 @@ SUMMARIZER_USER_PROMPT = """
         \{\{
             "date": "YYYY-MM-DD или null",
             "description": "Описание дедлайна"
-        \}}
+        \}\}
     ],
     "penalties": [
         \{\{
             "amount": "Сумма или диапазон",
             "condition": "За что штраф"
-        \}}
+        \}\}
     ],
     "recommended_actions": [
         "Рекомендация 1",
         "Рекомендация 2"
     ],
     "related_topics": ["тема1", "тема2"]
-\}}
+\}\}
 ```
 
 Если какой-то раздел не применим, оставь пустой массив [].
