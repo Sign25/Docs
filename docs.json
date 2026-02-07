@@ -33,6 +33,20 @@
     },
     "tabs": [
       {
+        "tab": "Overview",
+        "icon": "house",
+        "groups": [
+          {
+            "group": "Platform",
+            "pages": [
+              "index",
+              "ADOLF_OVERVIEW",
+              "adolf_fastapi_reference"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Core",
         "icon": "server",
         "groups": [
@@ -60,20 +74,6 @@
               "core/adolf_core_2_5_postgresql",
               "core/adolf_core_2_6_notifications",
               "core/adolf_core_3_1_launcher"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Overview",
-        "icon": "house",
-        "groups": [
-          {
-            "group": "Platform",
-            "pages": [
-              "index",
-              "ADOLF_OVERVIEW",
-              "adolf_fastapi_reference"
             ]
           }
         ]
