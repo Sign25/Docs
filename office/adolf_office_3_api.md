@@ -3,9 +3,9 @@ title: "Раздел 3: API"
 mode: "wide"
 ---
 
-> Версия: 1.0 (черновик)  
-> Статус: MVP  
-> Дата: 2025-01-24
+&gt; Версия: 1.0 (черновик)  
+&gt; Статус: MVP  
+&gt; Дата: 2025-01-24
 
 ## Обзор
 
@@ -81,7 +81,7 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 }
 ```
 
-### GET /api/v1/office/agents/{agent_id}
+### GET /api/v1/office/agents/\{agent_id}
 
 Детальный статус одного агента.
 
@@ -115,7 +115,7 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 }
 ```
 
-### GET /api/v1/office/history/{agent_id}
+### GET /api/v1/office/history/\{agent_id}
 
 История статусов агента за 24 часа.
 
@@ -163,7 +163,7 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 
 ## Эндпоинты записи (для агентов)
 
-### PUT /api/v1/office/agents/{agent_id}
+### PUT /api/v1/office/agents/\{agent_id}
 
 Регистрация или обновление статуса агента (UPSERT).
 
@@ -205,7 +205,7 @@ API Key в заголовке `X-API-Key`. Ключи привязаны к ро
 
 При первой регистрации `created: true`.
 
-### POST /api/v1/office/heartbeat/{agent_id}
+### POST /api/v1/office/heartbeat/\{agent_id}
 
 Обновление last_activity без изменения статуса.
 
@@ -279,7 +279,7 @@ sequenceDiagram
 | Эндпоинт | Administrator | Director | Агент |
 |----------|---------------|----------|-------|
 | GET /agents | ✓ все | ✓ свой бренд | ✗ |
-| GET /agents/{id} | ✓ все | ✓ свой бренд | ✗ |
-| GET /history/{id} | ✓ все | ✓ свой бренд | ✗ |
-| PUT /agents/{id} | ✗ | ✗ | ✓ свой agent_id |
-| POST /heartbeat/{id} | ✗ | ✗ | ✓ свой agent_id |
+| GET /agents/\{id\} | ✓ все | ✓ свой бренд | ✗ |
+| GET /history/\{id\} | ✓ все | ✓ свой бренд | ✗ |
+| PUT /agents/\{id\} | ✗ | ✗ | ✓ свой agent_id |
+| POST /heartbeat/\{id\} | ✗ | ✗ | ✓ свой agent_id |
