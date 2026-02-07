@@ -1,0 +1,88 @@
+{
+  "module": "logistic",
+  "version": "1.0",
+  "title": "Логистика",
+  "description": "Оптимизация распределения товаров по складам WB",
+  "icon": "truck",
+  "color": "#14B8A6",
+  "banners": [
+    {
+      "id": "stocks_overview",
+      "title": "Остатки на складах",
+      "description": "Текущие остатки по всем складам Wildberries с индикацией критических уровней",
+      "icon": "package",
+      "action": "stocks_overview",
+      "tags": ["остатки", "склады", "мониторинг"]
+    },
+    {
+      "id": "critical_stocks",
+      "title": "Критические остатки",
+      "description": "SKU с остатками ниже порога — требуют немедленного внимания",
+      "icon": "alert-triangle",
+      "action": "critical_stocks",
+      "badge": {
+        "type": "count",
+        "source": "alerts_critical"
+      },
+      "tags": ["алерты", "критические", "срочно"]
+    },
+    {
+      "id": "cross_docking_report",
+      "title": "Отчёт по кросс-докингу",
+      "description": "Анализ заказов с неоптимальной логистикой и расчёт дополнительных издержек",
+      "icon": "route",
+      "action": "cross_docking_report",
+      "tags": ["кросс-докинг", "отчёт", "издержки"]
+    },
+    {
+      "id": "supply_recommendation",
+      "title": "Рекомендация по поставке",
+      "description": "AI-оптимизированное распределение товаров по складам для минимизации кросс-докинга",
+      "icon": "sparkles",
+      "action": "supply_recommendation",
+      "highlight": true,
+      "tags": ["рекомендации", "поставки", "AI"]
+    },
+    {
+      "id": "warehouse_analytics",
+      "title": "Аналитика по складам",
+      "description": "Эффективность складов, коэффициенты приёмки, тарифы логистики",
+      "icon": "bar-chart-3",
+      "action": "warehouse_analytics",
+      "tags": ["аналитика", "склады", "тарифы"]
+    },
+    {
+      "id": "alerts_list",
+      "title": "Все алерты",
+      "description": "Список активных алертов по остаткам и логистике",
+      "icon": "bell",
+      "action": "alerts_list",
+      "badge": {
+        "type": "count",
+        "source": "alerts_active"
+      },
+      "tags": ["алерты", "уведомления"]
+    }
+  ],
+  "quick_actions": [
+    {
+      "id": "sync_stocks",
+      "title": "Обновить остатки",
+      "icon": "refresh-cw",
+      "action": "sync_stocks",
+      "confirm": false
+    },
+    {
+      "id": "export_report",
+      "title": "Экспорт отчёта",
+      "icon": "download",
+      "action": "export_report",
+      "confirm": false
+    }
+  ],
+  "settings": {
+    "default_period": "month",
+    "auto_refresh": true,
+    "refresh_interval": 1800
+  }
+}

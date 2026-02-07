@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADOLF Knowledge - UI Reference</title>
+  
+  <!-- Подключение стилей -->
+  <!-- shadcn/ui Variables -->
+  <link rel="stylesheet" href="../base/shadcn-variables.css">
+  <link rel="stylesheet" href="knowledge.css">
+  
+  <style>
+    /* Стили для демо-страницы */
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: var(--adolf-font-family);
+      background-color: var(--adolf-bg-tertiary);
+      color: var(--adolf-text-primary);
+      margin: 0;
+      padding: var(--adolf-spacing-xl);
+      line-height: 1.5;
+    }
+    
+    .demo-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .demo-header {
+      text-align: center;
+      margin-bottom: var(--adolf-spacing-2xl);
+    }
+    
+    .demo-title {
+      font-size: var(--adolf-text-3xl);
+      font-weight: var(--adolf-font-bold);
+      color: var(--adolf-module-knowledge);
+      margin: 0 0 var(--adolf-spacing-sm) 0;
+    }
+    
+    .demo-subtitle {
+      font-size: var(--adolf-text-base);
+      color: var(--adolf-text-secondary);
+      margin: 0;
+    }
+    
+    .demo-section {
+      margin-bottom: var(--adolf-spacing-2xl);
+    }
+    
+    .demo-section-title {
+      font-size: var(--adolf-text-xl);
+      font-weight: var(--adolf-font-semibold);
+      color: var(--adolf-text-primary);
+      margin: 0 0 var(--adolf-spacing-md) 0;
+      padding-bottom: var(--adolf-spacing-sm);
+      border-bottom: 2px solid var(--adolf-module-knowledge);
+    }
+    
+    .demo-description {
+      font-size: var(--adolf-text-sm);
+      color: var(--adolf-text-secondary);
+      margin-bottom: var(--adolf-spacing-md);
+    }
+    
+    .demo-code-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--adolf-spacing-xs);
+      font-size: var(--adolf-text-xs);
+      color: var(--adolf-accent-primary);
+      text-decoration: none;
+      margin-top: var(--adolf-spacing-sm);
+    }
+    
+    .demo-code-link:hover {
+      text-decoration: underline;
+    }
+    
+    /* Тема переключатель */
+    .theme-toggle {
+      position: fixed;
+      top: var(--adolf-spacing-md);
+      right: var(--adolf-spacing-md);
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <!-- Переключатель темы -->
+  <button class="adolf-btn adolf-btn-secondary theme-toggle" onclick="toggleTheme()">
+    🌓 Тема
+  </button>
+  
+  <div class="demo-container">
+    <header class="demo-header">
+      <h1 class="demo-title">📚 Knowledge</h1>
+      <p class="demo-subtitle">UI Reference — Визуальные компоненты модуля базы знаний</p>
+    </header>
+    
+    <!-- ============================================
+         РАЗДЕЛ 1: РЕЗУЛЬТАТ ПОИСКА (RAG)
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">1. Результат поиска (RAG Response)</h2>
+      <p class="demo-description">
+        Основной компонент, отображающий ответ AI с источниками из базы знаний.
+      </p>
+      
+      <div class="adolf-knowledge">
+        <div class="adolf-kb-result">
+          <!-- Заголовок -->
+          <div class="adolf-kb-result-header">
+            <span class="adolf-kb-result-icon">📚</span>
+            <h2 class="adolf-kb-result-title">Результаты поиска</h2>
+          </div>
+          
+          <!-- Тело -->
+          <div class="adolf-kb-result-body">
+            <!-- Запрос пользователя -->
+            <div class="adolf-kb-query">
+              <span class="adolf-kb-query-icon">🔍</span>
+              <p class="adolf-kb-query-text">"Какие условия возврата товара для покупателей?"</p>
+            </div>
+            
+            <!-- Ответ AI -->
+            <div class="adolf-kb-answer">
+              <div class="adolf-kb-answer-label">
+                <span>🤖</span>
+                <span>Ответ на основе базы знаний</span>
+              </div>
+              <div class="adolf-kb-answer-text">
+                <p>Согласно внутренним правилам компании, возврат товара возможен в течение <strong>14 дней</strong> с момента получения заказа.</p>
+                
+                <p>Основные условия возврата:</p>
+                <ul>
+                  <li>Товар не был в употреблении</li>
+                  <li>Сохранены все бирки и упаковка</li>
+                  <li>Есть чек или подтверждение заказа</li>
+                </ul>
+                
+                <blockquote class="adolf-kb-quote">
+                  "Для оформления возврата клиент должен заполнить заявку в личном кабинете или обратиться в службу поддержки."
+                </blockquote>
+                
+                <p>Срок рассмотрения заявки — до 3 рабочих дней. Возврат средств осуществляется тем же способом, которым была произведена оплата.</p>
+              </div>
+            </div>
+            
+            <hr class="adolf-divider">
+            
+            <!-- Источники -->
+            <div class="adolf-kb-sources">
+              <div class="adolf-kb-sources-title">
+                <span>📄</span>
+                <span>Источники (2)</span>
+              </div>
+              
+              <div class="adolf-kb-sources-list">
+                <!-- Источник 1 -->
+                <div class="adolf-kb-source-card">
+                  <div class="adolf-kb-source-icon">📄</div>
+                  <div class="adolf-kb-source-content">
+                    <h4 class="adolf-kb-source-name">Политика возвратов v2.1</h4>
+                    <div class="adolf-kb-source-meta">
+                      <span class="adolf-kb-source-meta-item">
+                        <span class="adolf-kb-category-badge adolf-kb-category-policy">policy</span>
+                      </span>
+                      <span class="adolf-kb-source-meta-item">📅 Обновлён: 10.01.2026</span>
+                    </div>
+                  </div>
+                  <div class="adolf-kb-source-relevance">
+                    <div class="adolf-kb-relevance-bar">
+                      <div class="adolf-kb-relevance-fill" style="width: 95%"></div>
+                    </div>
+                    <span class="adolf-kb-relevance-text">95%</span>
+                  </div>
+                </div>
+                
+                <!-- Источник 2 -->
+                <div class="adolf-kb-source-card">
+                  <div class="adolf-kb-source-icon">📋</div>
+                  <div class="adolf-kb-source-content">
+                    <h4 class="adolf-kb-source-name">FAQ для службы поддержки</h4>
+                    <div class="adolf-kb-source-meta">
+                      <span class="adolf-kb-source-meta-item">
+                        <span class="adolf-kb-category-badge adolf-kb-category-faq">faq</span>
+                      </span>
+                      <span class="adolf-kb-source-meta-item">📅 Обновлён: 05.01.2026</span>
+                    </div>
+                  </div>
+                  <div class="adolf-kb-source-relevance">
+                    <div class="adolf-kb-relevance-bar">
+                      <div class="adolf-kb-relevance-fill" style="width: 78%"></div>
+                    </div>
+                    <span class="adolf-kb-relevance-text">78%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="adolf-kb-actions">
+              <button class="adolf-btn adolf-btn-secondary">🔍 Уточнить</button>
+              <button class="adolf-btn adolf-btn-secondary">📋 Копировать</button>
+              <button class="adolf-btn adolf-btn-ghost">📊 Статистика</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <a href="https://github.com/Sign25/Docs/tree/main/knowledge" 
+         class="demo-code-link" target="_blank">
+        📄 Документация модуля Knowledge →
+      </a>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 2: НЕТ РЕЗУЛЬТАТОВ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">2. Нет результатов</h2>
+      <p class="demo-description">
+        Отображение при отсутствии релевантных документов.
+      </p>
+      
+      <div class="adolf-knowledge">
+        <div class="adolf-kb-result">
+          <div class="adolf-kb-result-body">
+            <div class="adolf-kb-query">
+              <span class="adolf-kb-query-icon">🔍</span>
+              <p class="adolf-kb-query-text">"Как настроить интеграцию с SAP?"</p>
+            </div>
+            
+            <div class="adolf-kb-no-results">
+              <div class="adolf-kb-no-results-icon">📭</div>
+              <p class="adolf-kb-no-results-text">По вашему запросу ничего не найдено</p>
+              <p class="adolf-kb-no-results-hint">Попробуйте переформулировать запрос или загрузить недостающий документ</p>
+            </div>
+            
+            <div class="adolf-kb-actions" style="justify-content: center;">
+              <button class="adolf-btn adolf-btn-upload">📤 Загрузить документ</button>
+              <button class="adolf-btn adolf-btn-secondary">🔍 Искать в интернете</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 3: ЗАГРУЗКА ДОКУМЕНТА
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">3. Загрузка документа</h2>
+      <p class="demo-description">
+        Интерфейс для добавления нового документа в базу знаний.
+      </p>
+      
+      <div class="adolf-knowledge">
+        <div class="adolf-kb-upload">
+          <div class="adolf-kb-upload-header">
+            <span class="adolf-kb-result-icon">📤</span>
+            <h2 class="adolf-kb-result-title">Загрузка документа</h2>
+          </div>
+          
+          <div class="adolf-kb-upload-body">
+            <!-- Dropzone -->
+            <div class="adolf-kb-dropzone">
+              <div class="adolf-kb-dropzone-icon">📁</div>
+              <p class="adolf-kb-dropzone-text">
+                Перетащите файл сюда или <strong>нажмите для выбора</strong>
+              </p>
+              <p class="adolf-kb-dropzone-hint">
+                Поддерживаемые форматы: PDF, DOCX, TXT, MD (до 10 МБ)
+              </p>
+            </div>
+            
+            <!-- Форма -->
+            <div class="adolf-kb-upload-form">
+              <div class="adolf-kb-form-group">
+                <label class="adolf-kb-form-label">Название документа</label>
+                <input type="text" class="adolf-kb-form-input" placeholder="Введите название..." value="Инструкция по работе с CRM">
+              </div>
+              
+              <div class="adolf-kb-form-group">
+                <label class="adolf-kb-form-label">Категория</label>
+                <select class="adolf-kb-form-select">
+                  <option value="">Выберите категорию...</option>
+                  <option value="policy">Политики (policy)</option>
+                  <option value="guide" selected>Руководства (guide)</option>
+                  <option value="faq">FAQ</option>
+                  <option value="process">Процессы (process)</option>
+                  <option value="template">Шаблоны (template)</option>
+                </select>
+              </div>
+              
+              <div class="adolf-kb-form-group">
+                <label class="adolf-kb-form-label">Описание (опционально)</label>
+                <textarea class="adolf-kb-form-textarea" placeholder="Краткое описание содержимого документа..."></textarea>
+                <p class="adolf-kb-form-hint">Описание поможет улучшить точность поиска</p>
+              </div>
+            </div>
+            
+            <!-- Кнопки -->
+            <div class="adolf-kb-actions">
+              <button class="adolf-btn adolf-btn-upload">📤 Загрузить</button>
+              <button class="adolf-btn adolf-btn-secondary">Отмена</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 4: ОЧЕРЕДЬ МОДЕРАЦИИ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">4. Очередь модерации</h2>
+      <p class="demo-description">
+        Документы, ожидающие проверки и одобрения (доступно для Senior+).
+      </p>
+      
+      <div class="adolf-knowledge">
+        <div class="adolf-kb-moderation">
+          <div class="adolf-kb-moderation-header">
+            <h3 class="adolf-kb-moderation-title">
+              <span>⏳</span>
+              <span>Ожидают модерации</span>
+              <span class="adolf-kb-moderation-count">3</span>
+            </h3>
+          </div>
+          
+          <!-- Элемент 1 -->
+          <div class="adolf-kb-moderation-item">
+            <div class="adolf-kb-moderation-item-icon">📄</div>
+            <div class="adolf-kb-moderation-item-content">
+              <h4 class="adolf-kb-moderation-item-name">Регламент работы склада v3.0</h4>
+              <div class="adolf-kb-moderation-item-meta">
+                <span class="adolf-kb-category-badge adolf-kb-category-process">process</span>
+                <span>👤 Иванов А.</span>
+                <span>📅 15.01.2026</span>
+              </div>
+              <p class="adolf-kb-moderation-item-preview">
+                Данный регламент описывает порядок приёмки, хранения и отгрузки товаров на складе компании...
+              </p>
+            </div>
+            <div class="adolf-kb-moderation-item-actions">
+              <button class="adolf-btn adolf-btn-approve-doc adolf-btn-sm">✓</button>
+              <button class="adolf-btn adolf-btn-reject-doc adolf-btn-sm">✗</button>
+              <button class="adolf-btn adolf-btn-secondary adolf-btn-sm">👁️</button>
+            </div>
+          </div>
+          
+          <!-- Элемент 2 -->
+          <div class="adolf-kb-moderation-item">
+            <div class="adolf-kb-moderation-item-icon">📋</div>
+            <div class="adolf-kb-moderation-item-content">
+              <h4 class="adolf-kb-moderation-item-name">Чек-лист проверки качества</h4>
+              <div class="adolf-kb-moderation-item-meta">
+                <span class="adolf-kb-category-badge adolf-kb-category-template">template</span>
+                <span>👤 Петрова М.</span>
+                <span>📅 14.01.2026</span>
+              </div>
+              <p class="adolf-kb-moderation-item-preview">
+                Список проверок для контроля качества входящей продукции перед размещением на складе...
+              </p>
+            </div>
+            <div class="adolf-kb-moderation-item-actions">
+              <button class="adolf-btn adolf-btn-approve-doc adolf-btn-sm">✓</button>
+              <button class="adolf-btn adolf-btn-reject-doc adolf-btn-sm">✗</button>
+              <button class="adolf-btn adolf-btn-secondary adolf-btn-sm">👁️</button>
+            </div>
+          </div>
+          
+          <!-- Элемент 3 -->
+          <div class="adolf-kb-moderation-item">
+            <div class="adolf-kb-moderation-item-icon">❓</div>
+            <div class="adolf-kb-moderation-item-content">
+              <h4 class="adolf-kb-moderation-item-name">FAQ по программе лояльности</h4>
+              <div class="adolf-kb-moderation-item-meta">
+                <span class="adolf-kb-category-badge adolf-kb-category-faq">faq</span>
+                <span>👤 Сидоров К.</span>
+                <span>📅 13.01.2026</span>
+              </div>
+              <p class="adolf-kb-moderation-item-preview">
+                Ответы на часто задаваемые вопросы о бонусной программе и накоплении баллов...
+              </p>
+            </div>
+            <div class="adolf-kb-moderation-item-actions">
+              <button class="adolf-btn adolf-btn-approve-doc adolf-btn-sm">✓</button>
+              <button class="adolf-btn adolf-btn-reject-doc adolf-btn-sm">✗</button>
+              <button class="adolf-btn adolf-btn-secondary adolf-btn-sm">👁️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 5: СПИСОК ДОКУМЕНТОВ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">5. Каталог документов</h2>
+      <p class="demo-description">
+        Полный список документов базы знаний с фильтрацией по категориям.
+      </p>
+      
+      <div class="adolf-knowledge">
+        <div class="adolf-kb-docs-list">
+          <div class="adolf-kb-docs-header">
+            <h3 class="adolf-kb-docs-title">
+              <span>📚</span>
+              <span>База знаний</span>
+            </h3>
+            <div class="adolf-kb-search">
+              <span class="adolf-kb-search-icon">🔍</span>
+              <input type="text" class="adolf-kb-search-input" placeholder="Поиск документов...">
+            </div>
+          </div>
+          
+          <!-- Фильтры -->
+          <div class="adolf-kb-filters">
+            <span class="adolf-kb-filter-chip active">Все (24)</span>
+            <span class="adolf-kb-filter-chip">policy (5)</span>
+            <span class="adolf-kb-filter-chip">guide (8)</span>
+            <span class="adolf-kb-filter-chip">faq (4)</span>
+            <span class="adolf-kb-filter-chip">process (3)</span>
+            <span class="adolf-kb-filter-chip">template (4)</span>
+          </div>
+          
+          <!-- Таблица -->
+          <table class="adolf-kb-docs-table">
+            <thead>
+              <tr>
+                <th>Документ</th>
+                <th>Категория</th>
+                <th>Обновлён</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="adolf-kb-doc-name">
+                    <span class="adolf-kb-doc-name-icon">📄</span>
+                    <span>Политика возвратов v2.1</span>
+                  </div>
+                </td>
+                <td><span class="adolf-kb-category-badge adolf-kb-category-policy">policy</span></td>
+                <td>10.01.2026</td>
+                <td><span class="adolf-badge adolf-badge-published">активен</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="adolf-kb-doc-name">
+                    <span class="adolf-kb-doc-name-icon">📋</span>
+                    <span>Руководство по работе с Wildberries</span>
+                  </div>
+                </td>
+                <td><span class="adolf-kb-category-badge adolf-kb-category-guide">guide</span></td>
+                <td>08.01.2026</td>
+                <td><span class="adolf-badge adolf-badge-published">активен</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="adolf-kb-doc-name">
+                    <span class="adolf-kb-doc-name-icon">❓</span>
+                    <span>FAQ для службы поддержки</span>
+                  </div>
+                </td>
+                <td><span class="adolf-kb-category-badge adolf-kb-category-faq">faq</span></td>
+                <td>05.01.2026</td>
+                <td><span class="adolf-badge adolf-badge-published">активен</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="adolf-kb-doc-name">
+                    <span class="adolf-kb-doc-name-icon">⚙️</span>
+                    <span>Процесс обработки заказов</span>
+                  </div>
+                </td>
+                <td><span class="adolf-kb-category-badge adolf-kb-category-process">process</span></td>
+                <td>03.01.2026</td>
+                <td><span class="adolf-badge adolf-badge-published">активен</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="adolf-kb-doc-name">
+                    <span class="adolf-kb-doc-name-icon">📝</span>
+                    <span>Шаблон ответа на жалобу</span>
+                  </div>
+                </td>
+                <td><span class="adolf-kb-category-badge adolf-kb-category-template">template</span></td>
+                <td>01.01.2026</td>
+                <td><span class="adolf-badge adolf-badge-draft">черновик</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 6: КАТЕГОРИИ ДОКУМЕНТОВ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">6. Категории документов</h2>
+      <p class="demo-description">
+        Все типы категорий с цветовой кодировкой.
+      </p>
+      
+      <div class="adolf-knowledge" style="background: var(--adolf-bg-primary); padding: var(--adolf-spacing-lg); border-radius: var(--adolf-radius-lg);">
+        <div style="display: flex; flex-wrap: wrap; gap: var(--adolf-spacing-md);">
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-xs); align-items: flex-start;">
+            <span class="adolf-kb-category-badge adolf-kb-category-policy">policy</span>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Политики, правила</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-xs); align-items: flex-start;">
+            <span class="adolf-kb-category-badge adolf-kb-category-guide">guide</span>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Руководства</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-xs); align-items: flex-start;">
+            <span class="adolf-kb-category-badge adolf-kb-category-faq">faq</span>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Частые вопросы</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-xs); align-items: flex-start;">
+            <span class="adolf-kb-category-badge adolf-kb-category-process">process</span>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Бизнес-процессы</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-xs); align-items: flex-start;">
+            <span class="adolf-kb-category-badge adolf-kb-category-template">template</span>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Шаблоны</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--adolf-spacing-xs); align-items: flex-start;">
+            <span class="adolf-kb-category-badge adolf-kb-category-other">other</span>
+            <span style="font-size: var(--adolf-text-xs); color: var(--adolf-text-tertiary);">Прочее</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 7: СТАТИСТИКА
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">7. Статистика базы знаний</h2>
+      <p class="demo-description">
+        Метрики работы модуля Knowledge.
+      </p>
+      
+      <div class="adolf-knowledge">
+        <div class="adolf-kb-stats">
+          <div class="adolf-kb-stat-card">
+            <div class="adolf-kb-stat-value">24</div>
+            <div class="adolf-kb-stat-label">Документов</div>
+          </div>
+          <div class="adolf-kb-stat-card">
+            <div class="adolf-kb-stat-value">156</div>
+            <div class="adolf-kb-stat-label">Чанков</div>
+          </div>
+          <div class="adolf-kb-stat-card">
+            <div class="adolf-kb-stat-value">89%</div>
+            <div class="adolf-kb-stat-label">Точность RAG</div>
+          </div>
+          <div class="adolf-kb-stat-card">
+            <div class="adolf-kb-stat-value">342</div>
+            <div class="adolf-kb-stat-label">Запросов/нед</div>
+          </div>
+          <div class="adolf-kb-stat-card">
+            <div class="adolf-kb-stat-value">3</div>
+            <div class="adolf-kb-stat-label">На модерации</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- ============================================
+         РАЗДЕЛ 8: КНОПКИ МОДУЛЯ
+         ============================================ -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">8. Все кнопки модуля</h2>
+      <p class="demo-description">
+        Полный набор кнопок действий Knowledge.
+      </p>
+      
+      <div class="adolf-knowledge" style="background: var(--adolf-bg-primary); padding: var(--adolf-spacing-lg); border-radius: var(--adolf-radius-lg);">
+        <h4 style="margin: 0 0 var(--adolf-spacing-md) 0; color: var(--adolf-text-secondary); font-size: var(--adolf-text-sm);">Основные действия</h4>
+        <div class="adolf-btn-group" style="margin-top: 0;">
+          <button class="adolf-btn adolf-btn-upload">📤 Загрузить</button>
+          <button class="adolf-btn adolf-btn-secondary">🔍 Уточнить</button>
+          <button class="adolf-btn adolf-btn-secondary">📋 Копировать</button>
+        </div>
+        
+        <h4 style="margin: var(--adolf-spacing-lg) 0 var(--adolf-spacing-md) 0; color: var(--adolf-text-secondary); font-size: var(--adolf-text-sm);">Модерация (Senior+)</h4>
+        <div class="adolf-btn-group" style="margin-top: 0;">
+          <button class="adolf-btn adolf-btn-approve-doc">✓ Утвердить</button>
+          <button class="adolf-btn adolf-btn-reject-doc">✗ Отклонить</button>
+          <button class="adolf-btn adolf-btn-secondary">👁️ Просмотр</button>
+        </div>
+        
+        <h4 style="margin: var(--adolf-spacing-lg) 0 var(--adolf-spacing-md) 0; color: var(--adolf-text-secondary); font-size: var(--adolf-text-sm);">Навигация</h4>
+        <div class="adolf-btn-group" style="margin-top: 0;">
+          <button class="adolf-btn adolf-btn-primary">📚 Каталог</button>
+          <button class="adolf-btn adolf-btn-secondary">📊 Статистика</button>
+          <button class="adolf-btn adolf-btn-ghost">📄 Открыть документ</button>
+        </div>
+      </div>
+    </section>
+    
+  </div>
+  
+  <script>
+    // Переключение темы
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+    
+    // Интерактивность для dropzone
+    const dropzone = document.querySelector('.adolf-kb-dropzone');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+      });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    }
+    
+    // Интерактивность для фильтров
+    document.querySelectorAll('.adolf-kb-filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.adolf-kb-filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
