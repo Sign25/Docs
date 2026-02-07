@@ -843,8 +843,8 @@ INSERT INTO lex_keywords (category, keywords, weight) VALUES
 
 | Событие | Уровень | Получатель |
 |---------|---------|------------|
-| Источник недоступен > 1 час | `critical` | Admin |
-| AI Filter error rate > 10% | `warning` | Admin |
+| Источник недоступен &gt; 1 час | `critical` | Admin |
+| AI Filter error rate &gt; 10% | `warning` | Admin |
 | 0 документов за ночь | `warning` | Admin |
 | KB upload failed | `critical` | Admin |
 
@@ -969,9 +969,9 @@ graph TB
 
 | Критерий | Проверка |
 |----------|----------|
-| Задачи Lex в очереди | `LLEN task_queue:lex` > 0 после 20:30 |
+| Задачи Lex в очереди | `LLEN task_queue:lex` &gt; 0 после 20:30 |
 | Агенты обрабатывают Lex | Логи агентов содержат `lex_parse` |
-| AI Filter работает | Время ответа < 5 сек |
+| AI Filter работает | Время ответа &lt; 5 сек |
 | Документы в KB | Появляются после ночного цикла |
 | Алерты генерируются | Уведомления в Open WebUI |
 | Статистика обновляется | Данные в `lex_statistics` |
