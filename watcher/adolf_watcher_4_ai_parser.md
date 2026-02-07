@@ -661,15 +661,15 @@ class LLMClient:
 
 | Поле | Тип | Ограничения |
 |------|-----|-------------|
-| `current_price` | float | > 0 |
-| `old_price` | float | > current_price (если оба заданы) |
-| `spp_price` | float | < current_price (если оба заданы) |
+| `current_price` | float | &gt; 0 |
+| `old_price` | float | &gt; current_price (если оба заданы) |
+| `spp_price` | float | &lt; current_price (если оба заданы) |
 | `discount_percent` | int | 0-99 |
 | `in_stock` | bool | — |
-| `stock_quantity` | int | >= 0 |
+| `stock_quantity` | int | &gt;= 0 |
 | `rating` | float | 1.0-5.0 |
-| `reviews_count` | int | >= 0 |
-| `sales_count` | int | >= 0 |
+| `reviews_count` | int | &gt;= 0 |
+| `sales_count` | int | &gt;= 0 |
 
 ### Реализация
 
@@ -1670,7 +1670,7 @@ TechShop Official
 | LLM Client подключён | Тестовый запрос возвращает ответ |
 | Preprocessor работает | Текст очищается корректно |
 | Validator работает | JSON парсится и валидируется |
-| Успешный парсинг | confidence >= 0.8 |
+| Успешный парсинг | confidence &gt;= 0.8 |
 | Retry работает | При невалидном JSON — повтор |
 | Метрики собираются | Prometheus endpoint отвечает |
 
