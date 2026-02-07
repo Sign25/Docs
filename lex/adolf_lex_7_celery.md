@@ -996,12 +996,12 @@ celery -A app flower --port=5555 --url_prefix=flower
 |---------|----------|-------|
 | `lex.tasks.created` | Задач создано | — |
 | `lex.tasks.completed` | Задач выполнено | — |
-| `lex.tasks.failed` | Задач с ошибкой | > 10% |
+| `lex.tasks.failed` | Задач с ошибкой | &gt; 10% |
 | `lex.documents.accepted` | Документов принято | — |
 | `lex.documents.rejected` | Документов отклонено | — |
-| `lex.queue.length` | Длина очереди | > 100 |
-| `lex.ai.latency` | Время AI обработки | > 30 сек |
-| `lex.sources.healthy` | Здоровых источников | < 100% |
+| `lex.queue.length` | Длина очереди | &gt; 100 |
+| `lex.ai.latency` | Время AI обработки | &gt; 30 сек |
+| `lex.sources.healthy` | Здоровых источников | &lt; 100% |
 
 ### Prometheus Metrics
 
@@ -1074,7 +1074,7 @@ stateDiagram-v2
 | Beat запущен | `celery -A app beat --loglevel=info` показывает schedule |
 | Worker запущен | `celery -A app worker -Q lex --loglevel=info` |
 | Очередь работает | `redis-cli LLEN task_queue:lex` |
-| Задачи генерируются | Логи в 20:30 показывают tasks_created > 0 |
+| Задачи генерируются | Логи в 20:30 показывают tasks_created &gt; 0 |
 | Документы обрабатываются | Записи в lex_documents появляются |
 | Алерты создаются | Записи в lex_alerts появляются |
 | Статистика считается | Записи в lex_statistics за вчера |
