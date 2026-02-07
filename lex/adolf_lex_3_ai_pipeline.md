@@ -209,19 +209,19 @@ FILTER_USER_PROMPT = """
 
 Ответь в формате JSON:
 ```json
-{{
+\{\{
     "relevance_score": 0.XX,
     "is_relevant": true/false,
     "reasoning": "Краткое объяснение оценки (1-2 предложения)",
     "matched_keywords": ["список", "найденных", "ключевых", "слов"],
-    "relevance_factors": {{
+    "relevance_factors": \{\{
         "e_commerce": 0.X,
         "marketplaces": 0.X,
         "fashion_retail": 0.X,
         "consumer_rights": 0.X,
         "taxation": 0.X
-    }}
-}}
+    \}}
+\}}
 ```
 
 Где:
@@ -464,7 +464,7 @@ CLASSIFIER_USER_PROMPT = """
 
 Ответь в формате JSON:
 ```json
-{{
+\{\{
     "category": "код_категории",
     "secondary_categories": ["другие", "категории"],
     "doc_type": "код_типа",
@@ -472,7 +472,7 @@ CLASSIFIER_USER_PROMPT = """
     "reasoning": "Объяснение классификации (1-2 предложения)",
     "subjects": ["субъекты", "регулирования"],
     "effective_scope": "На кого распространяется документ"
-}}
+\}}
 ```
 """
 ```
@@ -715,35 +715,35 @@ SUMMARIZER_USER_PROMPT = """
 
 Создай резюме в формате JSON:
 ```json
-{{
+\{\{
     "short_summary": "Краткое изложение в 2-3 предложениях",
     "key_points": [
         "Ключевое положение 1",
         "Ключевое положение 2",
         "Ключевое положение 3"
     ],
-    "business_impact": {{
+    "business_impact": \{\{
         "level": "high/medium/low",
         "description": "Описание влияния на бизнес"
-    }},
+    \}\},
     "deadlines": [
-        {{
+        \{\{
             "date": "YYYY-MM-DD или null",
             "description": "Описание дедлайна"
-        }}
+        \}}
     ],
     "penalties": [
-        {{
+        \{\{
             "amount": "Сумма или диапазон",
             "condition": "За что штраф"
-        }}
+        \}}
     ],
     "recommended_actions": [
         "Рекомендация 1",
         "Рекомендация 2"
     ],
     "related_topics": ["тема1", "тема2"]
-}}
+\}}
 ```
 
 Если какой-то раздел не применим, оставь пустой массив [].
@@ -1312,10 +1312,10 @@ logger.error(
 
 | Условие | Уровень | Действие |
 |---------|---------|----------|
-| Error rate > 10% за 15 мин | `warning` | Алерт Admin |
-| Error rate > 30% за 15 мин | `critical` | Алерт Admin, пауза pipeline |
-| Latency p95 > 30 сек | `warning` | Алерт Admin |
-| Acceptance rate < 20% | `info` | Проверить ключевые слова |
+| Error rate &gt; 10% за 15 мин | `warning` | Алерт Admin |
+| Error rate &gt; 30% за 15 мин | `critical` | Алерт Admin, пауза pipeline |
+| Latency p95 &gt; 30 сек | `warning` | Алерт Admin |
+| Acceptance rate &lt; 20% | `info` | Проверить ключевые слова |
 
 ---
 
@@ -1368,11 +1368,11 @@ async def process_batch(documents: List[RawDocument], batch_size: int = 5):
 
 | Критерий | Проверка |
 |----------|----------|
-| AI Filter отвечает | Время ответа < 10 сек |
-| AI Classifier отвечает | Время ответа < 10 сек |
-| AI Summarizer отвечает | Время ответа < 30 сек |
+| AI Filter отвечает | Время ответа &lt; 10 сек |
+| AI Classifier отвечает | Время ответа &lt; 10 сек |
+| AI Summarizer отвечает | Время ответа &lt; 30 сек |
 | JSON парсится корректно | Нет JSONDecodeError в логах |
-| Ключевые слова загружаются | > 0 категорий в кэше |
+| Ключевые слова загружаются | &gt; 0 категорий в кэше |
 | Acceptance rate нормальный | 30-70% для новых документов |
 | Документы форматируются | YAML-заголовок валиден |
 
