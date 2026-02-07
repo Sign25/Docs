@@ -2,9 +2,12 @@
 # .git, .github, .claude, .agents, .idea, node_modules,
 # LICENSE.md, CHANGELOG.md, CONTRIBUTING.md
 
+# Root files excluded from docs
+README.md
+
 # Service directories
 config/
 ui_reference/
 
-# Module READMEs (not in navigation)
+# Module READMEs
 logistic/README.md
