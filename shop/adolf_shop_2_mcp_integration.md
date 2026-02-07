@@ -74,7 +74,7 @@ WooCommerce Core
 | Детали заказа | `woocommerce/orders-get` | Read |
 | Поиск товаров | `woocommerce/products-list` | Read |
 
-> **Примечание:** В MVP используются только Read-операции. Write-операции планируются для v2.0.
+&gt; **Примечание:** В MVP используются только Read-операции. Write-операции планируются для v2.0.
 
 ---
 
@@ -362,7 +362,7 @@ woocommerce/products-list
 }
 ```
 
-> **Примечание:** Параметр `brand` доступен при установленном плагине WooCommerce Brands.
+&gt; **Примечание:** Параметр `brand` доступен при установленном плагине WooCommerce Brands.
 
 ---
 
@@ -405,7 +405,7 @@ WooCommerce MCP в текущей версии (10.4.3) не предостав�
 3. Агрегировать по brand_id
 ```
 
-**Заказы без оплаты (> 48 часов):**
+**Заказы без оплаты (&gt; 48 часов):**
 
 ```
 1. woocommerce/orders-list (status=pending, before=NOW-48h)
@@ -597,19 +597,19 @@ add_filter( 'woocommerce_mcp_include_ability', function( $include, $ability_id )
 | Ability | Method | Endpoint |
 |---------|--------|----------|
 | `woocommerce/orders-list` | GET | /wc/v3/orders |
-| `woocommerce/orders-get` | GET | /wc/v3/orders/{id} |
+| `woocommerce/orders-get` | GET | /wc/v3/orders/\{id\} |
 | `woocommerce/orders-create` | POST | /wc/v3/orders |
-| `woocommerce/orders-update` | PUT | /wc/v3/orders/{id} |
+| `woocommerce/orders-update` | PUT | /wc/v3/orders/\{id\} |
 
 ### Products
 
 | Ability | Method | Endpoint |
 |---------|--------|----------|
 | `woocommerce/products-list` | GET | /wc/v3/products |
-| `woocommerce/products-get` | GET | /wc/v3/products/{id} |
+| `woocommerce/products-get` | GET | /wc/v3/products/\{id\} |
 | `woocommerce/products-create` | POST | /wc/v3/products |
-| `woocommerce/products-update` | PUT | /wc/v3/products/{id} |
-| `woocommerce/products-delete` | DELETE | /wc/v3/products/{id} |
+| `woocommerce/products-update` | PUT | /wc/v3/products/\{id\} |
+| `woocommerce/products-delete` | DELETE | /wc/v3/products/\{id\} |
 
 ---
 
