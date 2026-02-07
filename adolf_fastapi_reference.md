@@ -1,5 +1,7 @@
 ---
 title: "FastAPI Reference"
+description: "Полная справка по всем API-эндпоинтам платформы ADOLF"
+icon: "square-terminal"
 mode: "wide"
 ---
 
