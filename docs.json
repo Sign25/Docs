@@ -4,23 +4,34 @@
   "name": "ADOLF Platform",
   "colors": {
     "primary": "#22C55E",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "light": "#4ADE80",
+    "dark": "#15803D",
+    "background": {
+      "light": "#FAFFFE",
+      "dark": "#0A0F0D"
+    }
   },
   "favicon": "/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "/"
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "background": {
+    "decoration": "gradient"
   },
   "navigation": {
     "tabs": [
       {
         "tab": "Overview",
+        "icon": "house",
         "groups": [
           {
             "group": "Platform",
             "pages": [
-              "README",
               "ADOLF_OVERVIEW",
               "adolf_fastapi_reference"
             ]
@@ -29,15 +40,18 @@
       },
       {
         "tab": "Core",
+        "icon": "server",
         "groups": [
           {
             "group": "Introduction",
+            "icon": "circle-info",
             "pages": [
               "core/adolf_core_0_introduction"
             ]
           },
           {
             "group": "Open WebUI",
+            "icon": "browser",
             "pages": [
               "core/adolf_core_1_1_open_webui_overview",
               "core/adolf_core_1_2_open_webui_pipelines",
@@ -47,6 +61,7 @@
           },
           {
             "group": "Infrastructure",
+            "icon": "database",
             "pages": [
               "core/adolf_core_2_5_postgresql",
               "core/adolf_core_2_6_notifications",
@@ -57,9 +72,11 @@
       },
       {
         "tab": "Knowledge",
+        "icon": "book-open",
         "groups": [
           {
             "group": "Knowledge Base",
+            "icon": "brain",
             "pages": [
               "knowledge/adolf_knowledge_1_introduction",
               "knowledge/adolf_knowledge_2_data_sources",
@@ -77,9 +94,11 @@
       },
       {
         "tab": "Reputation",
+        "icon": "star",
         "groups": [
           {
             "group": "Review Management",
+            "icon": "comments",
             "pages": [
               "reputation/adolf_reputation_0_introduction",
               "reputation/adolf_reputation_1_architecture",
@@ -95,9 +114,11 @@
       },
       {
         "tab": "Watcher",
+        "icon": "binoculars",
         "groups": [
           {
             "group": "Price Monitoring",
+            "icon": "chart-line-up",
             "pages": [
               "watcher/adolf_watcher_0_introduction",
               "watcher/adolf_watcher_1_architecture",
@@ -112,10 +133,12 @@
         ]
       },
       {
-        "tab": "Content Factory",
+        "tab": "Content",
+        "icon": "pen-nib",
         "groups": [
           {
-            "group": "SEO Content",
+            "group": "SEO Content Factory",
+            "icon": "file-lines",
             "pages": [
               "content_factory/adolf_content_factory_0_introduction",
               "content_factory/adolf_content_factory_1_architecture",
@@ -131,9 +154,11 @@
       },
       {
         "tab": "Marketing",
+        "icon": "bullhorn",
         "groups": [
           {
             "group": "Ad Campaigns",
+            "icon": "rectangle-ad",
             "pages": [
               "marketing/adolf_marketing_0_introduction",
               "marketing/adolf_marketing_1_architecture",
@@ -149,9 +174,11 @@
       },
       {
         "tab": "Scout",
+        "icon": "radar",
         "groups": [
           {
             "group": "Niche Analytics",
+            "icon": "magnifying-glass-chart",
             "pages": [
               "scout/adolf_scout_0_introduction",
               "scout/adolf_scout_1_architecture",
@@ -167,9 +194,11 @@
       },
       {
         "tab": "CFO",
+        "icon": "chart-pie",
         "groups": [
           {
             "group": "Financial Analytics",
+            "icon": "money-bill-trend-up",
             "pages": [
               "cfo/adolf_cfo_0_introduction",
               "cfo/adolf_cfo_1_architecture",
@@ -185,9 +214,11 @@
       },
       {
         "tab": "Lex",
+        "icon": "scale-balanced",
         "groups": [
           {
             "group": "Legal Monitoring",
+            "icon": "gavel",
             "pages": [
               "lex/adolf_lex_0_introduction",
               "lex/adolf_lex_1_architecture",
@@ -204,9 +235,11 @@
       },
       {
         "tab": "Office",
+        "icon": "grid-2",
         "groups": [
           {
-            "group": "AI Dashboard",
+            "group": "AI Agent Dashboard",
+            "icon": "robot",
             "pages": [
               "office/adolf_office_0_introduction",
               "office/adolf_office_1_architecture",
@@ -223,9 +256,11 @@
       },
       {
         "tab": "Shop",
+        "icon": "cart-shopping",
         "groups": [
           {
-            "group": "WooCommerce",
+            "group": "WooCommerce MCP",
+            "icon": "store",
             "pages": [
               "shop/adolf_shop_0_introduction",
               "shop/adolf_shop_1_architecture",
@@ -240,9 +275,11 @@
       },
       {
         "tab": "Logistic",
+        "icon": "truck-fast",
         "groups": [
           {
             "group": "Warehouse & Supply",
+            "icon": "warehouse",
             "pages": [
               "logistic/adolf_logistic_0_introduction",
               "logistic/adolf_logistic_1_architecture",
@@ -261,24 +298,52 @@
     "global": {
       "anchors": [
         {
+          "anchor": "API Reference",
+          "icon": "square-terminal",
+          "href": "/adolf_fastapi_reference"
+        },
+        {
           "anchor": "GitHub",
-          "href": "https://github.com/Sign25/Docs",
           "icon": "github",
-          "iconType": "brands"
+          "iconType": "brands",
+          "href": "https://github.com/Sign25/Docs"
         }
       ]
     }
   },
   "navbar": {
+    "links": [
+      {
+        "label": "ADOLF Platform",
+        "href": "https://adolf.su"
+      }
+    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/Sign25/Docs"
     }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "claude",
+      "chatgpt",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/Sign25/Docs"
+      "github": "https://github.com/Sign25/Docs",
+      "website": "https://adolf.su"
     }
+  },
+  "metadata": {
+    "og:site_name": "ADOLF Platform Documentation",
+    "og:locale": "ru_RU"
+  },
+  "search": {
+    "location": "top"
   }
 }
