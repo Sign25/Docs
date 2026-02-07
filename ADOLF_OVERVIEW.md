@@ -1,5 +1,7 @@
 ---
-title: "ADOLF Overview"
+title: "ADOLF Platform"
+description: "AI-Driven Operations Layer Framework — корпоративная система автоматизации e-commerce"
+icon: "rocket"
 mode: "wide"
 ---
 
