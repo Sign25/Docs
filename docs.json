@@ -16,9 +16,6 @@
   "appearance": {
     "default": "system"
   },
-  "background": {
-    "decoration": "gradient"
-  },
   "navigation": {
     "tabs": [
       {
