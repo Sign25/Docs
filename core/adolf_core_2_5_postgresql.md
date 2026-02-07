@@ -847,10 +847,10 @@ pg_dump -Fc -h $PG_HOST -U $PG_USER -d adolf \
 
 | Метрика | Порог | Алерт |
 |---------|-------|-------|
-| Connections | > 80% max | warning |
-| Disk usage | > 80% | warning |
-| Slow queries | > 5s | warning |
-| Dead tuples | > 10% | warning |
+| Connections | &gt; 80% max | warning |
+| Disk usage | &gt; 80% | warning |
+| Slow queries | &gt; 5s | warning |
+| Dead tuples | &gt; 10% | warning |
 
 ### 8.2 Полезные запросы
 
@@ -1166,7 +1166,7 @@ COMMIT;
 | Индексы созданы | `\di` показывает индексы |
 | Миграции применены | `alembic current` = head |
 | Service Account создан | `SELECT * FROM users WHERE role = 'service'` |
-| Бэкапы работают | Последний бэкап < 24 часов |
+| Бэкапы работают | Последний бэкап &lt; 24 часов |
 | Очистка работает | Старые данные удаляются |
 
 ---
