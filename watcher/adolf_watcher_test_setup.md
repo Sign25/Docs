@@ -248,15 +248,16 @@ C:\watcher-test\run_watcher.bat
 | Timestamps | Корректные ISO 8601 |
 | URL | Валидные ссылки на WB |
 
-## Шаг 7: Автоматизация запуска (Windows Task Scheduler)
-
-После успешного теста — настройка запуска по расписанию.
+## Шаг 7: Запуск через bat-файл
 
 ### 7.1 Создать bat-файл `C:\watcher-test\run_watcher.bat`
 
 ```bat
 @echo off
 cd /d C:\watcher-test
+
+REM === Создать директорию для логов ===
+if not exist logs mkdir logs
 
 REM === 1. Принудительно закрыть Chrome ===
 taskkill /F /IM chrome.exe >nul 2>&1
@@ -277,31 +278,13 @@ REM === 4. Закрыть Chrome после завершения ===
 taskkill /F /IM chrome.exe >nul 2>&1
 ```
 
-### 7.2 Создать задачу в Task Scheduler
+### 7.2 Запуск
 
 ```powershell
-# Создать директорию для логов
-mkdir -Force C:\watcher-test\logs
-
-# Создать задачу в планировщике
-$action = New-ScheduledTaskAction `
-    -Execute "C:\watcher-test\run_watcher.bat"
-
-$trigger = New-ScheduledTaskTrigger `
-    -Daily -At "20:00"
-
-$settings = New-ScheduledTaskSettingsSet `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 12) `
-    -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries
-
-Register-ScheduledTask `
-    -TaskName "WatcherAgent" `
-    -Action $action `
-    -Trigger $trigger `
-    -Settings $settings `
-    -Description "Watcher v3.0 — ночной мониторинг цен"
+C:\watcher-test\run_watcher.bat
 ```
+
+После успешного теста, для автоматизации ночного запуска — добавить задачу в Windows Task Scheduler на 20:00.
 
 ## Возможные проблемы
 
