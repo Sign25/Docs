@@ -33,10 +33,12 @@ docs/
 │   ├── adolf_ui_1_foundations.md     # Основы: цвета, типографика, отступы
 │   ├── adolf_ui_2_module_theming.md  # Тематизация модулей и маркетплейсов
 │   ├── adolf_ui_3_components.md      # Каталог компонентов shadcn/ui
-│   └── adolf_ui_4_layout_patterns.md # Паттерны компоновки
+│   ├── adolf_ui_4_layout_patterns.md # Паттерны компоновки
+│   └── adolf_ui_appendix_a_icons.md  # Приложение A: Реестр иконок Open WebUI
 │
 └── ui_reference/                    # UI ресурсы (CSS, JSON, HTML-демо)
     ├── base/                        # Базовые токены и стили
+    ├── icons/                       # SVG-иконки (stroke-width 1.5px)
     ├── cfo/                         # UI компоненты CFO
     ├── content_factory/             # UI компоненты Content Factory
     ├── knowledge/                   # UI компоненты Knowledge
