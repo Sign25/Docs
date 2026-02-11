@@ -1,12 +1,12 @@
 ---
 title: "Раздел 3: Каталог компонентов"
-description: "UI Design System v1.0 — каталог shadcn/ui компонентов, используемых в ADOLF, с примерами применения"
+description: "UI Design System v1.1 — каталог shadcn/ui компонентов, используемых в ADOLF, с примерами применения"
 mode: "wide"
 ---
 
 # Каталог компонентов ADOLF
 
-**Версия:** 1.0
+**Версия:** 1.1
 **Дата:** Февраль 2026
 
 ## Обзор
@@ -30,7 +30,7 @@ flowchart TB
 
     subgraph ADOLF["ADOLF"]
         VARS["shadcn-variables.css<br/>CSS Custom Properties"]
-        MODULE_CSS["Module CSS<br/>--module-color алиасы"]
+        MODULE_CSS["Module CSS<br/>Стилизация через --primary"]
         VARS --> MODULE_CSS
         MODULE_CSS --> UI["Интерфейс модулей"]
         COMP --> UI
@@ -73,9 +73,9 @@ flowchart TB
 
 /* Модульная кнопка действия */
 .adolf-btn-export {
-  background: var(--module-color);
-  color: var(--module-color-foreground);
-  border-color: var(--module-color);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
 }
 .adolf-btn-export:hover:not(:disabled) { opacity: 0.9; }
 
@@ -141,7 +141,7 @@ flowchart TB
   width: 32px;
   height: 32px;
   border: 3px solid var(--border);
-  border-top-color: var(--module-color);
+  border-top-color: var(--primary);
   border-radius: var(--radius-full);
   animation: adolf-spin 1s linear infinite;
 }
@@ -159,7 +159,7 @@ flowchart TB
 
 ```
 ┌──────────────────────────────────────┐
-│ Header (module-color-light фон)      │
+│ Header (muted фон)      │
 │  Icon + Title          Count Badge   │
 ├──────────────────────────────────────┤
 │ Filters (muted фон, опционально)    │
@@ -184,13 +184,13 @@ flowchart TB
   overflow: hidden;
 }
 
-/* Заголовок с цветом модуля */
+/* Заголовок карточки */
 .adolf-kb-result-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
+  background: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
@@ -242,14 +242,14 @@ border-top: 1px solid var(--border);
 }
 
 .adolf-cfo-period-btn:hover {
-  border-color: var(--module-color);
-  color: var(--module-color);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .adolf-cfo-period-btn.active {
-  background: var(--module-color);
-  border-color: var(--module-color);
-  color: var(--module-color-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
 ```
 
@@ -286,14 +286,14 @@ border-top: 1px solid var(--border);
 }
 
 .adolf-rep-filter-chip:hover {
-  border-color: var(--module-color);
-  color: var(--module-color);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .adolf-rep-filter-chip.active {
-  background: var(--module-color);
-  border-color: var(--module-color);
-  color: var(--module-color-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
 /* Семантические варианты */
@@ -362,7 +362,7 @@ border-top: 1px solid var(--border);
 .adolf-rep-stat-value {
   font-size: var(--text-xl);
   font-weight: var(--font-bold);
-  color: var(--module-color);
+  color: var(--primary);
 }
 
 .adolf-rep-stat-label {
@@ -413,7 +413,7 @@ border-top: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--spacing-4);
   margin-bottom: var(--spacing-6);
-  border-left: 4px solid var(--module-color);
+  border-left: 4px solid var(--primary);
 }
 ```
 
@@ -554,7 +554,7 @@ border-top: 1px solid var(--border);
 | Документ | Описание |
 |:---------|:---------|
 | [Раздел 1: Основы](/ui/adolf_ui_1_foundations) | CSS-переменные, используемые компонентами |
-| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Цвета модулей и алиасинг |
+| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, иконки, маркетплейсы |
 | [Раздел 4: Паттерны компоновки](/ui/adolf_ui_4_layout_patterns) | Сборка компонентов в layouts |
 | `ui_reference/reputation/reputation.css` | Полный CSS модуля Reputation |
 | `ui_reference/cfo/cfo.css` | Полный CSS модуля CFO |
@@ -563,4 +563,4 @@ border-top: 1px solid var(--border);
 
 ---
 
-**Версия:** 1.0 | **Дата:** Февраль 2026
+**Версия:** 1.1 | **Дата:** Февраль 2026
