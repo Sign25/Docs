@@ -34,6 +34,8 @@ mode: "wide"
 | **React import** | `BotMessageSquare` |
 | **Ссылка** | [lucide.dev/icons/bot-message-square](https://lucide.dev/icons/bot-message-square) |
 
+![Логотип приложения](/ui/icons/app-logo.svg)
+
 
 ```html
 <i data-lucide="bot-message-square" stroke-width="1.5"></i>
@@ -48,6 +50,8 @@ mode: "wide"
 | **Пакет** | `lucide` (основной) |
 | **React import** | `MessageSquareMore` |
 | **Ссылка** | [lucide.dev/icons/message-square-more](https://lucide.dev/icons/message-square-more) |
+
+![Новый чат](/ui/icons/new-chat.svg)
 
 
 ```html
@@ -66,6 +70,8 @@ mode: "wide"
 | **React import** | `DatabaseSearch` |
 | **Ссылка** | [lucide.dev/icons/database-search](https://lucide.dev/icons/database-search) |
 
+![Knowledge](/ui/icons/knowledge.svg)
+
 
 ```html
 <i data-lucide="database-search" stroke-width="1.5"></i>
@@ -80,6 +86,8 @@ mode: "wide"
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Shirt` |
 | **Ссылка** | [lucide.dev/icons/shirt](https://lucide.dev/icons/shirt) |
+
+![Content Factory](/ui/icons/content-factory.svg)
 
 
 ```html
@@ -96,6 +104,8 @@ mode: "wide"
 | **React import** | `ChartCandlestick` |
 | **Ссылка** | [lucide.dev/icons/chart-candlestick](https://lucide.dev/icons/chart-candlestick) |
 
+![CFO](/ui/icons/cfo.svg)
+
 
 ```html
 <i data-lucide="chart-candlestick" stroke-width="1.5"></i>
@@ -110,6 +120,8 @@ mode: "wide"
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ThumbsUp` |
 | **Ссылка** | [lucide.dev/icons/thumbs-up](https://lucide.dev/icons/thumbs-up) |
+
+![Reputation](/ui/icons/reputation.svg)
 
 
 ```html
@@ -126,6 +138,8 @@ mode: "wide"
 | **React import** | `HatGlasses` |
 | **Ссылка** | [lucide.dev/icons/hat-glasses](https://lucide.dev/icons/hat-glasses) |
 
+![Watcher](/ui/icons/watcher.svg)
+
 
 ```html
 <i data-lucide="hat-glasses" stroke-width="1.5"></i>
@@ -140,6 +154,8 @@ mode: "wide"
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Target` |
 | **Ссылка** | [lucide.dev/icons/target](https://lucide.dev/icons/target) |
+
+![Marketing](/ui/icons/marketing.svg)
 
 
 ```html
@@ -156,6 +172,8 @@ mode: "wide"
 | **React import** | `Binoculars` |
 | **Ссылка** | [lucide.dev/icons/binoculars](https://lucide.dev/icons/binoculars) |
 
+![Scout](/ui/icons/scout.svg)
+
 
 ```html
 <i data-lucide="binoculars" stroke-width="1.5"></i>
@@ -170,6 +188,8 @@ mode: "wide"
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Scale` |
 | **Ссылка** | [lucide.dev/icons/scale](https://lucide.dev/icons/scale) |
+
+![Lex](/ui/icons/lex.svg)
 
 
 ```html
@@ -186,6 +206,8 @@ mode: "wide"
 | **React import** | `Truck` |
 | **Ссылка** | [lucide.dev/icons/truck](https://lucide.dev/icons/truck) |
 
+![Logistic](/ui/icons/logistic.svg)
+
 
 ```html
 <i data-lucide="truck" stroke-width="1.5"></i>
@@ -201,6 +223,8 @@ mode: "wide"
 | **React import** | `Building2` |
 | **Ссылка** | [lucide.dev/icons/building-2](https://lucide.dev/icons/building-2) |
 
+![Office](/ui/icons/office.svg)
+
 
 ```html
 <i data-lucide="building-2" stroke-width="1.5"></i>
@@ -215,6 +239,8 @@ mode: "wide"
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ShoppingCart` |
 | **Ссылка** | [lucide.dev/icons/shopping-cart](https://lucide.dev/icons/shopping-cart) |
+
+![Shop](/ui/icons/shop.svg)
 
 
 ```html
