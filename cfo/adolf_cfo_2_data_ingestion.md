@@ -5,7 +5,7 @@ mode: "wide"
 
 **Проект:** Финансовый учёт и управленческая аналитика  
 **Модуль:** CFO  
-**Версия:** 1.0  
+**Версия:** 1.1  
 **Дата:** Январь 2026
 
 ---
@@ -24,8 +24,12 @@ mode: "wide"
 | Ozon Excel | Файл | Еженедельно | Отчёт о реализации |
 | Яндекс.Маркет API | API | Ежедневно | Финансовый отчёт |
 | Яндекс.Маркет Excel | Файл | Еженедельно | Детализация из ЛК |
-| 1С (себестоимость) | Файл | Еженедельно | Barcode → COGS |
+| 1С:КА 2 (себестоимость) | Файл | Еженедельно | SKU → COGS |
 | Бухгалтерская первичка | Файл | По мере поступления | Накладные, акты |
+
+<Note>
+**Изменение v1.1:** Идентификация товаров из 1С производится только по Артикулу (SKU). Штрихкоды в выгрузках 1С не используются, т.к. не указываются при оптовых продажах. Номенклатурные группы не ведутся в базе 1С заказчика.
+</Note>
 
 ---
 
@@ -40,7 +44,7 @@ graph TB
         OZON_API["Ozon API"]
         YM_API["YM API"]
         EXCEL["Excel файлы"]
-        CSV["CSV файлы"]
+        CSV_1C["CSV из 1С"]
     end
 
     subgraph ADAPTERS["Адаптеры"]
@@ -48,7 +52,7 @@ graph TB
         OZON_ADAPTER["OzonFinanceAdapter"]
         YM_ADAPTER["YMFinanceAdapter"]
         EXCEL_PARSER["ExcelParser"]
-        CSV_PARSER["CSVParser"]
+        COST_PARSER["CostPriceParser"]
     end
 
     subgraph PROCESSING["Обработка"]
@@ -65,10 +69,10 @@ graph TB
     OZON_API --> OZON_ADAPTER
     YM_API --> YM_ADAPTER
     EXCEL --> EXCEL_PARSER
-    CSV --> CSV_PARSER
+    CSV_1C --> COST_PARSER
 
     WB_ADAPTER & OZON_ADAPTER & YM_ADAPTER --> NORMALIZE
-    EXCEL_PARSER & CSV_PARSER --> NORMALIZE
+    EXCEL_PARSER & COST_PARSER --> NORMALIZE
     
     NORMALIZE --> VALIDATE
     VALIDATE --> DEDUP
@@ -86,8 +90,8 @@ graph TB
 │   │   └── Ozon_Realization_2026-01-15.xlsx
 │   └── ym/                    # Excel-отчёты Яндекс.Маркет
 │       └── YM_Finance_2026-01-15.xlsx
-├── costs/                     # Себестоимость из 1С
-│   └── COGS_2026-01-13.csv
+├── costs/                     # Себестоимость из 1С:КА 2
+│   └── cost_prices_2026-01-13.csv
 └── primary/                   # Бухгалтерская первичка
     ├── invoices/              # Накладные
     ├── acts/                  # Акты
@@ -188,9 +192,9 @@ graph TB
 
 | Поле WB API | Поле CFO | Описание |
 |-------------|----------|----------|
-| `sa_name` | `sku` | Артикул продавца |
+| `sa_name` | `sku` | Артикул продавца (основной идентификатор) |
 | `nm_id` | `nm_id` | Номенклатура WB |
-| `barcode` | `barcode` | Штрихкод |
+| `barcode` | `barcode` | Штрихкод (опционально, из API МП) |
 | `subject_name` | `category` | Категория |
 | `brand_name` | `brand_name` | Бренд |
 | `ts_name` | `size` | Размер |
@@ -218,7 +222,7 @@ class WBTransaction:
     external_id: str
     sku: str
     nm_id: int
-    barcode: str
+    barcode: Optional[str]  # Опционально — приходит из API МП
     category: str
     brand_name: str
     size: str
@@ -286,26 +290,19 @@ class WBFinanceAdapter:
         
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                url,
-                params=params,
-                headers=self.headers
-            ) as resp:
-                if resp.status == 429:
-                    raise RateLimitError("WB API rate limit exceeded")
-                
-                if resp.status != 200:
-                    raise APIError(f"WB API error: {resp.status}")
-                
-                return await resp.json()
+                url, params=params, headers=self.headers
+            ) as response:
+                response.raise_for_status()
+                return await response.json()
     
     def _map_transaction(self, raw: dict) -> WBTransaction:
-        """Маппинг сырых данных в структуру транзакции."""
+        """Маппинг сырых данных в транзакцию."""
         
         return WBTransaction(
             external_id=raw.get("srid", ""),
             sku=raw.get("sa_name", ""),
             nm_id=raw.get("nm_id", 0),
-            barcode=raw.get("barcode", ""),
+            barcode=raw.get("barcode") or None,  # None если пустой
             category=raw.get("subject_name", ""),
             brand_name=raw.get("brand_name", ""),
             size=raw.get("ts_name", ""),
@@ -319,7 +316,7 @@ class WBFinanceAdapter:
                 raw.get("sale_dt", "").replace("Z", "+00:00")
             ),
             operation_type=raw.get("doc_type_name", ""),
-            quantity=int(raw.get("quantity", 1))
+            quantity=int(raw.get("quantity", 0))
         )
 ```
 
@@ -334,16 +331,16 @@ class WBFinanceAdapter:
 | Base URL | `https://api-seller.ozon.ru` |
 | Endpoint | `/v3/finance/transaction/list` |
 | Method | POST |
-| Auth | Headers `Client-Id`, `Api-Key` |
+| Auth | Headers `Client-Id` + `Api-Key` |
 
-### 2.4.2 Тело запроса
+### 2.4.2 Параметры запроса
 
 ```json
 {
   "filter": {
     "date": {
-      "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-01-07T23:59:59.999Z"
+      "from": "2026-01-01T00:00:00Z",
+      "to": "2026-01-07T23:59:59Z"
     },
     "operation_type": [],
     "posting_number": "",
@@ -363,35 +360,30 @@ class WBFinanceAdapter:
       {
         "operation_id": 123456789,
         "operation_type": "OperationAgentDeliveredToCustomer",
-        "operation_date": "2026-01-06T10:00:00.000Z",
+        "operation_date": "2026-01-06T10:00:00Z",
         "operation_type_name": "Доставка покупателю",
-        "delivery_charge": 50.00,
+        "delivery_charge": 50.0,
         "return_delivery_charge": 0,
-        "accruals_for_sale": 2500.00,
-        "sale_commission": 375.00,
-        "amount": 2075.00,
+        "accruals_for_sale": 2500.0,
+        "sale_commission": 375.0,
+        "amount": 2075.0,
         "type": "compensation",
         "posting": {
           "delivery_schema": "FBO",
-          "order_date": "2026-01-05T14:30:00.000Z",
-          "posting_number": "12345678-0001-1",
-          "warehouse_id": 123456
+          "order_date": "2026-01-05T14:30:00Z",
+          "posting_number": "12345678-0001-1"
         },
         "items": [
           {
-            "name": "Платье летнее",
-            "sku": 987654321,
+            "name": "Платье летнее синее",
+            "sku": 123456789,
             "offer_id": "OM-12345"
           }
         ],
         "services": [
           {
-            "name": "Комиссия за продажу",
-            "price": 375.00
-          },
-          {
-            "name": "Логистика",
-            "price": 50.00
+            "name": "MarketplaceServiceItemFulfillment",
+            "price": -50.0
           }
         ]
       }
@@ -406,11 +398,11 @@ class WBFinanceAdapter:
 
 | Поле Ozon API | Поле CFO | Описание |
 |---------------|----------|----------|
-| `items[0].offer_id` | `sku` | Артикул продавца |
+| `items[0].offer_id` | `sku` | Артикул продавца (основной идентификатор) |
 | `items[0].sku` | `nm_id` | SKU Ozon |
 | `items[0].name` | `product_name` | Название товара |
 | `accruals_for_sale` | `revenue` | Выручка |
-| `sale_commission` | `commission` | Комиссия МП |
+| `sale_commission` | `commission` | Комиссия |
 | `delivery_charge` | `logistics` | Логистика |
 | `return_delivery_charge` | `return_logistics` | Обратная логистика |
 | `amount` | `payout` | К выплате |
@@ -426,7 +418,7 @@ class OzonTransaction:
     """Транзакция Ozon."""
     external_id: str
     sku: str
-    nm_id: int
+    ozon_sku: int
     product_name: str
     revenue: float
     commission: float
@@ -436,7 +428,7 @@ class OzonTransaction:
     payout: float
     sale_date: datetime
     operation_type: str
-    posting_number: str
+    quantity: int
 
 
 class OzonFinanceAdapter:
@@ -482,15 +474,15 @@ class OzonFinanceAdapter:
         date_from: date,
         date_to: date,
         page: int
-    ) -> tuple[List[dict], int]:
+    ) -> tuple:
         """Получение страницы данных."""
         
         url = f"{self.BASE_URL}/v3/finance/transaction/list"
-        body = {
+        payload = {
             "filter": {
                 "date": {
-                    "from": f"{date_from}T00:00:00.000Z",
-                    "to": f"{date_to}T23:59:59.999Z"
+                    "from": f"{date_from}T00:00:00Z",
+                    "to": f"{date_to}T23:59:59Z"
                 },
                 "transaction_type": "all"
             },
@@ -500,40 +492,32 @@ class OzonFinanceAdapter:
         
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                url,
-                json=body,
-                headers=self.headers
-            ) as resp:
-                if resp.status == 429:
-                    raise RateLimitError("Ozon API rate limit exceeded")
+                url, json=payload, headers=self.headers
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
                 
-                if resp.status != 200:
-                    raise APIError(f"Ozon API error: {resp.status}")
+                operations = data.get("result", {}).get("operations", [])
+                page_count = data.get("result", {}).get("page_count", 1)
                 
-                data = await resp.json()
-                result = data.get("result", {})
-                
-                return (
-                    result.get("operations", []),
-                    result.get("page_count", 1)
-                )
+                return operations, page_count
     
     def _map_transaction(self, raw: dict) -> OzonTransaction:
-        """Маппинг сырых данных в структуру транзакции."""
+        """Маппинг сырых данных в транзакцию."""
         
         items = raw.get("items", [{}])
         first_item = items[0] if items else {}
         
-        # Извлечение storage из services
+        # Расчёт хранения из services
         storage = 0.0
         for service in raw.get("services", []):
-            if "хранение" in service.get("name", "").lower():
-                storage += service.get("price", 0)
+            if "Storage" in service.get("name", ""):
+                storage += abs(float(service.get("price", 0)))
         
         return OzonTransaction(
             external_id=str(raw.get("operation_id", "")),
             sku=first_item.get("offer_id", ""),
-            nm_id=first_item.get("sku", 0),
+            ozon_sku=first_item.get("sku", 0),
             product_name=first_item.get("name", ""),
             revenue=float(raw.get("accruals_for_sale", 0)),
             commission=float(raw.get("sale_commission", 0)),
@@ -545,7 +529,7 @@ class OzonFinanceAdapter:
                 raw.get("operation_date", "").replace("Z", "+00:00")
             ),
             operation_type=raw.get("operation_type_name", ""),
-            posting_number=raw.get("posting", {}).get("posting_number", "")
+            quantity=1
         )
 ```
 
@@ -558,388 +542,177 @@ class OzonFinanceAdapter:
 | Параметр | Значение |
 |----------|----------|
 | Base URL | `https://api.partner.market.yandex.ru` |
-| Endpoint | `/campaigns/{campaignId}/stats/orders` |
-| Method | POST |
-| Auth | Header `Authorization: OAuth {token}` |
+| Endpoint | `/v2/campaigns/{campaignId}/stats/orders` |
+| Method | GET |
+| Auth | Header `Authorization: OAuth {TOKEN}` |
 
-### 2.5.2 Структура ответа
-
-```json
-{
-  "result": {
-    "orders": [
-      {
-        "id": 123456789,
-        "creationDate": "2026-01-05",
-        "statusUpdateDate": "2026-01-06T10:00:00+03:00",
-        "status": "DELIVERED",
-        "partnerOrderId": "OM-ORDER-001",
-        "items": [
-          {
-            "offerName": "Платье летнее",
-            "marketSku": 987654321,
-            "shopSku": "OM-12345",
-            "count": 1,
-            "prices": {
-              "buyerPrice": 3500.00,
-              "buyerPriceBeforeDiscount": 4000.00
-            },
-            "warehouse": {
-              "id": 123,
-              "name": "Склад Москва"
-            }
-          }
-        ],
-        "commissions": [
-          {
-            "type": "FEE",
-            "actual": 525.00
-          },
-          {
-            "type": "DELIVERY_TO_CUSTOMER",
-            "actual": 150.00
-          }
-        ],
-        "payments": [
-          {
-            "type": "PAYMENT",
-            "total": 2825.00
-          }
-        ]
-      }
-    ],
-    "paging": {
-      "nextPageToken": "abc123"
-    }
-  }
-}
-```
-
-### 2.5.3 Маппинг полей YM → CFO
+### 2.5.2 Маппинг полей YM → CFO
 
 | Поле YM API | Поле CFO | Описание |
 |-------------|----------|----------|
-| `items[0].shopSku` | `sku` | Артикул продавца |
-| `items[0].marketSku` | `nm_id` | SKU Яндекс.Маркет |
-| `items[0].offerName` | `product_name` | Название товара |
-| `items[0].prices.buyerPrice` | `revenue` | Выручка |
-| `commissions[FEE].actual` | `commission` | Комиссия МП |
-| `commissions[DELIVERY_TO_CUSTOMER].actual` | `logistics` | Логистика |
-| `payments[PAYMENT].total` | `payout` | К выплате |
-| `statusUpdateDate` | `sale_date` | Дата операции |
-| `status` | `operation_type` | Статус заказа |
-| `id` | `external_id` | ID заказа |
-
-### 2.5.4 Реализация адаптера
-
-```python
-@dataclass
-class YMTransaction:
-    """Транзакция Яндекс.Маркет."""
-    external_id: str
-    sku: str
-    nm_id: int
-    product_name: str
-    revenue: float
-    commission: float
-    logistics: float
-    return_logistics: float
-    storage: float
-    payout: float
-    sale_date: datetime
-    operation_type: str
-
-
-class YMFinanceAdapter:
-    """Адаптер для финансового API Яндекс.Маркет."""
-    
-    BASE_URL = "https://api.partner.market.yandex.ru"
-    
-    def __init__(self, oauth_token: str, campaign_id: str):
-        self.oauth_token = oauth_token
-        self.campaign_id = campaign_id
-        self.headers = {
-            "Authorization": f"OAuth {oauth_token}",
-            "Content-Type": "application/json"
-        }
-    
-    async def get_transactions(
-        self,
-        date_from: date,
-        date_to: date
-    ) -> List[YMTransaction]:
-        """Получение транзакций за период."""
-        
-        transactions = []
-        page_token = None
-        
-        while True:
-            batch, next_token = await self._fetch_page(
-                date_from, date_to, page_token
-            )
-            
-            transactions.extend(batch)
-            
-            if not next_token:
-                break
-            
-            page_token = next_token
-        
-        return [self._map_transaction(t) for t in transactions]
-    
-    async def _fetch_page(
-        self,
-        date_from: date,
-        date_to: date,
-        page_token: Optional[str]
-    ) -> tuple[List[dict], Optional[str]]:
-        """Получение страницы данных."""
-        
-        url = f"{self.BASE_URL}/campaigns/{self.campaign_id}/stats/orders"
-        body = {
-            "dateFrom": date_from.isoformat(),
-            "dateTo": date_to.isoformat(),
-            "statuses": ["DELIVERED", "RETURNED"]
-        }
-        
-        if page_token:
-            body["pageToken"] = page_token
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                json=body,
-                headers=self.headers
-            ) as resp:
-                if resp.status == 429:
-                    raise RateLimitError("YM API rate limit exceeded")
-                
-                if resp.status != 200:
-                    raise APIError(f"YM API error: {resp.status}")
-                
-                data = await resp.json()
-                result = data.get("result", {})
-                paging = result.get("paging", {})
-                
-                return (
-                    result.get("orders", []),
-                    paging.get("nextPageToken")
-                )
-    
-    def _map_transaction(self, raw: dict) -> YMTransaction:
-        """Маппинг сырых данных в структуру транзакции."""
-        
-        items = raw.get("items", [{}])
-        first_item = items[0] if items else {}
-        
-        # Извлечение комиссий
-        commissions = {c["type"]: c["actual"] for c in raw.get("commissions", [])}
-        commission = commissions.get("FEE", 0)
-        logistics = commissions.get("DELIVERY_TO_CUSTOMER", 0)
-        return_logistics = commissions.get("RETURN_DELIVERY", 0)
-        storage = commissions.get("STORAGE", 0)
-        
-        # Извлечение выплаты
-        payments = {p["type"]: p["total"] for p in raw.get("payments", [])}
-        payout = payments.get("PAYMENT", 0)
-        
-        return YMTransaction(
-            external_id=str(raw.get("id", "")),
-            sku=first_item.get("shopSku", ""),
-            nm_id=first_item.get("marketSku", 0),
-            product_name=first_item.get("offerName", ""),
-            revenue=float(first_item.get("prices", {}).get("buyerPrice", 0)),
-            commission=float(commission),
-            logistics=float(logistics),
-            return_logistics=float(return_logistics),
-            storage=float(storage),
-            payout=float(payout),
-            sale_date=datetime.fromisoformat(
-                raw.get("statusUpdateDate", "").replace("Z", "+00:00")
-            ),
-            operation_type=raw.get("status", "")
-        )
-```
+| `shopSku` | `sku` | Артикул продавца |
+| `marketSku` | `nm_id` | SKU Яндекса |
+| `offerName` | `product_name` | Название |
+| `prices.value` | `revenue` | Выручка |
+| `commissions.amount` | `commission` | Комиссия |
+| `delivery.price` | `logistics` | Логистика |
 
 ---
 
 ## 2.6 Excel Parser
 
-### 2.6.1 Поддерживаемые форматы
+### 2.6.1 Wildberries Excel
 
-| Маркетплейс | Тип отчёта | Формат | Описание |
-|-------------|------------|--------|----------|
-| Wildberries | Финансовый отчёт | XLSX | Еженедельный отчёт из ЛК |
-| Ozon | Отчёт о реализации | XLSX | Детализация по периоду |
-| Яндекс.Маркет | Финансовый отчёт | XLSX | Отчёт из ЛК |
-
-### 2.6.2 Wildberries Excel Parser
-
-**Структура файла WB:**
+**Структура файла:**
 
 | Колонка | Описание |
 |---------|----------|
-| A | Номер отчёта |
-| B | Дата начала |
-| C | Дата окончания |
-| D | Артикул поставщика |
-| E | Баркод |
-| F | Предмет |
-| G | Бренд |
-| H | Размер |
-| I | Цена розничная |
-| J | Скидка |
-| K | Выручка |
-| L | Комиссия WB |
-| M | Логистика |
-| N | Хранение |
-| O | К выплате |
+| Артикул поставщика | SKU |
+| Баркод | Штрихкод (из файла МП, не 1С) |
+| Бренд | Название бренда |
+| Предмет | Категория |
+| Размер | Размер товара |
+| К перечислению продавцу | Сумма выплаты |
+| Вознаграждение ВБ | Комиссия |
+| Логистика | Стоимость доставки |
+| Хранение | Стоимость хранения |
+| Дата продажи | Дата операции |
+
+### 2.6.2 Маппинг колонок Excel
 
 ```python
-import pandas as pd
-from typing import List
-from pathlib import Path
-
 class WBExcelParser:
     """Парсер Excel-отчётов Wildberries."""
     
     COLUMN_MAPPING = {
         "Артикул поставщика": "sku",
-        "Баркод": "barcode",
-        "Предмет": "category",
-        "Бренд": "brand_name",
-        "Размер": "size",
-        "Выручка": "revenue",
-        "Комиссия WB": "commission",
-        "Логистика": "logistics",
-        "Хранение": "storage",
-        "К выплате": "payout"
-    }
-    
-    def parse(self, file_path: Path) -> List[dict]:
-        """Парсинг Excel-файла WB."""
-        
-        df = pd.read_excel(
-            file_path,
-            sheet_name=0,
-            skiprows=1  # Пропуск заголовка отчёта
-        )
-        
-        # Переименование колонок
-        df = df.rename(columns=self.COLUMN_MAPPING)
-        
-        # Фильтрация только нужных колонок
-        columns = list(self.COLUMN_MAPPING.values())
-        df = df[[c for c in columns if c in df.columns]]
-        
-        # Конвертация в список словарей
-        records = df.to_dict(orient="records")
-        
-        # Добавление метаданных
-        for record in records:
-            record["marketplace"] = "wb"
-            record["source"] = "excel"
-            record["source_file"] = file_path.name
-        
-        return records
-```
-
-### 2.6.3 Ozon Excel Parser
-
-```python
-class OzonExcelParser:
-    """Парсер Excel-отчётов Ozon."""
-    
-    COLUMN_MAPPING = {
         "Артикул": "sku",
-        "Ozon SKU": "nm_id",
-        "Наименование": "product_name",
-        "Сумма продажи": "revenue",
-        "Комиссия": "commission",
+        "Баркод": "barcode",  # Приходит из файла МП
+        "Бренд": "brand_name",
+        "Предмет": "category",
+        "Размер": "size",
+        "К перечислению продавцу": "payout",
+        "К перечислению": "payout",
+        "Вознаграждение ВБ": "commission",
+        "Вознаграждение Вайлдберриз": "commission",
         "Логистика": "logistics",
-        "Возвратная логистика": "return_logistics",
+        "Услуги логистики": "logistics",
         "Хранение": "storage",
-        "К выплате": "payout",
-        "Дата": "sale_date"
+        "Услуги хранения": "storage",
+        "Дата продажи": "sale_date",
+        "Дата заказа покупателем": "sale_date",
+        "Тип документа": "operation_type",
+        "Обоснование": "operation_type",
+        "Кол-во": "quantity",
+        "Количество": "quantity"
     }
-    
-    def parse(self, file_path: Path) -> List[dict]:
-        """Парсинг Excel-файла Ozon."""
-        
-        df = pd.read_excel(file_path, sheet_name=0)
-        df = df.rename(columns=self.COLUMN_MAPPING)
-        
-        columns = list(self.COLUMN_MAPPING.values())
-        df = df[[c for c in columns if c in df.columns]]
-        
-        records = df.to_dict(orient="records")
-        
-        for record in records:
-            record["marketplace"] = "ozon"
-            record["source"] = "excel"
-            record["source_file"] = file_path.name
-        
-        return records
 ```
 
 ---
 
-## 2.7 Cost Price Parser (1С)
+## 2.7 Cost Price Parser (1С:КА 2)
+
+<Warning>
+**Важно:** Файлы себестоимости из 1С:Комплексная автоматизация 2 содержат только Артикул (SKU) в качестве идентификатора товара. Штрихкоды не выгружаются, т.к. не указываются при оптовых продажах. Связывание с транзакциями маркетплейсов производится по полю `sku`.
+</Warning>
 
 ### 2.7.1 Формат файла себестоимости
 
-**CSV из 1С:**
+**CSV из 1С:КА 2:**
 
 ```csv
-Barcode;SKU;ProductName;CostPrice;Currency;UpdateDate
-2000000000001;OM-12345;Платье летнее;1200.00;RUB;2026-01-13
-2000000000002;OM-12346;Блузка офисная;800.00;RUB;2026-01-13
-2000000000003;OK-54321;Футболка детская;450.00;RUB;2026-01-13
+sku;product_name;cost_price;currency;valid_from;brand_id
+OM-12345;Платье летнее синее;1200.00;RUB;2026-01-13;Охана Маркет
+OM-12346;Блузка офисная;800.00;RUB;2026-01-13;Охана Маркет
+OK-54321;Футболка детская;450.00;RUB;2026-01-13;Охана Кидс
 ```
 
-**XLS из 1С:**
+**Колонки файла:**
 
-| Штрихкод | Артикул | Наименование | Себестоимость | Валюта | Дата |
-|----------|---------|--------------|---------------|--------|------|
-| 2000000000001 | OM-12345 | Платье летнее | 1200.00 | RUB | 13.01.2026 |
+| Колонка 1С | Имя поля | Тип | Обязательно | Описание |
+|------------|----------|-----|:-----------:|----------|
+| Артикул | `sku` | string | Да | Основной идентификатор товара |
+| Номенклатура | `product_name` | string | Да | Наименование товара |
+| Себестоимость | `cost_price` | decimal | Да | Себестоимость единицы |
+| Валюта | `currency` | string | Нет | Валюта (по умолчанию RUB) |
+| Дата расчёта | `valid_from` | date | Да | Дата актуальности себестоимости |
+| Вид номенклатуры | `brand_id` | string | Нет | Бренд (Охана Маркет / Охана Кидс) |
+
+<Note>
+Поля «Штрихкод» и «Номенклатурная группа» исключены из выгрузки по согласованию с обслуживающей организацией 1С (см. документ «Регламент выгрузок из 1С:КА 2 для системы BRAIN», раздел 9 «Учтённые замечания»).
+</Note>
 
 ### 2.7.2 Реализация парсера
 
 ```python
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from typing import List, Optional
+import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class CostPriceRecord:
-    """Запись себестоимости."""
-    barcode: str
-    sku: str
-    product_name: str
-    cost_price: float
-    currency: str
-    update_date: date
+    """Запись себестоимости из 1С:КА 2."""
+    sku: str                      # Артикул — основной идентификатор
+    product_name: str             # Наименование товара
+    cost_price: float             # Себестоимость
+    currency: str                 # Валюта
+    valid_from: date              # Дата актуальности
+    brand_id: Optional[str]       # Вид номенклатуры (бренд)
 
 
 class CostPriceParser:
-    """Парсер файлов себестоимости из 1С."""
+    """Парсер файлов себестоимости из 1С:КА 2.
     
+    Идентификация товаров производится только по Артикулу (SKU).
+    Штрихкоды и номенклатурные группы не используются.
+    """
+    
+    # Маппинг колонок CSV (английские названия)
     CSV_COLUMN_MAPPING = {
-        "Barcode": "barcode",
+        "sku": "sku",
         "SKU": "sku",
+        "product_name": "product_name",
         "ProductName": "product_name",
+        "cost_price": "cost_price",
         "CostPrice": "cost_price",
+        "currency": "currency",
         "Currency": "currency",
-        "UpdateDate": "update_date"
+        "valid_from": "valid_from",
+        "ValidFrom": "valid_from",
+        "brand_id": "brand_id",
+        "BrandId": "brand_id"
     }
     
+    # Маппинг колонок Excel (русские названия из 1С)
     XLS_COLUMN_MAPPING = {
-        "Штрихкод": "barcode",
         "Артикул": "sku",
+        "Номенклатура": "product_name",
         "Наименование": "product_name",
         "Себестоимость": "cost_price",
         "Валюта": "currency",
-        "Дата": "update_date"
+        "Дата расчёта": "valid_from",
+        "Дата": "valid_from",
+        "Вид номенклатуры": "brand_id"
     }
     
     def parse(self, file_path: Path) -> List[CostPriceRecord]:
-        """Парсинг файла себестоимости."""
+        """Парсинг файла себестоимости.
+        
+        Args:
+            file_path: Путь к файлу CSV или Excel
+            
+        Returns:
+            Список записей себестоимости
+            
+        Raises:
+            ValueError: Неподдерживаемый формат файла
+        """
         
         suffix = file_path.suffix.lower()
         
@@ -951,41 +724,203 @@ class CostPriceParser:
             raise ValueError(f"Unsupported file format: {suffix}")
     
     def _parse_csv(self, file_path: Path) -> List[CostPriceRecord]:
-        """Парсинг CSV."""
+        """Парсинг CSV файла."""
         
-        df = pd.read_csv(file_path, sep=";", encoding="utf-8")
+        df = pd.read_csv(
+            file_path, 
+            sep=";", 
+            encoding="utf-8",
+            dtype={"sku": str}  # SKU всегда строка
+        )
         df = df.rename(columns=self.CSV_COLUMN_MAPPING)
         
         return self._convert_to_records(df)
     
     def _parse_excel(self, file_path: Path) -> List[CostPriceRecord]:
-        """Парсинг Excel."""
+        """Парсинг Excel файла."""
         
-        df = pd.read_excel(file_path)
+        df = pd.read_excel(
+            file_path,
+            dtype={"Артикул": str}  # SKU всегда строка
+        )
         df = df.rename(columns=self.XLS_COLUMN_MAPPING)
         
         return self._convert_to_records(df)
     
     def _convert_to_records(self, df: pd.DataFrame) -> List[CostPriceRecord]:
-        """Конвертация DataFrame в список записей."""
+        """Конвертация DataFrame в список записей.
+        
+        Args:
+            df: DataFrame с данными себестоимости
+            
+        Returns:
+            Список валидных записей CostPriceRecord
+        """
         
         records = []
+        errors = 0
         
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             try:
+                # SKU обязателен
+                sku = str(row.get("sku", "")).strip()
+                if not sku:
+                    logger.warning(f"Row {idx}: Empty SKU, skipping")
+                    errors += 1
+                    continue
+                
+                # Себестоимость обязательна и > 0
+                cost_price = float(row.get("cost_price", 0))
+                if cost_price <= 0:
+                    logger.warning(f"Row {idx}: Invalid cost_price={cost_price}, skipping")
+                    errors += 1
+                    continue
+                
                 record = CostPriceRecord(
-                    barcode=str(row.get("barcode", "")).strip(),
-                    sku=str(row.get("sku", "")).strip(),
+                    sku=sku,
                     product_name=str(row.get("product_name", "")).strip(),
-                    cost_price=float(row.get("cost_price", 0)),
-                    currency=str(row.get("currency", "RUB")).strip(),
-                    update_date=pd.to_datetime(row.get("update_date")).date()
+                    cost_price=cost_price,
+                    currency=str(row.get("currency", "RUB")).strip() or "RUB",
+                    valid_from=pd.to_datetime(row.get("valid_from")).date(),
+                    brand_id=str(row.get("brand_id", "")).strip() or None
                 )
                 records.append(record)
+                
             except Exception as e:
-                logger.warning(f"Failed to parse row: {row}, error: {e}")
+                logger.warning(f"Row {idx}: Failed to parse - {e}")
+                errors += 1
         
+        logger.info(f"Parsed {len(records)} cost records, {errors} errors")
         return records
+    
+    def get_cost_map(self, records: List[CostPriceRecord]) -> dict:
+        """Создание словаря SKU → себестоимость.
+        
+        При наличии нескольких записей для одного SKU берётся
+        запись с наиболее поздней датой valid_from.
+        
+        Args:
+            records: Список записей себестоимости
+            
+        Returns:
+            Словарь {sku: cost_price}
+        """
+        
+        # Сортируем по дате (новые последние)
+        sorted_records = sorted(records, key=lambda r: r.valid_from)
+        
+        cost_map = {}
+        for record in sorted_records:
+            cost_map[record.sku] = record.cost_price
+        
+        return cost_map
+```
+
+### 2.7.3 Интеграция с Normalizer
+
+```python
+class CostPriceService:
+    """Сервис работы с себестоимостью."""
+    
+    def __init__(self, parser: CostPriceParser, db_session):
+        self.parser = parser
+        self.db = db_session
+        self._cost_cache: dict = {}
+    
+    async def load_cost_prices(self, file_path: Path) -> int:
+        """Загрузка себестоимости из файла в БД.
+        
+        Returns:
+            Количество загруженных записей
+        """
+        
+        records = self.parser.parse(file_path)
+        
+        if not records:
+            return 0
+        
+        # Upsert в таблицу себестоимости
+        query = """
+            INSERT INTO cfo_cost_prices (sku, product_name, cost_price, 
+                                         currency, valid_from, brand_id, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (sku) DO UPDATE SET
+                product_name = EXCLUDED.product_name,
+                cost_price = EXCLUDED.cost_price,
+                currency = EXCLUDED.currency,
+                valid_from = EXCLUDED.valid_from,
+                brand_id = EXCLUDED.brand_id,
+                updated_at = NOW()
+        """
+        
+        for record in records:
+            await self.db.execute(
+                query,
+                record.sku,
+                record.product_name,
+                record.cost_price,
+                record.currency,
+                record.valid_from,
+                record.brand_id
+            )
+        
+        # Обновляем кэш
+        self._cost_cache = self.parser.get_cost_map(records)
+        
+        logger.info(f"Loaded {len(records)} cost prices")
+        return len(records)
+    
+    async def get_cost_price(self, sku: str) -> Optional[float]:
+        """Получение себестоимости по SKU.
+        
+        Args:
+            sku: Артикул товара
+            
+        Returns:
+            Себестоимость или None если не найдена
+        """
+        
+        # Сначала проверяем кэш
+        if sku in self._cost_cache:
+            return self._cost_cache[sku]
+        
+        # Запрос в БД
+        query = """
+            SELECT cost_price FROM cfo_cost_prices 
+            WHERE sku = $1
+            ORDER BY valid_from DESC
+            LIMIT 1
+        """
+        
+        row = await self.db.fetchrow(query, sku)
+        
+        if row:
+            cost = float(row["cost_price"])
+            self._cost_cache[sku] = cost
+            return cost
+        
+        return None
+    
+    async def enrich_transactions(
+        self, 
+        transactions: List[NormalizedTransaction]
+    ) -> List[NormalizedTransaction]:
+        """Обогащение транзакций себестоимостью.
+        
+        Связывание по полю SKU.
+        
+        Args:
+            transactions: Список транзакций
+            
+        Returns:
+            Транзакции с заполненным cost_price
+        """
+        
+        for tx in transactions:
+            if tx.sku:
+                tx.cost_price = await self.get_cost_price(tx.sku)
+        
+        return transactions
 ```
 
 ---
@@ -1005,8 +940,8 @@ class NormalizedTransaction:
     source: str                   # api, excel
     
     # Товар
-    sku: str                      # Артикул продавца
-    barcode: Optional[str]        # Штрихкод (для маппинга с COGS)
+    sku: str                      # Артикул продавца (основной идентификатор)
+    barcode: Optional[str]        # Штрихкод (только из API/Excel МП, не из 1С)
     nm_id: Optional[int]          # ID номенклатуры МП
     product_name: Optional[str]   # Название товара
     category: Optional[str]       # Категория
@@ -1015,12 +950,17 @@ class NormalizedTransaction:
     
     # Финансы
     revenue: float                # Выручка (цена продажи)
+    cost_price: Optional[float]   # Себестоимость (из 1С, по SKU)
     commission: float             # Комиссия МП
     logistics: float              # Логистика до покупателя
     return_logistics: float       # Обратная логистика
     storage: float                # Хранение
     advertising: float            # Реклама (если есть)
     payout: float                 # К выплате
+    
+    # Расчётные поля
+    gross_profit: Optional[float] # Валовая прибыль (revenue - cost_price)
+    net_profit: Optional[float]   # Чистая прибыль (payout - cost_price)
     
     # Мета
     sale_date: date               # Дата продажи
@@ -1030,94 +970,92 @@ class NormalizedTransaction:
     # Служебные
     created_at: datetime          # Дата создания записи
     source_file: Optional[str]    # Имя исходного файла
+    
+    def calculate_profits(self):
+        """Расчёт прибыли при наличии себестоимости."""
+        if self.cost_price is not None:
+            self.gross_profit = self.revenue - (self.cost_price * self.quantity)
+            self.net_profit = self.payout - (self.cost_price * self.quantity)
 
 
 class TransactionNormalizer:
     """Нормализация транзакций из разных источников."""
     
-    def normalize_wb(self, tx: WBTransaction) -> NormalizedTransaction:
+    def __init__(self, cost_service: CostPriceService):
+        self.cost_service = cost_service
+    
+    async def normalize_wb(self, tx: WBTransaction) -> NormalizedTransaction:
         """Нормализация транзакции WB."""
         
-        return NormalizedTransaction(
+        # Получаем себестоимость по SKU
+        cost_price = await self.cost_service.get_cost_price(tx.sku)
+        
+        normalized = NormalizedTransaction(
             external_id=tx.external_id,
             marketplace="wb",
             source="api",
             sku=tx.sku,
-            barcode=tx.barcode,
+            barcode=tx.barcode,  # Из API WB, не из 1С
             nm_id=tx.nm_id,
             product_name=None,
             category=tx.category,
             brand_name=tx.brand_name,
             size=tx.size,
             revenue=tx.revenue,
+            cost_price=cost_price,
             commission=tx.commission,
             logistics=tx.logistics,
             return_logistics=tx.return_logistics,
             storage=tx.storage,
             advertising=0.0,
             payout=tx.payout,
+            gross_profit=None,
+            net_profit=None,
             sale_date=tx.sale_date.date(),
             operation_type=tx.operation_type,
             quantity=tx.quantity,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
             source_file=None
         )
+        
+        normalized.calculate_profits()
+        return normalized
     
-    def normalize_ozon(self, tx: OzonTransaction) -> NormalizedTransaction:
+    async def normalize_ozon(self, tx: OzonTransaction) -> NormalizedTransaction:
         """Нормализация транзакции Ozon."""
         
-        return NormalizedTransaction(
+        cost_price = await self.cost_service.get_cost_price(tx.sku)
+        
+        normalized = NormalizedTransaction(
             external_id=tx.external_id,
             marketplace="ozon",
             source="api",
             sku=tx.sku,
-            barcode=None,
-            nm_id=tx.nm_id,
+            barcode=None,  # Ozon не возвращает barcode в финансовом API
+            nm_id=tx.ozon_sku,
             product_name=tx.product_name,
             category=None,
             brand_name=None,
             size=None,
             revenue=tx.revenue,
+            cost_price=cost_price,
             commission=tx.commission,
             logistics=tx.logistics,
             return_logistics=tx.return_logistics,
             storage=tx.storage,
             advertising=0.0,
             payout=tx.payout,
+            gross_profit=None,
+            net_profit=None,
             sale_date=tx.sale_date.date(),
             operation_type=tx.operation_type,
-            quantity=1,
-            created_at=datetime.utcnow(),
+            quantity=tx.quantity,
+            created_at=datetime.now(),
             source_file=None
         )
-    
-    def normalize_ym(self, tx: YMTransaction) -> NormalizedTransaction:
-        """Нормализация транзакции Яндекс.Маркет."""
         
-        return NormalizedTransaction(
-            external_id=tx.external_id,
-            marketplace="ym",
-            source="api",
-            sku=tx.sku,
-            barcode=None,
-            nm_id=tx.nm_id,
-            product_name=tx.product_name,
-            category=None,
-            brand_name=None,
-            size=None,
-            revenue=tx.revenue,
-            commission=tx.commission,
-            logistics=tx.logistics,
-            return_logistics=tx.return_logistics,
-            storage=tx.storage,
-            advertising=0.0,
-            payout=tx.payout,
-            sale_date=tx.sale_date.date(),
-            operation_type=tx.operation_type,
-            quantity=1,
-            created_at=datetime.utcnow(),
-            source_file=None
-        )
+        normalized.calculate_profits()
+        return normalized
 ```
 
 ---
@@ -1126,13 +1064,14 @@ class TransactionNormalizer:
 
 ### 2.9.1 Правила валидации
 
-| Правило | Описание | Действие при нарушении |
-|---------|----------|------------------------|
+| Правило | Описание | Действие |
+|---------|----------|----------|
 | Required fields | `sku`, `marketplace`, `sale_date` обязательны | Reject |
 | Revenue >= 0 | Выручка не может быть отрицательной | Reject |
 | Valid marketplace | `marketplace IN (wb, ozon, ym)` | Reject |
 | Valid date | Дата не в будущем | Reject |
 | Duplicate check | Проверка по `external_id + marketplace` | Skip |
+| Cost price warning | Себестоимость не найдена | Warning (не reject) |
 
 ### 2.9.2 Реализация
 
@@ -1145,6 +1084,7 @@ class ValidationResult:
     """Результат валидации."""
     is_valid: bool
     errors: List[str]
+    warnings: List[str]
 
 
 class TransactionValidator:
@@ -1156,6 +1096,7 @@ class TransactionValidator:
         """Валидация транзакции."""
         
         errors = []
+        warnings = []
         
         # Required fields
         if not tx.sku:
@@ -1179,9 +1120,14 @@ class TransactionValidator:
         if tx.sale_date and tx.sale_date > date.today():
             errors.append(f"Sale date cannot be in future: {tx.sale_date}")
         
+        # Cost price warning (не ошибка)
+        if tx.cost_price is None:
+            warnings.append(f"Cost price not found for SKU: {tx.sku}")
+        
         return ValidationResult(
             is_valid=len(errors) == 0,
-            errors=errors
+            errors=errors,
+            warnings=warnings
         )
     
     def validate_batch(
@@ -1192,15 +1138,21 @@ class TransactionValidator:
         
         valid = []
         invalid = []
+        warnings_count = 0
         
         for tx in transactions:
             result = self.validate(tx)
             
             if result.is_valid:
                 valid.append(tx)
+                if result.warnings:
+                    warnings_count += 1
+                    for w in result.warnings:
+                        logger.warning(f"Transaction {tx.external_id}: {w}")
             else:
                 invalid.append((tx, result.errors))
         
+        logger.info(f"Validated: {len(valid)} valid, {len(invalid)} invalid, {warnings_count} with warnings")
         return valid, invalid
 ```
 
@@ -1274,6 +1226,7 @@ class TransactionDeduplicator:
         unique = []
         
         for tx in transactions:
+            # Ключ по SKU (не barcode!)
             key = (tx.sku, tx.sale_date, tx.revenue, tx.marketplace)
             
             if key not in seen:
@@ -1299,7 +1252,7 @@ class DataIngestionService:
         ozon_adapter: OzonFinanceAdapter,
         ym_adapter: YMFinanceAdapter,
         excel_parser: ExcelParser,
-        cost_parser: CostPriceParser,
+        cost_service: CostPriceService,
         normalizer: TransactionNormalizer,
         validator: TransactionValidator,
         deduplicator: TransactionDeduplicator,
@@ -1309,7 +1262,7 @@ class DataIngestionService:
         self.ozon = ozon_adapter
         self.ym = ym_adapter
         self.excel_parser = excel_parser
-        self.cost_parser = cost_parser
+        self.cost_service = cost_service
         self.normalizer = normalizer
         self.validator = validator
         self.deduplicator = deduplicator
@@ -1320,6 +1273,9 @@ class DataIngestionService:
         
         result = ImportResult()
         
+        # Сначала загружаем себестоимость из 1С
+        result.merge(await self.import_cost_prices())
+        
         # API импорт
         result.merge(await self.import_wb_api(date_from, date_to))
         result.merge(await self.import_ozon_api(date_from, date_to))
@@ -1328,10 +1284,38 @@ class DataIngestionService:
         # Excel импорт
         result.merge(await self.import_excel_files())
         
-        # Себестоимость
-        result.merge(await self.import_cost_prices())
-        
         return result
+    
+    async def import_cost_prices(self) -> ImportResult:
+        """Импорт себестоимости из 1С:КА 2."""
+        
+        cost_dir = Path("/data/inbox/cfo/costs")
+        
+        try:
+            # Ищем последний файл
+            files = sorted(cost_dir.glob("cost_prices_*.csv"), reverse=True)
+            
+            if not files:
+                logger.warning("No cost price files found")
+                return ImportResult(source="1c_costs", total=0)
+            
+            latest_file = files[0]
+            count = await self.cost_service.load_cost_prices(latest_file)
+            
+            # Архивируем обработанный файл
+            archive_dir = cost_dir / "processed"
+            archive_dir.mkdir(exist_ok=True)
+            latest_file.rename(archive_dir / latest_file.name)
+            
+            return ImportResult(
+                source="1c_costs",
+                total=count,
+                saved=count
+            )
+        
+        except Exception as e:
+            logger.error(f"Cost prices import failed: {e}")
+            return ImportResult(source="1c_costs", error=str(e))
     
     async def import_wb_api(
         self,
@@ -1342,7 +1326,7 @@ class DataIngestionService:
         
         try:
             raw = await self.wb.get_transactions(date_from, date_to)
-            normalized = [self.normalizer.normalize_wb(t) for t in raw]
+            normalized = [await self.normalizer.normalize_wb(t) for t in raw]
             valid, invalid = self.validator.validate_batch(normalized)
             unique = await self.deduplicator.deduplicate(valid)
             
@@ -1374,16 +1358,43 @@ class DataIngestionService:
             INSERT INTO cfo_transactions (
                 external_id, marketplace, source, sku, barcode, nm_id,
                 product_name, category, brand_name, size,
-                revenue, commission, logistics, return_logistics,
-                storage, advertising, payout, sale_date,
-                operation_type, quantity, source_file, created_at
+                revenue, cost_price, commission, logistics, return_logistics,
+                storage, advertising, payout, gross_profit, net_profit,
+                sale_date, operation_type, quantity, source_file, created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                      $11, $12, $13, $14, $15, $16, $17, $18,
-                      $19, $20, $21, $22)
+                      $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+                      $21, $22, $23, $24, $25)
         """
         
         for tx in transactions:
-            await self.db.execute(query, *tx.to_tuple())
+            await self.db.execute(
+                query,
+                tx.external_id,
+                tx.marketplace,
+                tx.source,
+                tx.sku,
+                tx.barcode,  # Может быть None
+                tx.nm_id,
+                tx.product_name,
+                tx.category,
+                tx.brand_name,
+                tx.size,
+                tx.revenue,
+                tx.cost_price,  # Может быть None
+                tx.commission,
+                tx.logistics,
+                tx.return_logistics,
+                tx.storage,
+                tx.advertising,
+                tx.payout,
+                tx.gross_profit,  # Может быть None
+                tx.net_profit,    # Может быть None
+                tx.sale_date,
+                tx.operation_type,
+                tx.quantity,
+                tx.source_file,
+                tx.created_at
+            )
 
 
 @dataclass
@@ -1408,6 +1419,34 @@ class ImportResult:
 
 ---
 
+## 2.12 Изменения в версии 1.1
+
+### Сводка изменений
+
+| Компонент | Было | Стало |
+|-----------|------|-------|
+| Идентификатор товара из 1С | Штрихкод (barcode) | Артикул (sku) |
+| Поле barcode в CostPriceRecord | Обязательное | Удалено |
+| Номенклатурная группа | Присутствовала | Удалена (не ведётся в 1С) |
+| Связывание с транзакциями | По barcode | По sku |
+| Конфигурация 1С | Не указана | 1С:Комплексная автоматизация 2 |
+
+### Причины изменений
+
+1. **Штрихкоды не указываются при оптовых продажах** — типовой отчёт 1С:КА 2 «Себестоимость товаров» не выводит колонку «Штрихкод»
+2. **Номенклатурные группы не ведутся** — в базе заказчика не настроены группы аналитического учёта
+3. **Артикул (SKU) — универсальный идентификатор** — используется во всех маркетплейсах и в 1С
+
+### Миграция данных
+
+При обновлении с версии 1.0 необходимо:
+
+1. Обновить формат файлов выгрузки из 1С (без колонки `barcode`)
+2. Перестроить индексы в таблице `cfo_cost_prices` по полю `sku`
+3. Очистить кэш себестоимости
+
+---
+
 **Документ подготовлен:** Январь 2026  
-**Версия:** 1.0  
-**Статус:** Черновик
+**Версия:** 1.1  
+**Статус:** Согласовано
