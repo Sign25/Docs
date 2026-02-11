@@ -4,11 +4,6 @@
  * Версия: 3.0
  */
 
-.adolf-reputation {
-  --module-color: var(--module-reputation);
-  --module-color-light: var(--module-reputation-light);
-  --module-color-foreground: var(--module-reputation-foreground);
-}
 
 /* Review List */
 .adolf-rep-list {
@@ -25,7 +20,6 @@
   justify-content: space-between;
   gap: var(--spacing-4);
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
   border-bottom: 1px solid var(--border);
 }
 
@@ -47,8 +41,6 @@
   padding: 0 var(--spacing-2);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  background: var(--module-color);
-  color: var(--module-color-foreground);
   border-radius: var(--radius-full);
 }
 
@@ -81,8 +73,8 @@
   transition: all var(--transition-fast) var(--ease-in-out);
 }
 
-.adolf-rep-filter-chip:hover { border-color: var(--module-color); color: var(--module-color); }
-.adolf-rep-filter-chip.active { background: var(--module-color); border-color: var(--module-color); color: var(--module-color-foreground); }
+.adolf-rep-filter-chip:hover { border-color: var(--primary); color: var(--primary); }
+.adolf-rep-filter-chip.active { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
 .adolf-rep-filter-chip.positive { border-color: var(--sentiment-positive); color: var(--sentiment-positive); }
 .adolf-rep-filter-chip.positive.active { background: var(--sentiment-positive); color: white; }
 .adolf-rep-filter-chip.neutral { border-color: var(--sentiment-neutral); color: var(--sentiment-neutral); }
@@ -102,8 +94,8 @@
 
 .adolf-rep-review-card:last-child { border-bottom: none; }
 .adolf-rep-review-card:hover { background: var(--accent); }
-.adolf-rep-review-card.unread { background: var(--module-color-light); }
-.adolf-rep-review-card.unread:hover { background: var(--module-color-light); opacity: 0.9; }
+.adolf-rep-review-card.unread { background: var(--muted); }
+.adolf-rep-review-card.unread:hover { background: var(--muted); opacity: 0.9; }
 
 /* Sentiment Indicator */
 .adolf-rep-sentiment-indicator {
@@ -211,7 +203,6 @@
   align-items: center;
   gap: var(--spacing-3);
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
   border-bottom: 1px solid var(--border);
 }
 
@@ -271,7 +262,6 @@
   border-radius: var(--radius-md);
   padding: var(--spacing-4);
   margin-bottom: var(--spacing-6);
-  border-left: 4px solid var(--module-color);
 }
 
 .adolf-rep-ai-analysis-title {
@@ -331,7 +321,6 @@
   gap: var(--spacing-3);
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
-  color: var(--module-color);
 }
 
 .adolf-rep-response-status { font-size: var(--text-sm); }
@@ -371,7 +360,7 @@
   text-align: center;
 }
 
-.adolf-rep-stat-value { font-size: var(--text-xl); font-weight: var(--font-bold); color: var(--module-color); }
+.adolf-rep-stat-value { font-size: var(--text-xl); font-weight: var(--font-bold); color: var(--primary); }
 .adolf-rep-stat-value.positive { color: var(--sentiment-positive); }
 .adolf-rep-stat-value.negative { color: var(--sentiment-negative); }
 .adolf-rep-stat-label { font-size: var(--text-sm); color: var(--muted-foreground); margin-top: var(--spacing-1); }
@@ -427,7 +416,7 @@
 .adolf-btn-approve-response:hover:not(:disabled) { opacity: 0.9; }
 .adolf-btn-edit-response { background: var(--warning); color: var(--warning-foreground); }
 .adolf-btn-edit-response:hover:not(:disabled) { opacity: 0.9; }
-.adolf-btn-regenerate-response { background: var(--module-color); color: var(--module-color-foreground); }
+.adolf-btn-regenerate-response { background: var(--primary); color: var(--primary-foreground); }
 .adolf-btn-regenerate-response:hover:not(:disabled) { opacity: 0.9; }
 .adolf-btn-skip { background: transparent; color: var(--muted-foreground); border-color: var(--border); }
 .adolf-btn-skip:hover:not(:disabled) { background: var(--accent); color: var(--foreground); }
@@ -451,7 +440,6 @@
   width: 32px;
   height: 32px;
   border: 3px solid var(--border);
-  border-top-color: var(--module-color);
   border-radius: var(--radius-full);
   animation: adolf-spin 1s linear infinite;
 }
@@ -465,8 +453,6 @@
   padding: 2px var(--spacing-2);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  background: var(--module-color);
-  color: var(--module-color-foreground);
   border-radius: var(--radius-sm);
   animation: adolf-pulse 2s infinite;
 }
