@@ -35,6 +35,7 @@ docs/
 │   ├── adolf_ui_3_components.md      # Каталог компонентов shadcn/ui
 │   ├── adolf_ui_4_layout_patterns.md # Паттерны компоновки
 │   ├── adolf_ui_appendix_a_icons.md  # Приложение A: Реестр иконок Open WebUI
+│   ├── adolf_ui_appendix_b_shadcn_mcp.md # Приложение B: shadcn MCP Server
 │   └── icons/                       # SVG-иконки модулей (stroke-width 1.5px)
 ```
 
