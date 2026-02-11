@@ -46,11 +46,6 @@ flowchart TB
         LAYOUT["4. Паттерны компоновки<br/>Launcher, sidebar,<br/>dashboard, формы"]
     end
 
-    subgraph REF["Ресурсы (ui_reference/)"]
-        CSS["base/<br/>shadcn-variables.css"]
-        TOKENS["base/<br/>shadcn-tokens.json"]
-        DEMOS["Модульные демо<br/>index.html + module.css"]
-    end
 
     subgraph MODULES["Модули платформы"]
         M1["Knowledge"]
@@ -85,7 +80,7 @@ flowchart TB
 
 ### Modularity — Модульность
 
-Каждый модуль имеет собственную Lucide-иконку. Все модули используют единую цветовую схему shadcn/ui с `--primary` в качестве акцентного цвета. Модульные стили изолированы в отдельных CSS-файлах (`ui_reference/{module}/module.css`). Компоненты shadcn/ui используются как строительные блоки без модификации базовой структуры.
+Каждый модуль имеет собственную Lucide-иконку. Все модули используют единую цветовую схему shadcn/ui с `--primary` в качестве акцентного цвета. Компоненты shadcn/ui используются как строительные блоки без модификации базовой структуры.
 
 ### Accessibility — Доступность
 
@@ -106,7 +101,6 @@ Docs/
 │   ├── adolf_ui_3_components.md      # Каталог компонентов
 │   └── adolf_ui_4_layout_patterns.md # Паттерны компоновки
 │
-├── ui_reference/                    # Ресурсы и демо (не для рендера)
 │   ├── base/
 │   │   ├── shadcn-variables.css     # CSS-переменные дизайн-системы
 │   │   ├── shadcn-tokens.json       # Design tokens (JSON)
@@ -119,10 +113,8 @@ Docs/
 │   └── README.md                    # Обзор UI Reference v3.0
 ```
 
-Разделение на `ui/` и `ui_reference/` обеспечивает:
 
 - `ui/` — документация в формате markdown, описывает правила и стандарты
-- `ui_reference/` — рабочие ресурсы (CSS, JSON, HTML-демо), используемые при разработке
 
 ## Карта разделов
 
@@ -150,9 +142,6 @@ Docs/
 
 | Документ | Описание |
 |:---------|:---------|
-| `ui_reference/base/shadcn-variables.css` | CSS-переменные дизайн-системы |
-| `ui_reference/base/shadcn-tokens.json` | Design tokens в формате JSON |
-| `ui_reference/README.md` | Обзор UI Reference v3.0 |
 | `core/adolf_core_3_1_launcher.md` | Launcher — использует дизайн-систему |
 
 ---
