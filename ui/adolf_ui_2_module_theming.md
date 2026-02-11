@@ -92,7 +92,6 @@ import { jacket, targetArrow } from '@lucide/lab';
 
 ### SVG-файлы
 
-Статические SVG-иконки модулей (stroke-width 1.5px) хранятся в `ui_reference/icons/`. Используются в контекстах без JavaScript.
 
 ## Механизм CSS-стилизации
 
@@ -101,7 +100,7 @@ import { jacket, targetArrow } from '@lucide/lab';
 ### Паттерн
 
 ```css
-/* ui_reference/reputation/reputation.css */
+/* reputation.css */
 .adolf-reputation {
   /* Все стили наследуют базовые переменные shadcn/ui */
 }
@@ -323,35 +322,9 @@ flowchart TB
 }
 ```
 
-**2. Выбрать Lucide-иконку** на [lucide.dev/icons](https://lucide.dev/icons/) и добавить SVG (stroke-width 1.5px) в `ui_reference/icons/`.
 
 **3. Обновить реестр** в [Приложении A](/ui/adolf_ui_appendix_a_icons).
 
-## Структура ресурсов модуля
-
-```
-ui_reference/{module}/
-├── index.html         # HTML-демо компонентов модуля
-└── {module}.css       # CSS-стили модуля
-```
-
-SVG-иконки всех модулей хранятся централизованно в `ui_reference/icons/`.
-
-Текущий статус модульных демо:
-
-| Модуль | Демо | CSS |
-|:-------|:----:|:---:|
-| Knowledge | ✅ | ✅ |
-| Content Factory | ✅ | ✅ |
-| CFO | ✅ | ✅ |
-| Reputation | ✅ | ✅ |
-| Logistic | ✅ | ✅ |
-| Watcher | — | — |
-| Marketing | — | — |
-| Scout | — | — |
-| Lex | — | — |
-| Shop | — | — |
-| Office | — | — |
 
 ## Связанные документы
 
@@ -362,8 +335,8 @@ SVG-иконки всех модулей хранятся централизов
 | [Раздел 3: Компоненты](/ui/adolf_ui_3_components) | Каталог компонентов shadcn/ui |
 | [Приложение A: Иконки](/ui/adolf_ui_appendix_a_icons) | Полный реестр иконок |
 | [Core — Launcher](/core/adolf_core_3_1_launcher) | Система баннерного подменю |
-| `ui_reference/base/shadcn-variables.css` | Исходный CSS-файл |
-| `ui_reference/base/shadcn-tokens.json` | Design tokens |
+| `shadcn-variables.css` | Исходный CSS-файл |
+| `shadcn-tokens.json` | Design tokens |
 
 ---
 
