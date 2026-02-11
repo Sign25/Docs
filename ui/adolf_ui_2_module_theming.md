@@ -1,6 +1,6 @@
 ---
 title: "Раздел 2: Тематизация модулей"
-description: "UI Design System v1.1 — единая цветовая схема shadcn/ui, Lucide-иконки модулей, маркетплейсы, семантические и статусные цвета"
+description: "UI Design System v1.2 — единая цветовая схема shadcn/ui, Lucide-иконки модулей, маркетплейсы, семантические и статусные цвета"
 mode: "wide"
 ---
 
@@ -39,11 +39,11 @@ mode: "wide"
 | Модуль | Lucide Name | React Import | Пакет |
 |:-------|:------------|:-------------|:------|
 | Knowledge | `database-search` | `DatabaseSearch` | lucide |
-| Content Factory | `jacket` | `@lucide/lab` | @lucide/lab |
+| Content Factory | `shirt` | `Shirt` | lucide |
 | CFO | `chart-candlestick` | `ChartCandlestick` | lucide |
 | Reputation | `thumbs-up` | `ThumbsUp` | lucide |
 | Watcher | `hat-glasses` | `HatGlasses` | lucide |
-| Marketing | `target-arrow` | `@lucide/lab` | @lucide/lab |
+| Marketing | `target` | `Target` | lucide |
 | Scout | `binoculars` | `Binoculars` | lucide |
 | Lex | `scale` | `Scale` | lucide |
 | Logistic | `truck` | `Truck` | lucide |
@@ -58,17 +58,14 @@ mode: "wide"
 import {
   DatabaseSearch, ChartCandlestick, ThumbsUp,
   HatGlasses, Binoculars, Scale,
-  Truck, Building2, ShoppingCart
+  Shirt, Target, Truck, Building2, ShoppingCart
 } from 'lucide-react';
 
-import { Icon } from 'lucide-react';
-import { jacket, targetArrow } from '@lucide/lab';
 
 // Стандартные иконки
 <ThumbsUp size={24} strokeWidth={1.5} />
 
-// Lab-иконки
-<Icon iconNode={jacket} size={24} strokeWidth={1.5} />
+<Shirt size={24} strokeWidth={1.5} />
 ```
 
 ### HTML (CDN)
@@ -83,6 +80,8 @@ import { jacket, targetArrow } from '@lucide/lab';
 <i data-lucide="chart-candlestick"></i>
 <i data-lucide="thumbs-up"></i>
 <i data-lucide="hat-glasses"></i>
+<i data-lucide="shirt"></i>
+<i data-lucide="target"></i>
 <i data-lucide="binoculars"></i>
 <i data-lucide="scale"></i>
 <i data-lucide="truck"></i>
@@ -340,4 +339,4 @@ flowchart TB
 
 ---
 
-**Версия:** 1.1 | **Дата:** Февраль 2026
+**Версия:** 1.2 | **Дата:** Февраль 2026
