@@ -765,10 +765,6 @@ flowchart TB
 | [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, иконки, маркетплейсы |
 | [Раздел 3: Компоненты](/ui/adolf_ui_3_components) | Компоненты, составляющие паттерны |
 | [Core — Launcher](/core/adolf_core_3_1_launcher) | Полная спецификация Launcher |
-| `ui_reference/reputation/reputation.css` | List View + Result Card (Reputation) |
-| `ui_reference/content_factory/content-factory.css` | Result Card + Visual Prompt (CF) |
-| `ui_reference/cfo/cfo.css` | Dashboard Metrics + Table (CFO) |
-| `ui_reference/logistic/logistic.css` | Warehouse Card + Stock Status |
 
 ---
 
