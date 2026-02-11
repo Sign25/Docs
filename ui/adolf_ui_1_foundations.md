@@ -11,7 +11,7 @@ mode: "wide"
 
 ## Обзор
 
-Раздел описывает фундаментальные элементы дизайн-системы: цветовую модель, типографику, пространственную сетку и механизм тематизации. Все значения определены как CSS custom properties в файле `ui_reference/base/shadcn-variables.css` и продублированы в `ui_reference/base/shadcn-tokens.json` для программного доступа.
+Раздел описывает фундаментальные элементы дизайн-системы: цветовую модель, типографику, пространственную сетку и механизм тематизации. Все значения определены как CSS custom properties в файле `shadcn-variables.css` и продублированы в `shadcn-tokens.json` для программного доступа.
 
 ## Цветовая модель OKLCH
 
@@ -306,7 +306,7 @@ body {
 
 ## Design Tokens (JSON)
 
-Для программного доступа к значениям дизайн-системы используется файл `ui_reference/base/shadcn-tokens.json`. Формат совместим с инструментами вроде Style Dictionary и Figma Tokens.
+Для программного доступа к значениям дизайн-системы используется файл `shadcn-tokens.json`. Формат совместим с инструментами вроде Style Dictionary и Figma Tokens.
 
 Структура файла:
 
@@ -333,7 +333,7 @@ body {
 }
 ```
 
-Полный файл: `ui_reference/base/shadcn-tokens.json`
+Полный файл: `shadcn-tokens.json`
 
 ## Подключение
 
@@ -342,10 +342,10 @@ body {
 ```html
 <head>
   <!-- Базовые CSS-переменные дизайн-системы -->
-  <link rel="stylesheet" href="ui_reference/base/shadcn-variables.css">
+  <link rel="stylesheet" href="shadcn-variables.css">
 
   <!-- Модульные стили (опционально) -->
-  <link rel="stylesheet" href="ui_reference/{module}/{module}.css">
+  <link rel="stylesheet" href="{module}.css">
 </head>
 ```
 
@@ -387,8 +387,8 @@ module.exports = {
 |:---------|:---------|
 | [Раздел 0: Введение](/ui/adolf_ui_0_introduction) | Обзор дизайн-системы |
 | [Раздел 2: Тематизация модулей](/ui/adolf_ui_2_module_theming) | Цвета модулей и маркетплейсов |
-| `ui_reference/base/shadcn-variables.css` | Исходный CSS-файл |
-| `ui_reference/base/shadcn-tokens.json` | Design tokens в формате JSON |
+| `shadcn-variables.css` | Исходный CSS-файл |
+| `shadcn-tokens.json` | Design tokens в формате JSON |
 
 ---
 
