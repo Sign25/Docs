@@ -35,10 +35,8 @@ mode: "wide"
 | **Lucide name** | `bot-message-square` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `BotMessageSquare` |
-| **Файл** | `ui_reference/icons/app-logo.svg` |
 | **Ссылка** | [lucide.dev/icons/bot-message-square](https://lucide.dev/icons/bot-message-square) |
 
-![Логотип приложения](/ui_reference/icons/app-logo.svg)
 
 ```html
 <i data-lucide="bot-message-square" stroke-width="1.5"></i>
@@ -52,10 +50,8 @@ mode: "wide"
 | **Lucide name** | `message-square-more` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `MessageSquareMore` |
-| **Файл** | `ui_reference/icons/new-chat.svg` |
 | **Ссылка** | [lucide.dev/icons/message-square-more](https://lucide.dev/icons/message-square-more) |
 
-![Новый чат](/ui_reference/icons/new-chat.svg)
 
 ```html
 <i data-lucide="message-square-more" stroke-width="1.5"></i>
@@ -71,10 +67,8 @@ mode: "wide"
 | **Lucide name** | `database-search` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `DatabaseSearch` |
-| **Файл** | `ui_reference/icons/knowledge.svg` |
 | **Ссылка** | [lucide.dev/icons/database-search](https://lucide.dev/icons/database-search) |
 
-![Knowledge](/ui_reference/icons/knowledge.svg)
 
 ```html
 <i data-lucide="database-search" stroke-width="1.5"></i>
@@ -88,10 +82,8 @@ mode: "wide"
 | **Lucide name** | `jacket` |
 | **Пакет** | `@lucide/lab` ⚠️ |
 | **React import** | `import { jacket } from '@lucide/lab'` |
-| **Файл** | `ui_reference/icons/content-factory.svg` |
 | **Ссылка** | [lucide.dev/icons/lab/jacket](https://lucide.dev/icons/lab/jacket) |
 
-![Content Factory](/ui_reference/icons/content-factory.svg)
 
 ```jsx
 import { Icon } from 'lucide-react';
@@ -108,10 +100,8 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `chart-candlestick` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ChartCandlestick` |
-| **Файл** | `ui_reference/icons/cfo.svg` |
 | **Ссылка** | [lucide.dev/icons/chart-candlestick](https://lucide.dev/icons/chart-candlestick) |
 
-![CFO](/ui_reference/icons/cfo.svg)
 
 ```html
 <i data-lucide="chart-candlestick" stroke-width="1.5"></i>
@@ -125,10 +115,8 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `thumbs-up` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ThumbsUp` |
-| **Файл** | `ui_reference/icons/reputation.svg` |
 | **Ссылка** | [lucide.dev/icons/thumbs-up](https://lucide.dev/icons/thumbs-up) |
 
-![Reputation](/ui_reference/icons/reputation.svg)
 
 ```html
 <i data-lucide="thumbs-up" stroke-width="1.5"></i>
@@ -142,10 +130,8 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `hat-glasses` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `HatGlasses` |
-| **Файл** | `ui_reference/icons/watcher.svg` |
 | **Ссылка** | [lucide.dev/icons/hat-glasses](https://lucide.dev/icons/hat-glasses) |
 
-![Watcher](/ui_reference/icons/watcher.svg)
 
 ```html
 <i data-lucide="hat-glasses" stroke-width="1.5"></i>
@@ -159,10 +145,8 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `target-arrow` |
 | **Пакет** | `@lucide/lab` ⚠️ |
 | **React import** | `import { targetArrow } from '@lucide/lab'` |
-| **Файл** | `ui_reference/icons/marketing.svg` |
 | **Ссылка** | [lucide.dev/icons/lab/target-arrow](https://lucide.dev/icons/lab/target-arrow) |
 
-![Marketing](/ui_reference/icons/marketing.svg)
 
 ```jsx
 import { Icon } from 'lucide-react';
@@ -179,10 +163,8 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `binoculars` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Binoculars` |
-| **Файл** | `ui_reference/icons/scout.svg` |
 | **Ссылка** | [lucide.dev/icons/binoculars](https://lucide.dev/icons/binoculars) |
 
-![Scout](/ui_reference/icons/scout.svg)
 
 ```html
 <i data-lucide="binoculars" stroke-width="1.5"></i>
@@ -196,10 +178,8 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `scale` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Scale` |
-| **Файл** | `ui_reference/icons/lex.svg` |
 | **Ссылка** | [lucide.dev/icons/scale](https://lucide.dev/icons/scale) |
 
-![Lex](/ui_reference/icons/lex.svg)
 
 ```html
 <i data-lucide="scale" stroke-width="1.5"></i>
@@ -213,10 +193,8 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `truck` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Truck` |
-| **Файл** | `ui_reference/icons/logistic.svg` |
 | **Ссылка** | [lucide.dev/icons/truck](https://lucide.dev/icons/truck) |
 
-![Logistic](/ui_reference/icons/logistic.svg)
 
 ```html
 <i data-lucide="truck" stroke-width="1.5"></i>
@@ -230,10 +208,8 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `building-2` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Building2` |
-| **Файл** | `ui_reference/icons/office.svg` |
 | **Ссылка** | [lucide.dev/icons/building-2](https://lucide.dev/icons/building-2) |
 
-![Office](/ui_reference/icons/office.svg)
 
 ```html
 <i data-lucide="building-2" stroke-width="1.5"></i>
@@ -247,10 +223,8 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `shopping-cart` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ShoppingCart` |
-| **Файл** | `ui_reference/icons/shop.svg` |
 | **Ссылка** | [lucide.dev/icons/shopping-cart](https://lucide.dev/icons/shopping-cart) |
 
-![Shop](/ui_reference/icons/shop.svg)
 
 ```html
 <i data-lucide="shopping-cart" stroke-width="1.5"></i>
@@ -347,34 +321,13 @@ createIcons({
 });
 ```
 
-## Структура файлов
-
-```
-ui_reference/icons/
-├── app-logo.svg          # bot-message-square
-├── new-chat.svg          # message-square-more
-├── knowledge.svg         # database-search
-├── content-factory.svg   # jacket (lab)
-├── cfo.svg               # chart-candlestick
-├── reputation.svg        # thumbs-up
-├── watcher.svg           # hat-glasses
-├── marketing.svg         # target-arrow (lab)
-├── scout.svg             # binoculars
-├── lex.svg               # scale
-├── logistic.svg          # truck
-├── office.svg            # building-2
-└── shop.svg              # shopping-cart
-```
-
-Все SVG-файлы экспортированы со `stroke-width="1.5"` и доступны для использования в контекстах без JavaScript.
-
 ## Связанные документы
 
 | Документ | Описание |
 |:---------|:---------|
 | [Раздел 0: Введение](/ui/adolf_ui_0_introduction) | Обзор дизайн-системы |
 | [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, маркетплейсы |
-| `ui_reference/base/shadcn-variables.css` | CSS-переменные цветов модулей |
+| `shadcn-variables.css` | CSS-переменные цветов модулей |
 | [Lucide Icons](https://lucide.dev/icons/) | Поиск иконок |
 | [Lucide Lab](https://github.com/lucide-icons/lucide-lab) | Lab-пакет (jacket, target-arrow) |
 
