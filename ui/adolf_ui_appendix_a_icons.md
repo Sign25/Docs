@@ -1,6 +1,6 @@
 ---
 title: "Приложение A: Реестр иконок Open WebUI"
-description: "UI Design System v1.1 — полный реестр Lucide-иконок для Open WebUI с миниатюрами, параметрами и ссылками"
+description: "UI Design System v1.2 — полный реестр Lucide-иконок для Open WebUI с миниатюрами, параметрами и ссылками"
 mode: "wide"
 ---
 
@@ -19,9 +19,6 @@ mode: "wide"
 
 Стандартный stroke-width Lucide — 2 px. В ADOLF используется **1.5 px** для визуально более лёгкого и современного восприятия иконок в интерфейсе Open WebUI.
 
-<Warning>
-Две иконки — **jacket** (Content Factory) и **target-arrow** (Marketing) — входят в пакет `@lucide/lab` и не доступны в основной библиотеке `lucide` / `lucide-react`. Для их использования необходим отдельный импорт из `@lucide/lab`.
-</Warning>
 
 ## Системные иконки
 
@@ -79,17 +76,14 @@ mode: "wide"
 |  |  |
 |:---|:---|
 | **Модуль** | Content Factory — генерация SEO-контента |
-| **Lucide name** | `jacket` |
-| **Пакет** | `@lucide/lab` ⚠️ |
-| **React import** | `import { jacket } from '@lucide/lab'` |
-| **Ссылка** | [lucide.dev/icons/lab/jacket](https://lucide.dev/icons/lab/jacket) |
+| **Lucide name** | `shirt` |
+| **Пакет** | `lucide` (основной) |
+| **React import** | `Shirt` |
+| **Ссылка** | [lucide.dev/icons/shirt](https://lucide.dev/icons/shirt) |
 
 
-```jsx
-import { Icon } from 'lucide-react';
-import { jacket } from '@lucide/lab';
-
-<Icon iconNode={jacket} size={24} strokeWidth={1.5} />
+```html
+<i data-lucide="shirt" stroke-width="1.5"></i>
 ```
 
 ### CFO
@@ -142,17 +136,14 @@ import { jacket } from '@lucide/lab';
 |  |  |
 |:---|:---|
 | **Модуль** | Marketing — автоматизация рекламы |
-| **Lucide name** | `target-arrow` |
-| **Пакет** | `@lucide/lab` ⚠️ |
-| **React import** | `import { targetArrow } from '@lucide/lab'` |
-| **Ссылка** | [lucide.dev/icons/lab/target-arrow](https://lucide.dev/icons/lab/target-arrow) |
+| **Lucide name** | `target` |
+| **Пакет** | `lucide` (основной) |
+| **React import** | `Target` |
+| **Ссылка** | [lucide.dev/icons/target](https://lucide.dev/icons/target) |
 
 
-```jsx
-import { Icon } from 'lucide-react';
-import { targetArrow } from '@lucide/lab';
-
-<Icon iconNode={targetArrow} size={24} strokeWidth={1.5} />
+```html
+<i data-lucide="target" stroke-width="1.5"></i>
 ```
 
 ### Scout
@@ -237,11 +228,11 @@ import { targetArrow } from '@lucide/lab';
 | 1 | Логотип приложения | `bot-message-square` | lucide | `app-logo.svg` |
 | 2 | Новый чат | `message-square-more` | lucide | `new-chat.svg` |
 | 3 | Knowledge | `database-search` | lucide | `knowledge.svg` |
-| 4 | Content Factory | `jacket` | @lucide/lab | `content-factory.svg` |
+| 4 | Content Factory | `shirt` | lucide | `content-factory.svg` |
 | 5 | CFO | `chart-candlestick` | lucide | `cfo.svg` |
 | 6 | Reputation | `thumbs-up` | lucide | `reputation.svg` |
 | 7 | Watcher | `hat-glasses` | lucide | `watcher.svg` |
-| 8 | Marketing | `target-arrow` | @lucide/lab | `marketing.svg` |
+| 8 | Marketing | `target` | lucide | `marketing.svg` |
 | 9 | Scout | `binoculars` | lucide | `scout.svg` |
 | 10 | Lex | `scale` | lucide | `lex.svg` |
 | 11 | Logistic | `truck` | lucide | `logistic.svg` |
@@ -256,8 +247,6 @@ import { targetArrow } from '@lucide/lab';
 # Основной пакет
 npm install lucide-react
 
-# Lab-иконки (для Content Factory и Marketing)
-npm install @lucide/lab
 ```
 
 ### CDN (HTML)
@@ -283,44 +272,6 @@ npm install @lucide/lab
 <Icon name="bot-message-square" strokeWidth={1.5} size={24} />
 ```
 
-## Использование Lab-иконок в Open WebUI
-
-Lab-иконки требуют специального подхода, так как не входят в стандартный набор `lucide`:
-
-```javascript
-// Обёртка для использования lab-иконки в createIcons
-function wrapLabIcon(iconNode) {
-  return [
-    "svg",
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: 24,
-      height: 24,
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-width": 1.5,
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round"
-    },
-    iconNode
-  ];
-}
-```
-
-```javascript
-import { createIcons } from 'lucide';
-import { jacket, targetArrow } from '@lucide/lab';
-
-createIcons({
-  attrs: { 'stroke-width': 1.5 },
-  icons: {
-    Jacket: wrapLabIcon(jacket),
-    TargetArrow: wrapLabIcon(targetArrow)
-  }
-});
-```
-
 ## Связанные документы
 
 | Документ | Описание |
@@ -329,8 +280,7 @@ createIcons({
 | [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, маркетплейсы |
 | `shadcn-variables.css` | CSS-переменные цветов модулей |
 | [Lucide Icons](https://lucide.dev/icons/) | Поиск иконок |
-| [Lucide Lab](https://github.com/lucide-icons/lucide-lab) | Lab-пакет (jacket, target-arrow) |
 
 ---
 
-**Версия:** 1.1 | **Дата:** Февраль 2026
+**Версия:** 1.2 | **Дата:** Февраль 2026
