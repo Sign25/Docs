@@ -1,12 +1,12 @@
 ---
 title: "Раздел 4: Паттерны компоновки"
-description: "UI Design System v1.0 — паттерны компоновки: Launcher, sidebar, dashboard, карточки результатов, списки, формы"
+description: "UI Design System v1.1 — паттерны компоновки: Launcher, sidebar, dashboard, карточки результатов, списки, формы"
 mode: "wide"
 ---
 
 # Паттерны компоновки ADOLF
 
-**Версия:** 1.0
+**Версия:** 1.1
 **Дата:** Февраль 2026
 
 ## Обзор
@@ -94,7 +94,7 @@ flowchart TB
 }
 ```
 
-При активации модуля иконка окрашивается в цвет модуля (`--module-{name}`).
+При активации модуля иконка окрашивается в акцентный цвет `--primary`.
 
 ## Паттерн 2: Launcher Page
 
@@ -143,7 +143,7 @@ flowchart TB
 }
 
 .launcher-header-icon {
-  color: var(--module-color);
+  color: var(--primary);
 }
 
 .launcher-header-description {
@@ -176,7 +176,7 @@ flowchart TB
 }
 
 .banner:hover {
-  border-color: var(--module-color);
+  border-color: var(--primary);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
@@ -187,8 +187,8 @@ flowchart TB
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--module-color-light);
-  color: var(--module-color);
+  background: var(--muted);
+  color: var(--primary);
   border-radius: var(--radius-md);
 }
 
@@ -213,8 +213,8 @@ flowchart TB
   padding: 2px var(--spacing-2);
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
-  background: var(--module-color);
-  color: var(--module-color-foreground);
+  background: var(--primary);
+  color: var(--primary-foreground);
   border-radius: var(--radius-sm);
 }
 
@@ -229,7 +229,7 @@ flowchart TB
 
 ```html
 <div class="launcher-page" data-module="cfo">
-  <!-- Автоматически подставляются --module-color из CSS -->
+  <!-- Автоматически подставляются --primary из CSS -->
 </div>
 ```
 
@@ -242,10 +242,10 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph RC["Result Card"]
-        HEADER["Header<br/>module-color-light фон<br/>Icon + Title + Badge"]
+        HEADER["Header<br/>muted фон<br/>Icon + Title + Badge"]
         META["Metadata<br/>label: value пары<br/>border-bottom"]
         CONTENT["Content<br/>Основной контент:<br/>текст, таблица, метрики"]
-        AI["AI Analysis<br/>border-left: module-color<br/>Результат AI-обработки"]
+        AI["AI Analysis<br/>border-left: primary<br/>Результат AI-обработки"]
         ACTIONS["Actions<br/>border-top<br/>Кнопки действий"]
     end
     HEADER --> META --> CONTENT --> AI --> ACTIONS
@@ -265,13 +265,13 @@ flowchart TB
   overflow: hidden;
 }
 
-/* Заголовок с цветом модуля */
+/* Заголовок карточки */
 .adolf-{module}-result-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
+  background: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
@@ -295,7 +295,7 @@ flowchart TB
   background: var(--muted);
   border-radius: var(--radius-md);
   padding: var(--spacing-4);
-  border-left: 4px solid var(--module-color);
+  border-left: 4px solid var(--primary);
 }
 
 /* Панель действий */
@@ -327,7 +327,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph LV["List View"]
-        HEADER["Header<br/>module-color-light фон<br/>Title + Count Badge"]
+        HEADER["Header<br/>muted фон<br/>Title + Count Badge"]
         FILTERS["Filters<br/>muted фон<br/>Filter Chips"]
         LIST["Item List<br/>card фон<br/>Элементы с border-bottom"]
         PAGINATION["Pagination<br/>Навигация по страницам"]
@@ -354,7 +354,7 @@ flowchart TB
   justify-content: space-between;
   gap: var(--spacing-4);
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
+  background: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
@@ -380,7 +380,7 @@ flowchart TB
 }
 .adolf-rep-review-card:last-child { border-bottom: none; }
 .adolf-rep-review-card:hover { background: var(--accent); }
-.adolf-rep-review-card.unread { background: var(--module-color-light); }
+.adolf-rep-review-card.unread { background: var(--muted); }
 ```
 
 ### Табличный вариант (Content Factory)
@@ -447,7 +447,7 @@ flowchart LR
 .adolf-rep-stat-value {
   font-size: var(--text-xl);
   font-weight: var(--font-bold);
-  color: var(--module-color);
+  color: var(--primary);
 }
 
 /* Семантические варианты */
@@ -477,7 +477,7 @@ flowchart LR
 }
 
 .adolf-warehouse-card:hover {
-  border-color: var(--module-color);
+  border-color: var(--primary);
   box-shadow: 0 4px 12px oklch(0 0 0 / 0.08);
 }
 
@@ -552,15 +552,15 @@ flowchart LR
   display: inline-flex;
   padding: 2px var(--spacing-2);
   font-size: var(--text-sm);
-  color: var(--module-color);
-  background: var(--module-color-light);
+  color: var(--primary);
+  background: var(--muted);
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast) var(--ease-in-out);
 }
 
 .adolf-cf-seo-tag:hover {
-  background: var(--module-color);
-  color: var(--module-color-foreground);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 ```
 
@@ -658,12 +658,12 @@ flowchart TB
     subgraph VP["Visual Prompt Card"]
         HEADER2["Header<br/>sentiment-neutral-light фон<br/>⚠ Title"]
         PROBLEMS["Problems<br/>Список проблем<br/>destructive маркеры"]
-        RECS["Recommendations<br/>muted фон<br/>Нумерованные шаги<br/>module-color номера"]
+        RECS["Recommendations<br/>muted фон<br/>Нумерованные шаги<br/>primary номера"]
     end
     HEADER2 --> PROBLEMS --> RECS
 ```
 
-Отличия от стандартной Result Card: заголовок использует `--sentiment-neutral-light` вместо `--module-color-light`, секция проблем окрашена `--destructive`, рекомендации с нумерованными кругами `--module-color`.
+Отличия от стандартной Result Card: заголовок использует `--sentiment-neutral-light` вместо `--muted`, секция проблем окрашена `--destructive`, рекомендации с нумерованными кругами `--primary`.
 
 ## Адаптивная раскладка
 
@@ -762,7 +762,7 @@ flowchart TB
 | Документ | Описание |
 |:---------|:---------|
 | [Раздел 1: Основы](/ui/adolf_ui_1_foundations) | CSS-переменные для всех паттернов |
-| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Механизм алиасинга `--module-color` |
+| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, иконки, маркетплейсы |
 | [Раздел 3: Компоненты](/ui/adolf_ui_3_components) | Компоненты, составляющие паттерны |
 | [Core — Launcher](/core/adolf_core_3_1_launcher) | Полная спецификация Launcher |
 | `ui_reference/reputation/reputation.css` | List View + Result Card (Reputation) |
@@ -772,4 +772,4 @@ flowchart TB
 
 ---
 
-**Версия:** 1.0 | **Дата:** Февраль 2026
+**Версия:** 1.1 | **Дата:** Февраль 2026
