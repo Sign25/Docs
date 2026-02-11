@@ -34,7 +34,8 @@ docs/
 │   ├── adolf_ui_2_module_theming.md  # Тематизация модулей и маркетплейсов
 │   ├── adolf_ui_3_components.md      # Каталог компонентов shadcn/ui
 │   ├── adolf_ui_4_layout_patterns.md # Паттерны компоновки
-│   └── adolf_ui_appendix_a_icons.md  # Приложение A: Реестр иконок Open WebUI
+│   ├── adolf_ui_appendix_a_icons.md  # Приложение A: Реестр иконок Open WebUI
+│   └── icons/                       # SVG-иконки модулей (stroke-width 1.5px)
 ```
 
 ## Модули платформы
