@@ -1,37 +1,47 @@
 ---
-title: "Приложение B: shadcn MCP Server"
+title: "Приложение B: shadcn/ui MCP Server"
 description: "UI Design System v1.0 — подключение MCP-сервера shadcn/ui для AI-ассистентов: поиск, установка и управление компонентами через естественный язык"
 mode: "wide"
 ---
 
 ## Назначение
 
-[shadcn MCP Server](https://ui.shadcn.com/docs/mcp) — сервер [Model Context Protocol](https://modelcontextprotocol.io), предоставляющий AI-ассистентам прямой доступ к реестрам компонентов shadcn/ui. Позволяет через естественный язык просматривать, искать и устанавливать компоненты в проект.
+[shadcn MCP Server](https://ui.shadcn.com/docs/mcp) — это MCP-сервер, позволяющий AI-ассистентам взаимодействовать с реестрами компонентов shadcn/ui. Через MCP-протокол ассистент может просматривать доступные компоненты, искать нужные и устанавливать их в проект с помощью естественного языка.
 
-Возможности:
+Примеры запросов к AI-ассистенту:
 
-- Просмотр всех доступных компонентов, блоков и шаблонов из настроенных реестров
-- Поиск компонентов по имени или функциональности
-- Установка компонентов через промпт (`"add the button, dialog and card components"`)
-- Работа с несколькими реестрами: публичными, приватными, сторонними
+- «Покажи все доступные компоненты в shadcn registry»
+- «Добавь компоненты button, dialog и card в проект»
+- «Создай форму обратной связи из компонентов shadcn»
 
-## Архитектура
+## Что такое MCP
+
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io) — открытый протокол для безопасного подключения AI-ассистентов к внешним источникам данных и инструментам. shadcn MCP Server предоставляет доступ к:
+
+- **Browse** — просмотр всех компонентов, блоков и шаблонов из настроенных реестров
+- **Search** — поиск компонентов по имени или функциональности
+- **Install** — установка компонентов через естественный язык
+- **Multi-registry** — работа с публичными, приватными и сторонними реестрами
+
+## Принцип работы
 
 ```mermaid
-flowchart LR
-    AI["AI-ассистент<br/>(Claude Code / Cursor / VS Code)"]
-    MCP["shadcn MCP Server<br/>npx shadcn@latest mcp"]
-    REG["Реестры компонентов"]
-    CLI["shadcn CLI"]
-    PROJ["Проект ADOLF"]
+sequenceDiagram
+    participant DEV as Разработчик
+    participant AI as AI-ассистент
+    participant MCP as shadcn MCP Server
+    participant REG as Registry
+    participant CLI as shadcn CLI
 
-    AI -->|"Natural Language"| MCP
-    MCP -->|"Fetch"| REG
-    MCP -->|"Install"| CLI
-    CLI -->|"Add components"| PROJ
+    DEV->>AI: "Добавь card и dialog"
+    AI->>MCP: Запрос компонентов
+    MCP->>REG: Fetch card.json, dialog.json
+    REG-->>MCP: Спецификации компонентов
+    MCP->>CLI: shadcn add card dialog
+    CLI-->>DEV: Компоненты установлены
 ```
 
-## Конфигурация по клиентам
+## Конфигурация MCP-клиентов
 
 ### Claude Code
 
@@ -48,7 +58,13 @@ flowchart LR
 }
 ```
 
-После добавления — перезапустить Claude Code. Команда `/mcp` покажет статус подключения.
+Инициализация через CLI:
+
+```bash
+pnpm dlx shadcn@latest mcp init --client claude
+```
+
+После добавления конфигурации — перезапустить Claude Code. Команда `/mcp` покажет статус подключения.
 
 ### Cursor
 
@@ -65,7 +81,7 @@ flowchart LR
 }
 ```
 
-После добавления — включить shadcn MCP Server в Cursor Settings. Зелёная точка рядом с сервером означает успешное подключение.
+После сохранения — включить shadcn MCP Server в Cursor Settings. Зелёная точка рядом с сервером означает успешное подключение.
 
 ### VS Code (GitHub Copilot)
 
@@ -82,11 +98,11 @@ flowchart LR
 }
 ```
 
-После добавления — открыть `.vscode/mcp.json` и нажать **Start** напротив shadcn.
+После сохранения — открыть `.vscode/mcp.json` и нажать **Start** рядом с shadcn.
 
 ### Codex
 
-Файл `~/.codex/config.toml` (редактируется вручную):
+Файл `~/.codex/config.toml` (ручная настройка):
 
 ```toml
 [mcp_servers.shadcn]
@@ -94,27 +110,16 @@ command = "npx"
 args = ["shadcn@latest", "mcp"]
 ```
 
-После добавления — перезапустить Codex.
+Перезапустить Codex для загрузки MCP-сервера.
 
 ## Настройка реестров
 
-Реестры настраиваются в `components.json` проекта. Стандартный реестр shadcn/ui доступен без конфигурации.
-
-### Базовая конфигурация
+Стандартный реестр shadcn/ui доступен без дополнительной конфигурации. Дополнительные реестры настраиваются в `components.json`:
 
 ```json
 {
   "registries": {
-    "@acme": "https://registry.acme.com/{name}.json"
-  }
-}
-```
-
-### Приватный реестр с аутентификацией
-
-```json
-{
-  "registries": {
+    "@acme": "https://registry.acme.com/{name}.json",
     "@internal": {
       "url": "https://internal.company.com/{name}.json",
       "headers": {
@@ -125,52 +130,37 @@ args = ["shadcn@latest", "mcp"]
 }
 ```
 
-Токены хранятся в `.env.local`:
+Для приватных реестров переменные окружения задаются в `.env.local`:
 
-```
+```bash
 REGISTRY_TOKEN=your_token_here
 ```
 
-## Примеры промптов
-
-| Промпт | Действие |
-|:-------|:---------|
-| `Show me all available components in the shadcn registry` | Список всех компонентов реестра |
-| `Add the button, dialog and card components` | Установка компонентов в проект |
-| `Find me a login form from the shadcn registry` | Поиск формы авторизации |
-| `Build a landing page using components from the acme registry` | Сборка страницы из стороннего реестра |
-| `What sidebar components are available?` | Поиск по функциональности |
-
 ## Применение в ADOLF
 
-В контексте ADOLF MCP-сервер shadcn/ui используется для ускорения разработки UI-компонентов модулей. AI-ассистент может установить и настроить компоненты из [каталога](/ui/adolf_ui_3_components), адаптируя их под единую цветовую схему `--primary`.
+В контексте платформы ADOLF shadcn MCP Server используется для:
 
-### Инициализация
+- Быстрой установки компонентов из [каталога](/ui/adolf_ui_3_components) при разработке модулей
+- Генерации UI-форм и дашбордов через AI-ассистентов с учётом единой цветовой схемы
+- Прототипирования интерфейсов модулей с использованием Blocks и шаблонов shadcn/ui
 
-```bash
-# Установка shadcn CLI
-npx shadcn@latest init
+Промпт для Claude Code при работе с ADOLF:
 
-# Подключение MCP (для Claude Code)
-npx shadcn@latest mcp init --client claude
 ```
-
-### Типовой workflow
-
-1. Запрос AI-ассистенту: `"Add sidebar, card, badge and table components"`
-2. MCP-сервер загружает компоненты из реестра
-3. CLI устанавливает файлы в проект
-4. Компоненты наследуют CSS-переменные из `shadcn-variables.css`
-5. Стилизация через `--primary` — единая для всех модулей
+Используй shadcn MCP для установки компонентов. Все модули ADOLF 
+используют единую цветовую схему shadcn/ui (base color: Neutral).
+Stroke-width иконок Lucide: 1.5px. Стилизация через CSS-переменные 
+--primary, --muted, --accent, --destructive.
+```
 
 ## Связанные документы
 
 | Документ | Описание |
 |:---------|:---------|
-| [Раздел 0: Введение](/ui/adolf_ui_0_introduction) | Обзор дизайн-системы |
-| [Раздел 3: Компоненты](/ui/adolf_ui_3_components) | Каталог компонентов shadcn/ui |
-| [shadcn/ui MCP](https://ui.shadcn.com/docs/mcp) | Официальная документация |
-| [Model Context Protocol](https://modelcontextprotocol.io) | Спецификация MCP |
+| [Раздел 3: Компоненты](/ui/adolf_ui_3_components) | Каталог shadcn-компонентов ADOLF |
+| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, CSS-переменные |
+| [shadcn/ui MCP Docs](https://ui.shadcn.com/docs/mcp) | Официальная документация |
+| [MCP Protocol](https://modelcontextprotocol.io) | Спецификация Model Context Protocol |
 
 ---
 
