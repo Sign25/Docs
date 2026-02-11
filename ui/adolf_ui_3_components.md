@@ -13,7 +13,7 @@ mode: "wide"
 
 Раздел описывает компоненты shadcn/ui, включённые в дизайн-систему ADOLF. Компоненты сгруппированы по категориям и снабжены примерами применения в контексте платформы.
 
-Полный реестр компонентов определён в `ui_reference/base/shadcn-tokens.json` (секция `components`). Каждый компонент наследует CSS-переменные из `shadcn-variables.css` и поддерживает тёмную тему без дополнительной конфигурации.
+Полный реестр компонентов определён в `shadcn-tokens.json` (секция `components`). Каждый компонент наследует CSS-переменные из `shadcn-variables.css` и поддерживает тёмную тему без дополнительной конфигурации.
 
 Справочник shadcn/ui: [ui.shadcn.com/docs/components](https://ui.shadcn.com/docs/components)
 
@@ -556,9 +556,6 @@ border-top: 1px solid var(--border);
 | [Раздел 1: Основы](/ui/adolf_ui_1_foundations) | CSS-переменные, используемые компонентами |
 | [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, иконки, маркетплейсы |
 | [Раздел 4: Паттерны компоновки](/ui/adolf_ui_4_layout_patterns) | Сборка компонентов в layouts |
-| `ui_reference/reputation/reputation.css` | Полный CSS модуля Reputation |
-| `ui_reference/cfo/cfo.css` | Полный CSS модуля CFO |
-| `ui_reference/knowledge/knowledge.css` | Полный CSS модуля Knowledge |
 | [shadcn/ui Components](https://ui.shadcn.com/docs/components) | Официальная документация |
 
 ---
