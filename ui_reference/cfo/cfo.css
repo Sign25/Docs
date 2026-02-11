@@ -12,8 +12,8 @@ d Filter */
   transition: all var(--transition-fast) var(--ease-in-out);
 }
 
-.adolf-cfo-period-btn:hover { border-color: var(--module-color); color: var(--module-color); }
-.adolf-cfo-period-btn.active { background: var(--module-color); border-color: var(--module-color); color: var(--module-color-foreground); }
+.adolf-cfo-period-btn:hover { border-color: var(--primary); color: var(--primary); }
+.adolf-cfo-period-btn.active { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
 
 /* Marketplace Badges */
 .adolf-cfo-mp-badge {
@@ -41,7 +41,7 @@ d Filter */
   margin-top: var(--spacing-6);
 }
 
-.adolf-btn-export { background: var(--module-color); color: var(--module-color-foreground); }
+.adolf-btn-export { background: var(--primary); color: var(--primary-foreground); }
 .adolf-btn-export:hover:not(:disabled) { opacity: 0.9; }
 .adolf-btn-insights { background: var(--info); color: var(--info-foreground); }
 .adolf-btn-insights:hover:not(:disabled) { opacity: 0.9; }
