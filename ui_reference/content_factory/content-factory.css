@@ -10,11 +10,6 @@
    MODULE THEME
    ======================================== */
 
-.adolf-content-factory {
-  --module-color: var(--module-content);
-  --module-color-light: var(--module-content-light);
-  --module-color-foreground: var(--module-content-foreground);
-}
 
 /* ========================================
    RESULT CARD
@@ -33,13 +28,11 @@
   align-items: center;
   gap: var(--spacing-3);
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
   border-bottom: 1px solid var(--border);
 }
 
 .adolf-cf-result-icon {
   font-size: var(--text-xl);
-  color: var(--module-color);
 }
 
 .adolf-cf-result-title {
@@ -145,15 +138,13 @@
   align-items: center;
   padding: 2px var(--spacing-2);
   font-size: var(--text-sm);
-  color: var(--module-color);
-  background: var(--module-color-light);
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast) var(--ease-in-out);
 }
 
 .adolf-cf-seo-tag:hover {
-  background: var(--module-color);
-  color: var(--module-color-foreground);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 /* ========================================
@@ -232,7 +223,6 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--spacing-4) var(--spacing-6);
-  background: var(--module-color-light);
   border-bottom: 1px solid var(--border);
 }
 
@@ -452,8 +442,6 @@
   justify-content: center;
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  color: var(--module-color-foreground);
-  background: var(--module-color);
   border-radius: var(--radius-full);
 }
 
@@ -570,8 +558,6 @@
 }
 
 .adolf-btn-visual-prompt {
-  background: var(--module-color);
-  color: var(--module-color-foreground);
 }
 
 .adolf-btn-regenerate {
@@ -581,8 +567,8 @@
 }
 
 .adolf-btn-regenerate:hover:not(:disabled) {
-  border-color: var(--module-color);
-  color: var(--module-color);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* ========================================
@@ -602,7 +588,6 @@
   width: 32px;
   height: 32px;
   border: 3px solid var(--border);
-  border-top-color: var(--module-color);
   border-radius: var(--radius-full);
   animation: adolf-spin 1s linear infinite;
   margin-bottom: var(--spacing-4);
@@ -637,7 +622,6 @@
 .adolf-cf-stat-value {
   font-size: var(--text-xl);
   font-weight: var(--font-bold);
-  color: var(--module-color);
 }
 
 .adolf-cf-stat-label {
