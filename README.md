@@ -35,15 +35,6 @@ docs/
 │   ├── adolf_ui_3_components.md      # Каталог компонентов shadcn/ui
 │   ├── adolf_ui_4_layout_patterns.md # Паттерны компоновки
 │   └── adolf_ui_appendix_a_icons.md  # Приложение A: Реестр иконок Open WebUI
-│
-└── ui_reference/                    # UI ресурсы (CSS, JSON, HTML-демо)
-    ├── base/                        # Базовые токены и стили
-    ├── icons/                       # SVG-иконки (stroke-width 1.5px)
-    ├── cfo/                         # UI компоненты CFO
-    ├── content_factory/             # UI компоненты Content Factory
-    ├── knowledge/                   # UI компоненты Knowledge
-    ├── reputation/                  # UI компоненты Reputation
-    └── logistic/                    # UI компоненты Logistic
 ```
 
 ## Модули платформы
@@ -74,11 +65,11 @@ docs/
 |:-------|:-----|:---------|
 | 0. Введение | `adolf_ui_0_introduction.md` | Обзор, архитектура, принципы |
 | 1. Основы | `adolf_ui_1_foundations.md` | CSS-переменные, OKLCH-цвета, типографика, отступы, темы |
-| 2. Тематизация | `adolf_ui_2_module_theming.md` | Цвета модулей, иконки, маркетплейсы, статусные цвета |
+| 2. Тематизация | `adolf_ui_2_module_theming.md` | Единая цветовая схема, иконки, маркетплейсы, статусные цвета |
 | 3. Компоненты | `adolf_ui_3_components.md` | Каталог shadcn-компонентов с примерами |
 | 4. Паттерны | `adolf_ui_4_layout_patterns.md` | Launcher, sidebar, dashboard cards, формы |
 
-Ресурсы дизайн-системы (CSS, JSON, HTML-демо) расположены в `ui_reference/`.
+| Прил. A | `adolf_ui_appendix_a_icons.md` | Реестр Lucide-иконок для Open WebUI |
 
 ## Компоненты Core
 
