@@ -1,6 +1,6 @@
 ---
 title: "Приложение A: Реестр иконок Open WebUI"
-description: "UI Design System v1.0 — полный реестр Lucide-иконок для Open WebUI с миниатюрами, параметрами и ссылками"
+description: "UI Design System v1.1 — полный реестр Lucide-иконок для Open WebUI с миниатюрами, параметрами и ссылками"
 mode: "wide"
 ---
 
@@ -71,14 +71,13 @@ mode: "wide"
 | **Lucide name** | `database-search` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `DatabaseSearch` |
-| **Цвет модуля** | `--module-knowledge` / #3B82F6 (Blue) |
 | **Файл** | `ui_reference/icons/knowledge.svg` |
 | **Ссылка** | [lucide.dev/icons/database-search](https://lucide.dev/icons/database-search) |
 
 ![Knowledge](/ui_reference/icons/knowledge.svg)
 
 ```html
-<i data-lucide="database-search" stroke-width="1.5" style="color: var(--module-knowledge)"></i>
+<i data-lucide="database-search" stroke-width="1.5"></i>
 ```
 
 ### Content Factory
@@ -89,7 +88,6 @@ mode: "wide"
 | **Lucide name** | `jacket` |
 | **Пакет** | `@lucide/lab` ⚠️ |
 | **React import** | `import { jacket } from '@lucide/lab'` |
-| **Цвет модуля** | `--module-content` / #A855F7 (Purple) |
 | **Файл** | `ui_reference/icons/content-factory.svg` |
 | **Ссылка** | [lucide.dev/icons/lab/jacket](https://lucide.dev/icons/lab/jacket) |
 
@@ -110,14 +108,13 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `chart-candlestick` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ChartCandlestick` |
-| **Цвет модуля** | `--module-cfo` / #22C55E (Green) |
 | **Файл** | `ui_reference/icons/cfo.svg` |
 | **Ссылка** | [lucide.dev/icons/chart-candlestick](https://lucide.dev/icons/chart-candlestick) |
 
 ![CFO](/ui_reference/icons/cfo.svg)
 
 ```html
-<i data-lucide="chart-candlestick" stroke-width="1.5" style="color: var(--module-cfo)"></i>
+<i data-lucide="chart-candlestick" stroke-width="1.5"></i>
 ```
 
 ### Reputation
@@ -128,14 +125,13 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `thumbs-up` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ThumbsUp` |
-| **Цвет модуля** | `--module-reputation` / #F97316 (Orange) |
 | **Файл** | `ui_reference/icons/reputation.svg` |
 | **Ссылка** | [lucide.dev/icons/thumbs-up](https://lucide.dev/icons/thumbs-up) |
 
 ![Reputation](/ui_reference/icons/reputation.svg)
 
 ```html
-<i data-lucide="thumbs-up" stroke-width="1.5" style="color: var(--module-reputation)"></i>
+<i data-lucide="thumbs-up" stroke-width="1.5"></i>
 ```
 
 ### Watcher
@@ -146,14 +142,13 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `hat-glasses` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `HatGlasses` |
-| **Цвет модуля** | `--module-watcher` / #EF4444 (Red) |
 | **Файл** | `ui_reference/icons/watcher.svg` |
 | **Ссылка** | [lucide.dev/icons/hat-glasses](https://lucide.dev/icons/hat-glasses) |
 
 ![Watcher](/ui_reference/icons/watcher.svg)
 
 ```html
-<i data-lucide="hat-glasses" stroke-width="1.5" style="color: var(--module-watcher)"></i>
+<i data-lucide="hat-glasses" stroke-width="1.5"></i>
 ```
 
 ### Marketing
@@ -164,7 +159,6 @@ import { jacket } from '@lucide/lab';
 | **Lucide name** | `target-arrow` |
 | **Пакет** | `@lucide/lab` ⚠️ |
 | **React import** | `import { targetArrow } from '@lucide/lab'` |
-| **Цвет модуля** | `--module-marketing` / #EC4899 (Pink) |
 | **Файл** | `ui_reference/icons/marketing.svg` |
 | **Ссылка** | [lucide.dev/icons/lab/target-arrow](https://lucide.dev/icons/lab/target-arrow) |
 
@@ -185,14 +179,13 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `binoculars` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Binoculars` |
-| **Цвет модуля** | `--module-scout` / #06B6D4 (Cyan) |
 | **Файл** | `ui_reference/icons/scout.svg` |
 | **Ссылка** | [lucide.dev/icons/binoculars](https://lucide.dev/icons/binoculars) |
 
 ![Scout](/ui_reference/icons/scout.svg)
 
 ```html
-<i data-lucide="binoculars" stroke-width="1.5" style="color: var(--module-scout)"></i>
+<i data-lucide="binoculars" stroke-width="1.5"></i>
 ```
 
 ### Lex
@@ -203,14 +196,13 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `scale` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Scale` |
-| **Цвет модуля** | `--module-lex` / #64748B (Slate) |
 | **Файл** | `ui_reference/icons/lex.svg` |
 | **Ссылка** | [lucide.dev/icons/scale](https://lucide.dev/icons/scale) |
 
 ![Lex](/ui_reference/icons/lex.svg)
 
 ```html
-<i data-lucide="scale" stroke-width="1.5" style="color: var(--module-lex)"></i>
+<i data-lucide="scale" stroke-width="1.5"></i>
 ```
 
 ### Logistic
@@ -221,14 +213,13 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `truck` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Truck` |
-| **Цвет модуля** | `--module-logistic` / #14B8A6 (Teal) |
 | **Файл** | `ui_reference/icons/logistic.svg` |
 | **Ссылка** | [lucide.dev/icons/truck](https://lucide.dev/icons/truck) |
 
 ![Logistic](/ui_reference/icons/logistic.svg)
 
 ```html
-<i data-lucide="truck" stroke-width="1.5" style="color: var(--module-logistic)"></i>
+<i data-lucide="truck" stroke-width="1.5"></i>
 ```
 
 ### Office
@@ -239,7 +230,6 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `building-2` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `Building2` |
-| **Цвет модуля** | — |
 | **Файл** | `ui_reference/icons/office.svg` |
 | **Ссылка** | [lucide.dev/icons/building-2](https://lucide.dev/icons/building-2) |
 
@@ -257,7 +247,6 @@ import { targetArrow } from '@lucide/lab';
 | **Lucide name** | `shopping-cart` |
 | **Пакет** | `lucide` (основной) |
 | **React import** | `ShoppingCart` |
-| **Цвет модуля** | — |
 | **Файл** | `ui_reference/icons/shop.svg` |
 | **Ссылка** | [lucide.dev/icons/shopping-cart](https://lucide.dev/icons/shopping-cart) |
 
@@ -269,21 +258,21 @@ import { targetArrow } from '@lucide/lab';
 
 ## Сводная таблица
 
-| # | Назначение | Lucide Name | Пакет | HEX | Файл |
-|:-:|:-----------|:------------|:------|:----|:-----|
-| 1 | Логотип приложения | `bot-message-square` | lucide | — | `app-logo.svg` |
-| 2 | Новый чат | `message-square-more` | lucide | — | `new-chat.svg` |
-| 3 | Knowledge | `database-search` | lucide | #3B82F6 | `knowledge.svg` |
-| 4 | Content Factory | `jacket` | @lucide/lab | #A855F7 | `content-factory.svg` |
-| 5 | CFO | `chart-candlestick` | lucide | #22C55E | `cfo.svg` |
-| 6 | Reputation | `thumbs-up` | lucide | #F97316 | `reputation.svg` |
-| 7 | Watcher | `hat-glasses` | lucide | #EF4444 | `watcher.svg` |
-| 8 | Marketing | `target-arrow` | @lucide/lab | #EC4899 | `marketing.svg` |
-| 9 | Scout | `binoculars` | lucide | #06B6D4 | `scout.svg` |
-| 10 | Lex | `scale` | lucide | #64748B | `lex.svg` |
-| 11 | Logistic | `truck` | lucide | #14B8A6 | `logistic.svg` |
-| 12 | Office | `building-2` | lucide | — | `office.svg` |
-| 13 | Shop | `shopping-cart` | lucide | — | `shop.svg` |
+| # | Назначение | Lucide Name | Пакет | Файл |
+|:-:|:-----------|:------------|:------|:-----|
+| 1 | Логотип приложения | `bot-message-square` | lucide | `app-logo.svg` |
+| 2 | Новый чат | `message-square-more` | lucide | `new-chat.svg` |
+| 3 | Knowledge | `database-search` | lucide | `knowledge.svg` |
+| 4 | Content Factory | `jacket` | @lucide/lab | `content-factory.svg` |
+| 5 | CFO | `chart-candlestick` | lucide | `cfo.svg` |
+| 6 | Reputation | `thumbs-up` | lucide | `reputation.svg` |
+| 7 | Watcher | `hat-glasses` | lucide | `watcher.svg` |
+| 8 | Marketing | `target-arrow` | @lucide/lab | `marketing.svg` |
+| 9 | Scout | `binoculars` | lucide | `scout.svg` |
+| 10 | Lex | `scale` | lucide | `lex.svg` |
+| 11 | Logistic | `truck` | lucide | `logistic.svg` |
+| 12 | Office | `building-2` | lucide | `office.svg` |
+| 13 | Shop | `shopping-cart` | lucide | `shop.svg` |
 
 ## Установка
 
@@ -384,11 +373,11 @@ ui_reference/icons/
 | Документ | Описание |
 |:---------|:---------|
 | [Раздел 0: Введение](/ui/adolf_ui_0_introduction) | Обзор дизайн-системы |
-| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Цвета модулей, CSS-переменные |
+| [Раздел 2: Тематизация](/ui/adolf_ui_2_module_theming) | Единая цветовая схема, маркетплейсы |
 | `ui_reference/base/shadcn-variables.css` | CSS-переменные цветов модулей |
 | [Lucide Icons](https://lucide.dev/icons/) | Поиск иконок |
 | [Lucide Lab](https://github.com/lucide-icons/lucide-lab) | Lab-пакет (jacket, target-arrow) |
 
 ---
 
-**Версия:** 1.0 | **Дата:** Февраль 2026
+**Версия:** 1.1 | **Дата:** Февраль 2026
