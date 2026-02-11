@@ -2,21 +2,13 @@
  * ADOLF Logistic Module - UI Styles
  * 
  * Design System: shadcn/ui + OKLCH
- * Module Color: Teal (#14B8A6 / oklch(0.72 0.14 180))
+ * Стилизация: shadcn/ui --primary
  * Icon: truck (Lucide)
  * 
  * Version: 1.0
  * Date: January 2026
  */
 
-/* ===== MODULE COLOR VARIABLES ===== */
-.adolf-logistic,
-[data-module="logistic"] {
-  --module-color: oklch(0.72 0.14 180);
-  --module-color-foreground: oklch(0.985 0 0);
-  --module-color-muted: oklch(0.72 0.14 180 / 0.1);
-  --module-color-hover: oklch(0.65 0.14 180);
-}
 
 /* ===== STOCK STATUS INDICATORS ===== */
 .adolf-stock-status {
@@ -61,7 +53,7 @@
 }
 
 .adolf-warehouse-card:hover {
-  border-color: var(--module-color);
+  border-color: var(--primary);
   box-shadow: 0 4px 12px oklch(0 0 0 / 0.08);
 }
 
@@ -143,7 +135,7 @@
 }
 
 .adolf-stock-table tr:hover td {
-  background: var(--module-color-muted);
+  background: var(--muted);
 }
 
 .adolf-stock-table .article {
@@ -219,8 +211,8 @@
 }
 
 .adolf-alert-card.low {
-  border-left-color: var(--module-color);
-  background: var(--module-color-muted);
+  border-left-color: var(--primary);
+  background: var(--muted);
 }
 
 .adolf-alert-icon {
@@ -270,8 +262,6 @@
 /* ===== RECOMMENDATION CARD ===== */
 .adolf-recommendation {
   padding: var(--spacing-5);
-  background: linear-gradient(135deg, var(--module-color-muted), var(--card));
-  border: 1px solid var(--module-color);
   border-radius: var(--radius-lg);
 }
 
@@ -302,7 +292,6 @@
 .adolf-recommendation-total-value {
   font-size: var(--text-2xl);
   font-weight: var(--font-bold);
-  color: var(--module-color);
 }
 
 .adolf-recommendation-total-label {
@@ -340,7 +329,6 @@
 
 .adolf-allocation-fill {
   height: 100%;
-  background: var(--module-color);
   border-radius: var(--radius-full);
   transition: width 0.5s var(--ease-out);
 }
@@ -389,8 +377,8 @@
 }
 
 .adolf-metric-card.highlight {
-  border-color: var(--module-color);
-  background: var(--module-color-muted);
+  border-color: var(--primary);
+  background: var(--muted);
 }
 
 .adolf-metric-icon {
@@ -399,9 +387,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--module-color-muted);
   border-radius: var(--radius-md);
-  color: var(--module-color);
   margin-bottom: var(--spacing-3);
 }
 
@@ -531,29 +517,24 @@
 
 .adolf-supply-progress-fill {
   height: 100%;
-  background: var(--module-color);
   border-radius: var(--radius-full);
   transition: width 0.3s var(--ease-out);
 }
 
 /* ===== BUTTONS ===== */
 .adolf-btn-logistic {
-  background: var(--module-color);
-  color: var(--module-color-foreground);
 }
 
 .adolf-btn-logistic:hover:not(:disabled) {
-  background: var(--module-color-hover);
+  background: var(--accent);
 }
 
 .adolf-btn-logistic-outline {
   background: transparent;
-  color: var(--module-color);
-  border: 1px solid var(--module-color);
 }
 
 .adolf-btn-logistic-outline:hover:not(:disabled) {
-  background: var(--module-color-muted);
+  background: var(--muted);
 }
 
 /* ===== RESPONSIVE ===== */
