@@ -403,12 +403,12 @@ Analyzer извлекает данные из Knowledge и формирует с
 | **0. Введение** | Обзор, архитектура, цели (этот документ) | Общая |
 | **1. Архитектура** | Компоненты, потоки данных, инфраструктура | Общая |
 | **2. Telegram-бот и планировщик** | bot.js, scheduler.js, команды, расписания | Collector |
-| **3. Оркестратор и исполнитель** | orchestrator.js, runner.js, cdp-pool.js | Collector |
+| **3. Оркестратор и исполнитель** | orchestrator.js, runner.js, распределение задач | Collector |
 | **4. Сканеры и обогатители** | SKILL/, human.js, маркетплейс-специфика | Collector |
-| **5. База данных и хранение** | SQLite-схема, файловая структура, ротация | Collector |
-| **6. REST API и Web-мониторинг** | api.js, monitor/, agent.adolf.su | Collector |
-| **7. Knowledge Pipeline** | JSON→Markdown, передача, формат документов | Collector → Knowledge |
-| **8. Аналитическая подсистема** | Ценовая, ассортиментная, трендовая аналитика, алерты, Open WebUI | Analyzer |
+| **5. База данных и REST API** | SQLite-схема, api.js, файловое хранилище | Collector |
+| **6. Analyzer и Open WebUI** | Knowledge Pipeline, дашборд, AI-чат, Celery, алерты | Analyzer |
+| **7. Мониторинг и развёртывание** | cdp-pool.js, monitor/, config.js, systemd, FRP, nginx | Collector |
+| **8. Задачи разработки** | Статус, backlog, технический долг, roadmap | Общая |
 
 ---
 
