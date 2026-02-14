@@ -22,7 +22,7 @@ mode: "wide"
 | 4 | [Supply Task Engine](adolf_logistic_4_supply_task_engine.md) | 2.0 | Наряд-задания, расчёт дефицита, жизненный цикл |
 | 5 | [1С Integration](adolf_logistic_5_1c_integration.md) | 2.0 | Файловый импорт XLSX/XML из 1С |
 | 6 | [Database](adolf_logistic_6_database.md) | 2.0 | Схема БД: кластеры, остатки FBO/1С, наряд-задания |
-| 7 | [Open WebUI](adolf_logistic_7_open_webui.md) | 2.0 | Диалоговый интерфейс: 8 tools для FBO + 1С + задания |
+| 7 | [Open WebUI](adolf_logistic_7_open_webui.md) | 2.1 | Dashboard-first интерфейс: 13 tools, баннеры, наряд-задания workflow |
 | 8 | [Celery](adolf_logistic_8_celery.md) | 2.0 | 9 фоновых задач: Ozon sync + 1С import + supply tasks |
 
 ---
