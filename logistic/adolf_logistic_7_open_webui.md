@@ -129,7 +129,234 @@ flowchart TD
 
 ---
 
-## 7.3 Pipeline
+## 7.3 UI-компоненты (shadcn/ui)
+
+### Модуль Logistic в дизайн-системе
+
+| Параметр | Значение |
+|----------|----------|
+| Иконка Lucide | `Truck` |
+| Import | `import \{ Truck \} from 'lucide-react'` |
+| Цвет модуля | `--module-logistic: oklch(0.705 0.152 162)` (Teal) |
+| Light | `--module-logistic-light: oklch(0.95 0.03 162)` |
+| Foreground | `--module-logistic-foreground: oklch(0.985 0 0)` |
+
+### Компоненты по зонам экрана
+
+#### Зона 1 — Дашборд (auto-trigger)
+
+| UI-элемент | shadcn/ui компонент | Применение |
+|------------|---------------------|------------|
+| Контейнер дашборда | [Card](https://ui.shadcn.com/docs/components/card) | `Card` + `CardHeader` + `CardContent` для каждой секции |
+| Метрики задний | [Badge](https://ui.shadcn.com/docs/components/badge) | `Badge variant="destructive"` для Urgent, `variant="secondary"` для остальных |
+| Таблица метрик | [Table](https://ui.shadcn.com/docs/components/table) | Компактная таблица в `CardContent` |
+| Блок алертов | [Alert](https://ui.shadcn.com/docs/components/alert) | `Alert variant="destructive"` для high-severity |
+| Индикаторы загрузки | [Skeleton](https://ui.shadcn.com/docs/components/skeleton) | Пока данные загружаются из API |
+| Пустое состояние | [Empty](https://ui.shadcn.com/docs/components/empty) | Если данные недоступны |
+
+```tsx
+// Пример: секция дашборда
+<Card>
+  <CardHeader>
+    <div className="flex items-center gap-2">
+      <Truck className="h-5 w-5 text-module-logistic" />
+      <CardTitle>Наряд-задания (сегодня)</CardTitle>
+      <Badge variant="destructive">3 urgent</Badge>
+    </div>
+  </CardHeader>
+  <CardContent>
+    <Table>
+      <TableBody>
+        <TableRow>
+          <TableCell className="text-muted-foreground">Всего</TableCell>
+          <TableCell className="font-semibold">20</TableCell>
+        </TableRow>
+        {/* ... */}
+      </TableBody>
+    </Table>
+  </CardContent>
+</Card>
+```
+
+#### Зона 2 — Баннеры (prompt_suggestions)
+
+| UI-элемент | shadcn/ui компонент | Применение |
+|------------|---------------------|------------|
+| Контейнер блока | [Card](https://ui.shadcn.com/docs/components/card) | Группировка баннеров по блокам |
+| Заголовок блока | [Typography](https://ui.shadcn.com/docs/components/typography) | `h3` с иконкой Lucide |
+| Кнопка-баннер | [Button](https://ui.shadcn.com/docs/components/button) | `Button variant="outline"` с иконкой и описанием |
+| Группа кнопок | [Button Group](https://ui.shadcn.com/docs/components/button-group) | Горизонтальная группировка внутри блока |
+| Тултип описания | [Tooltip](https://ui.shadcn.com/docs/components/tooltip) | Подробное описание при hover |
+
+```tsx
+// Пример: блок баннеров «Наряд-задания»
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <ClipboardList className="h-5 w-5" />
+      Наряд-задания
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="grid grid-cols-2 gap-2">
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="outline" className="justify-start gap-2 h-auto py-3">
+          <ClipboardCheck className="h-4 w-4" />
+          <div className="text-left">
+            <div className="font-medium">Новые задания</div>
+            <div className="text-xs text-muted-foreground">Ожидают подтверждения</div>
+          </div>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Наряд-задания со статусом «Новый»</TooltipContent>
+    </Tooltip>
+    {/* ... остальные баннеры */}
+  </CardContent>
+</Card>
+```
+
+#### Зона 3 — Отчёты и наряд-задания
+
+| UI-элемент | shadcn/ui компонент | Применение |
+|------------|---------------------|------------|
+| Таблица данных | [Data Table](https://ui.shadcn.com/docs/components/data-table) | Список заданий, остатки по кластерам, прогнозы |
+| Статус задания | [Badge](https://ui.shadcn.com/docs/components/badge) | `new` → outline, `confirmed` → secondary, `shipped` → default |
+| Приоритет | [Badge](https://ui.shadcn.com/docs/components/badge) | `urgent` → destructive, `planned` → warning, `recommended` → success |
+| Кнопки workflow | [Button](https://ui.shadcn.com/docs/components/button) | `Подтвердить`, `Собрать`, `Отгрузить` — в строке таблицы |
+| Подтверждение действия | [Alert Dialog](https://ui.shadcn.com/docs/components/alert-dialog) | Перед отменой задания (`cancel`) |
+| Drill-down навигация | [Button](https://ui.shadcn.com/docs/components/button) `variant="link"` | Ссылки под отчётом |
+| Фильтры | [Select](https://ui.shadcn.com/docs/components/select) + [Date Picker](https://ui.shadcn.com/docs/components/date-picker) | Фильтр по кластеру, статусу, дате |
+| Пагинация | [Pagination](https://ui.shadcn.com/docs/components/pagination) | При > 30 записей |
+| Уведомления | [Toast](https://ui.shadcn.com/docs/components/toast) | Результат действий (подтверждение, отгрузка) |
+| Графики velocity | [Chart](https://ui.shadcn.com/docs/components/chart) | Bar chart velocity по кластерам |
+| Прогресс отгрузки | [Progress](https://ui.shadcn.com/docs/components/progress) | Прогресс задания: new → confirmed → collected → shipped |
+| Детали артикула | [Sheet](https://ui.shadcn.com/docs/components/sheet) | Слайдер с полной информацией по артикулу |
+
+### Маппинг Badge variants → статусы
+
+| Сущность | Значение | Badge variant | Цвет |
+|----------|----------|---------------|------|
+| Приоритет | urgent | `destructive` | `--destructive` |
+| Приоритет | planned | `default` (custom) | `--warning` |
+| Приоритет | recommended | `secondary` | `--success` |
+| Статус задания | new | `outline` | `--border` |
+| Статус задания | confirmed | `secondary` | `--secondary` |
+| Статус задания | collected | `default` (custom) | `--info` |
+| Статус задания | shipped | `default` | `--success` |
+| Статус задания | cancelled | `destructive` | `--destructive` |
+| Остатки | urgent (&lt; 3 дн.) | `destructive` | `--destructive` |
+| Остатки | soon (&lt; 7 дн.) | `default` (custom) | `--warning` |
+| Остатки | enough | `secondary` | `--success` |
+| Остатки | out_of_stock | `destructive` | `--destructive` |
+| Покрытие | full | `secondary` | `--success` |
+| Покрытие | partial | `default` (custom) | `--warning` |
+| Покрытие | none | `destructive` | `--destructive` |
+
+### Lucide-иконки модуля
+
+| Контекст | Иконка | Lucide Name |
+|----------|--------|-------------|
+| Модуль Logistic | 🚛 | `Truck` |
+| Наряд-задания | 📋 | `ClipboardList` |
+| Новое задание | ✏️ | `ClipboardCheck` |
+| Подтверждено | ✅ | `CheckCircle` |
+| Собрано | 📦 | `Package` |
+| Отгружено | 🚛 | `TruckIcon` |
+| Отменено | ❌ | `XCircle` |
+| Остатки FBO | 📦 | `Warehouse` |
+| Склад 1С | 🏭 | `Factory` |
+| Кластер | 📍 | `MapPin` |
+| Алерт | 🔔 | `Bell` |
+| Urgent | 🔴 | `AlertTriangle` |
+| Velocity | 📈 | `TrendingUp` |
+| Прогноз | 📉 | `TrendingDown` |
+| Рекомендации Ozon | 💡 | `Lightbulb` |
+| Фильтр | 🔍 | `Filter` |
+| Экспорт | 📥 | `Download` |
+
+### Пример: строка таблицы наряд-задания
+
+```tsx
+<TableRow>
+  <TableCell className="font-mono text-sm">LG-2026-02-14-001</TableCell>
+  <TableCell>51005/54</TableCell>
+  <TableCell>Дальний Восток</TableCell>
+  <TableCell className="text-right">32 шт</TableCell>
+  <TableCell>
+    <Badge variant="destructive" className="gap-1">
+      <AlertTriangle className="h-3 w-3" />
+      urgent
+    </Badge>
+  </TableCell>
+  <TableCell>
+    <Badge variant="outline">new</Badge>
+  </TableCell>
+  <TableCell>
+    <Button size="sm" variant="default" className="gap-1">
+      <CheckCircle className="h-3 w-3" />
+      Подтвердить
+    </Button>
+  </TableCell>
+</TableRow>
+```
+
+### Пример: Progress workflow
+
+```tsx
+// Прогресс задания: 4 шага
+<div className="flex items-center gap-2">
+  <div className="flex items-center gap-1 text-sm">
+    <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+    <span className="text-muted-foreground">new</span>
+  </div>
+  <Separator className="flex-1" />
+  <div className="flex items-center gap-1 text-sm">
+    <CheckCircle className="h-4 w-4 text-primary" />
+    <span className="font-medium">confirmed</span>
+  </div>
+  <Separator className="flex-1" />
+  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+    <Package className="h-4 w-4" />
+    <span>collected</span>
+  </div>
+  <Separator className="flex-1" />
+  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+    <Truck className="h-4 w-4" />
+    <span>shipped</span>
+  </div>
+</div>
+```
+
+### Пример: Alert Dialog отмены задания
+
+```tsx
+<AlertDialog>
+  <AlertDialogTrigger asChild>
+    <Button variant="destructive" size="sm">
+      <XCircle className="h-3 w-3 mr-1" />
+      Отменить
+    </Button>
+  </AlertDialogTrigger>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Отменить задание LG-2026-02-14-001?</AlertDialogTitle>
+      <AlertDialogDescription>
+        Артикул 51005/54, кластер Дальний Восток, 32 шт.
+        Укажите причину отмены.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <Textarea placeholder="Причина отмены (обязательно)" />
+    <AlertDialogFooter>
+      <AlertDialogCancel>Назад</AlertDialogCancel>
+      <AlertDialogAction variant="destructive">Отменить задание</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+---
+
+## 7.4 Pipeline
 
 ### Конфигурация
 
@@ -314,9 +541,9 @@ class Pipeline:
 
 ---
 
-## 7.4 Tools
+## 7.5 Tools
 
-### 7.4.1 get_dashboard (auto-trigger)
+### 7.5.1 get_dashboard (auto-trigger)
 
 ```python
 # open_webui/tools.py
@@ -415,7 +642,7 @@ class Tools:
         return result
 ```
 
-### 7.4.2 get_supply_tasks
+### 7.5.2 get_supply_tasks
 
 ```python
     async def get_supply_tasks(
@@ -527,7 +754,7 @@ class Tools:
         return result
 ```
 
-### 7.4.3 update_task_status
+### 7.5.3 update_task_status
 
 ```python
     async def update_task_status(
@@ -597,7 +824,7 @@ class Tools:
             return f"❌ Ошибка: {error}"
 ```
 
-### 7.4.4 get_shipment_history
+### 7.5.4 get_shipment_history
 
 ```python
     async def get_shipment_history(
@@ -664,11 +891,11 @@ class Tools:
         return result
 ```
 
-### 7.4.5 – 7.4.8 Tools из v2.0
+### 7.5.5 – 7.5.8 Tools из v2.0
 
 Реализации `get_cluster_stocks`, `get_article_details`, `get_warehouse_stocks` и `get_urgent_stocks` перенесены из v2.0 без изменений. Код доступен в истории версий репозитория.
 
-### 7.4.9 get_deficit_report (новый)
+### 7.5.9 get_deficit_report (новый)
 
 ```python
     async def get_deficit_report(
@@ -753,7 +980,7 @@ class Tools:
         return result
 ```
 
-### 7.4.10 get_velocity_report (новый)
+### 7.5.10 get_velocity_report (новый)
 
 ```python
     async def get_velocity_report(
@@ -801,7 +1028,7 @@ class Tools:
         return result
 ```
 
-### 7.4.11 get_oos_report (новый)
+### 7.5.11 get_oos_report (новый)
 
 ```python
     async def get_oos_report(
@@ -853,7 +1080,7 @@ class Tools:
         return result
 ```
 
-### 7.4.12 get_forecast_report (новый)
+### 7.5.12 get_forecast_report (новый)
 
 ```python
     async def get_forecast_report(
@@ -924,7 +1151,7 @@ class Tools:
         return result
 ```
 
-### 7.4.13 get_ozon_recommendations (новый)
+### 7.5.13 get_ozon_recommendations (новый)
 
 ```python
     async def get_ozon_recommendations(
@@ -995,13 +1222,13 @@ class Tools:
         return result
 ```
 
-### 7.4.14 get_alerts
+### 7.5.14 get_alerts
 
 Реализация без изменений — перенесена из v2.0.
 
 ---
 
-## 7.5 Интерфейс наряд-заданий
+## 7.6 Интерфейс наряд-заданий
 
 ### Workflow управления заданиями
 
@@ -1122,7 +1349,7 @@ _Выберите отчёт из баннеров ниже для детали�
 
 ---
 
-## 7.6 Drill-down (уточнение выборки)
+## 7.7 Drill-down (уточнение выборки)
 
 ### Принцип
 
@@ -1142,7 +1369,7 @@ _Выберите отчёт из баннеров ниже для детали�
 
 ---
 
-## 7.7 Маппинг Tools → API Endpoints
+## 7.8 Маппинг Tools → API Endpoints
 
 | Tool | HTTP | Endpoint | Раздел |
 |------|------|----------|--------|
@@ -1163,7 +1390,7 @@ _Выберите отчёт из баннеров ниже для детали�
 
 ---
 
-## 7.8 Регистрация в Open WebUI
+## 7.9 Регистрация в Open WebUI
 
 ### Pipeline
 
@@ -1185,12 +1412,12 @@ _Выберите отчёт из баннеров ниже для детали�
 ### Prompt Suggestions
 
 1. В настройках Pipeline → `prompt_suggestions`
-2. Загрузить JSON-массив из раздела 7.3 (13 баннеров)
+2. Загрузить JSON-массив из раздела 7.4 (13 баннеров)
 3. Проверить группировку: наряд-задания → остатки → алерты
 
 ---
 
-## 7.9 Промпт для Claude Code
+## 7.10 Промпт для Claude Code
 
 ```
 Реализуй Open WebUI интеграцию для Logistic v2.1 согласно
@@ -1229,7 +1456,7 @@ adolf_logistic_7_open_webui.md
 
 ---
 
-## 7.10 Связанные документы
+## 7.11 Связанные документы
 
 | Документ | Описание |
 |----------|----------|
