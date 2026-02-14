@@ -28,14 +28,16 @@ mode: "wide"
 
 ### Компоненты интерфейса
 
-| Компонент | Описание |
-|-----------|----------|
-| KPI Header | 2 строки: оперативные (1С) + стратегические (KB) с severity-индикацией |
-| Banner Grid | 11 категорий: 6 оперативных + 5 стратегических (KB Qdrant) |
-| Result Page | Страница результата с таблицами, графиками и severity-badges |
-| Charts | shadcn/ui Charts (Recharts): Area, Bar, Line, Pie, Gauge, Radar, Waterfall |
-| Forecast | Прогнозная модель: 3 сценария (KB + тренд 1С + сезонность) |
-| Pipeline | Единый чат \`@Adolf\` — автомаршрутизация финансовых запросов |
+| Компонент | shadcn/ui основа | Описание |
+|-----------|-----------------|----------|
+| KPI Header | [Card](https://ui.shadcn.com/docs/components/card), [Badge](https://ui.shadcn.com/docs/components/badge), [Hover Card](https://ui.shadcn.com/docs/components/hover-card) | 2 строки: оперативные (1С) + стратегические (KB) с severity |
+| Banner Grid | [Card](https://ui.shadcn.com/docs/components/card), [Accordion](https://ui.shadcn.com/docs/components/accordion), [Badge](https://ui.shadcn.com/docs/components/badge) | 11 категорий баннеров |
+| Result Page | [Tabs](https://ui.shadcn.com/docs/components/tabs), [Data Table](https://ui.shadcn.com/docs/components/data-table), [Alert](https://ui.shadcn.com/docs/components/alert) | Таблицы, графики, AI-комментарии, severity-alerts |
+| Charts | [Chart](https://ui.shadcn.com/docs/components/chart) (Recharts) | Area, Bar, Line, Pie, Radar, RadialBar, Waterfall |
+| Forecast | [Chart](https://ui.shadcn.com/docs/components/chart), [Progress](https://ui.shadcn.com/docs/components/progress) | 3 сценария (KB + тренд 1С + сезонность) |
+| Navigation | [Sidebar](https://ui.shadcn.com/docs/components/sidebar), [Breadcrumb](https://ui.shadcn.com/docs/components/breadcrumb), [Toggle Group](https://ui.shadcn.com/docs/components/toggle-group) | Навигация, период, фильтры |
+| Feedback | [Toast](https://ui.shadcn.com/docs/components/toast), [Skeleton](https://ui.shadcn.com/docs/components/skeleton), [Empty](https://ui.shadcn.com/docs/components/empty) | Уведомления, загрузка, пустые состояния |
+| Pipeline | — | Единый чат \`@Adolf\` — автомаршрутизация |
 
 ---
 
@@ -117,6 +119,90 @@ sequenceDiagram
 ### 4.2.3 Чат с ИИ — отдельный поток
 
 Для свободных вопросов директор использует главный экран Open WebUI — единый чат \`@Adolf\`. Pipeline автоматически маршрутизирует финансовые запросы к CFO Tools на основе контекста сообщения. Роль пользователя определяет набор доступных Tools и уровень детализации ответов. Подробнее — в подразделе 4.8.
+
+### 4.2.4 Реестр shadcn/ui компонентов
+
+Все визуальные элементы дашборда CFO построены на компонентах [shadcn/ui](https://ui.shadcn.com/docs/components). Ниже — маппинг компонентов на элементы интерфейса.
+
+**Каркас страницы**
+
+| Элемент интерфейса | shadcn/ui компонент | Документация |
+|---------------------|---------------------|-------------|
+| Навигация модулей | [Sidebar](https://ui.shadcn.com/docs/components/sidebar) | Collapsible sidebar с иконками модулей |
+| Хлебные крошки | [Breadcrumb](https://ui.shadcn.com/docs/components/breadcrumb) | Финансы / P&L по категориям |
+| Переключатель периода | [Toggle Group](https://ui.shadcn.com/docs/components/toggle-group) | Нед \| Мес \| Кв |
+| Выбор произвольного периода | [Date Picker](https://ui.shadcn.com/docs/components/date-picker) + [Popover](https://ui.shadcn.com/docs/components/popover) | Календарь с выбором диапазона |
+| Разделитель блоков | [Separator](https://ui.shadcn.com/docs/components/separator) | Между KPI и баннерами |
+| Прокрутка категорий | [Scroll Area](https://ui.shadcn.com/docs/components/scroll-area) | Стилизованный скролл на мобильных |
+
+**KPI Dashboard Header**
+
+| Элемент | shadcn/ui компонент | Использование |
+|---------|---------------------|---------------|
+| KPI-карточка | [Card](https://ui.shadcn.com/docs/components/card) | CardHeader (иконка + заголовок), CardContent (значение + дельта) |
+| Severity-бейдж | [Badge](https://ui.shadcn.com/docs/components/badge) | variant: \`default\` / \`secondary\` / \`destructive\` |
+| Подробности метрики | [Hover Card](https://ui.shadcn.com/docs/components/hover-card) | При наведении: формула расчёта, период данных, источник |
+| Загрузка метрик | [Skeleton](https://ui.shadcn.com/docs/components/skeleton) | Плейсхолдер при загрузке KPI |
+| Спиннер обновления | [Spinner](https://ui.shadcn.com/docs/components/spinner) | При перезагрузке данных |
+
+**Banner Grid**
+
+| Элемент | shadcn/ui компонент | Использование |
+|---------|---------------------|---------------|
+| Баннер отчёта | [Card](https://ui.shadcn.com/docs/components/card) | Кликабельная карточка с иконкой, заголовком, описанием |
+| Категория-аккордеон | [Accordion](https://ui.shadcn.com/docs/components/accordion) | Сворачиваемые группы баннеров (мобильная версия) |
+| Бейдж "AI" / "!" | [Badge](https://ui.shadcn.com/docs/components/badge) | На баннерах AI-дайджеста и критических рисков |
+| Пустая категория | [Empty](https://ui.shadcn.com/docs/components/empty) | Когда нет данных для категории |
+
+**Result Page (отчёты)**
+
+| Элемент | shadcn/ui компонент | Использование |
+|---------|---------------------|---------------|
+| Таблица данных | [Data Table](https://ui.shadcn.com/docs/components/data-table) | Сортировка, фильтрация, пагинация |
+| Простая таблица | [Table](https://ui.shadcn.com/docs/components/table) | Сводки без интерактива |
+| Вкладки отчётов | [Tabs](https://ui.shadcn.com/docs/components/tabs) | Таблица \| График \| Сводка |
+| Кнопки действий | [Button](https://ui.shadcn.com/docs/components/button) + [Button Group](https://ui.shadcn.com/docs/components/button-group) | Связанные отчёты, экспорт |
+| Фильтры (МП, бренд) | [Select](https://ui.shadcn.com/docs/components/select) | Выпадающие списки фильтров |
+| Поиск по таблице | [Combobox](https://ui.shadcn.com/docs/components/combobox) | Поиск SKU с автодополнением |
+| Пагинация | [Pagination](https://ui.shadcn.com/docs/components/pagination) | Для больших таблиц (P&L по SKU) |
+| Уведомления | [Toast](https://ui.shadcn.com/docs/components/toast) (Sonner) | «Экспорт завершён», «Данные обновлены» |
+
+**Charts (Recharts через ChartContainer)**
+
+| Элемент | shadcn/ui Chart + Recharts | Использование |
+|---------|---------------------------|---------------|
+| Обёртка графика | \`ChartContainer\` + \`ChartConfig\` | Все графики; задаёт min-h, цвета из config |
+| Тултип графика | \`ChartTooltip\` + \`ChartTooltipContent\` | Значения при наведении |
+| Легенда графика | \`ChartLegend\` + \`ChartLegendContent\` | Подписи серий |
+| Area Chart | Recharts \`AreaChart\` + \`Area\` | Динамика выручки, Cash Runway |
+| Bar Chart | Recharts \`BarChart\` + \`Bar\` | P&L по категориям, маржа каналов |
+| Line Chart | Recharts \`LineChart\` + \`Line\` | Тренд маржи, прогноз (3 сценария) |
+| Pie / Donut | Recharts \`PieChart\` + \`Pie\` | ABC-распределение, структура расходов |
+| Radar Chart | Recharts \`RadarChart\` + \`Radar\` | Бенчмарк МП, фин. устойчивость |
+| Radial Bar | Recharts \`RadialBarChart\` + \`RadialBar\` | Gauge: ликвидность, Cash Runway |
+| Сетка | Recharts \`CartesianGrid\` | vertical=false, горизонтальные линии |
+| Оси | Recharts \`XAxis\` + \`YAxis\` | Даты, категории, значения |
+
+**Диалоги и панели**
+
+| Элемент | shadcn/ui компонент | Использование |
+|---------|---------------------|---------------|
+| Подтверждение экспорта | [Alert Dialog](https://ui.shadcn.com/docs/components/alert-dialog) | «Экспортировать в Excel?» |
+| Панель фильтров | [Sheet](https://ui.shadcn.com/docs/components/sheet) | Выдвижная панель с фильтрами (мобильная) |
+| Подсказки | [Tooltip](https://ui.shadcn.com/docs/components/tooltip) | На иконках, кнопках, заголовках |
+| Модальный детальный вид | [Dialog](https://ui.shadcn.com/docs/components/dialog) | Детали SKU из таблицы |
+| Мобильный drawer | [Drawer](https://ui.shadcn.com/docs/components/drawer) | Мобильная версия Dialog |
+
+**Обратная связь и состояния**
+
+| Элемент | shadcn/ui компонент | Использование |
+|---------|---------------------|---------------|
+| Алерт критического риска | [Alert](https://ui.shadcn.com/docs/components/alert) | variant: \`destructive\`; блок рисков |
+| Прогресс-бар | [Progress](https://ui.shadcn.com/docs/components/progress) | Выполнение roadmap, загрузка отчёта |
+| Загрузка данных | [Skeleton](https://ui.shadcn.com/docs/components/skeleton) | Плейсхолдеры таблиц и графиков |
+| Нет данных | [Empty](https://ui.shadcn.com/docs/components/empty) | Когда отчёт пуст за период |
+| Типографика | [Typography](https://ui.shadcn.com/docs/components/typography) | Заголовки, абзацы, числа |
+| Горячие клавиши | [Kbd](https://ui.shadcn.com/docs/components/kbd) | Подсказки shortcut-ов (v2.0) |
 
 ---
 
@@ -320,15 +406,32 @@ Authorization: Bearer {token}
 
 ### 4.3.3 Компонент KPI Card
 
-Визуализация на базе shadcn/ui Card. Иконки: Lucide. Цветовая индикация определяется полем \`severity\`:
+Каждая KPI-карточка реализована через shadcn/ui [Card](https://ui.shadcn.com/docs/components/card) + [Badge](https://ui.shadcn.com/docs/components/badge) + [Hover Card](https://ui.shadcn.com/docs/components/hover-card):
 
-| Severity | Цвет рамки/иконки | CSS Variable | Когда |
-|----------|-------------------|-------------|-------|
-| \`normal\` | Зелёный | \`--success\` | Метрика в норме |
-| \`warning\` | Жёлтый | \`--warning\` | Метрика приближается к порогу |
-| \`critical\` | Красный | \`--destructive\` | Метрика за пороговым значением |
+```
+Card
+├── CardHeader
+│   ├── Lucide Icon (иконка метрики)
+│   └── CardTitle (название метрики)
+├── CardContent
+│   ├── Typography.h2 (значение: "5.25 млн ₽")
+│   ├── Badge [variant по severity] (дельта: "+12.3%")
+│   └── Typography.muted (delta_label: "к пред. нед")
+└── HoverCard (при наведении)
+    ├── Формула расчёта
+    ├── Период данных
+    └── Источник (1С / KB)
+```
 
-Стратегические метрики (строка 2) содержат поле \`threshold\` для автоматического расчёта severity. Пороги настраиваются Admin через \`/api/cfo/settings\`.
+Цветовая индикация определяется полем \`severity\`, маппится на shadcn/ui [Badge](https://ui.shadcn.com/docs/components/badge) variants:
+
+| Severity | Badge variant | Цвет рамки Card | Когда |
+|----------|--------------|-----------------|-------|
+| \`normal\` | \`default\` | border-default | Метрика в норме |
+| \`warning\` | \`secondary\` + custom color | border-warning | Метрика приближается к порогу |
+| \`critical\` | \`destructive\` | border-destructive | Метрика за пороговым значением |
+
+При загрузке метрик отображаются [Skeleton](https://ui.shadcn.com/docs/components/skeleton) плейсхолдеры вместо Card. Стратегические метрики (строка 2) содержат поле \`threshold\` для автоматического расчёта severity. Пороги настраиваются Admin через \`/api/cfo/settings\`.
 
 ### 4.3.4 Backend реализация
 
@@ -951,122 +1054,250 @@ Launcher API автоматически определяет формат по �
 
 ## 4.5 Графики и визуализация
 
-Страницы результатов используют компоненты **shadcn/ui Charts** на базе **Recharts** для отображения финансовых трендов. Стили графиков определены через CSS-переменные \`--chart-1\` ... \`--chart-5\` из \`shadcn-variables.css\`.
+Все графики реализованы через [shadcn/ui Chart](https://ui.shadcn.com/docs/components/chart) — обёртку над [Recharts](https://recharts.org/). Архитектура: \`ChartContainer\` задаёт размеры и цвета через \`ChartConfig\`, внутри — стандартные Recharts-компоненты. Тултипы и легенды используют кастомные \`ChartTooltip\` / \`ChartLegend\` из shadcn/ui.
+
+Цвета графиков определены через CSS-переменные \`--chart-1\` ... \`--chart-5\` и реферируются в ChartConfig как \`color: "var(--chart-N)"\`.
+
+```
+ChartContainer [config={chartConfig}, className="min-h-[300px]"]
+├── Recharts AreaChart / BarChart / LineChart / PieChart
+│   ├── CartesianGrid [vertical={false}]
+│   ├── XAxis [dataKey, tickFormatter]
+│   ├── YAxis [tickFormatter для ₽ / %]
+│   ├── ChartTooltip [content={<ChartTooltipContent />}]
+│   ├── ChartLegend [content={<ChartLegendContent />}]
+│   └── Area / Bar / Line / Pie [dataKey, fill="var(--color-KEY)"]
+```
 
 ### 4.5.1 Типы графиков
 
-| Тип | shadcn/ui Component | Применение |
-|-----|---------------------|------------|
-| Area Chart | \`AreaChart\` | Динамика выручки, прибыли, Cash Runway |
-| Bar Chart | \`BarChart\` | P&L по категориям, сравнение МП, маржа каналов |
-| Stacked Bar | \`BarChart stacked\` | Структура расходов, aging ДЗ/КЗ, комиссии МП |
-| Line Chart | \`LineChart\` | Тренд маржинальности, прогноз (3 сценария) |
-| Pie / Donut | \`PieChart\` | Доля МП в выручке, распределение ABC, поставщики |
-| Gauge | Кастомный (Recharts) | Ликвидность, Cash Runway, выполнение плана |
-| Radar Chart | \`RadarChart\` | Бенчмарк МП, финансовая устойчивость |
-| Waterfall | Кастомный (Recharts) | Анализ ДДС (операц. → инвест. → фин.) |
-| Radial Chart | \`RadialChart\` | Выполнение плана (v2.0) |
+| Тип | Recharts компонент | shadcn/ui обёртка | Применение в CFO |
+|-----|--------------------|-------------------|------------------|
+| Area | \`AreaChart\` + \`Area\` | \`ChartContainer\` | Динамика выручки, прибыли, Cash Runway |
+| Bar | \`BarChart\` + \`Bar\` | \`ChartContainer\` | P&L по категориям, сравнение МП, маржа каналов |
+| Stacked Bar | \`BarChart\` + \`Bar[stackId]\` | \`ChartContainer\` | Структура расходов, aging ДЗ/КЗ, комиссии МП |
+| Line | \`LineChart\` + \`Line\` | \`ChartContainer\` | Тренд маржинальности, прогноз (3 сценария) |
+| Pie / Donut | \`PieChart\` + \`Pie\` | \`ChartContainer\` | Доля МП в выручке, ABC, структура расходов |
+| Radar | \`RadarChart\` + \`Radar\` + \`PolarGrid\` | \`ChartContainer\` | Бенчмарк МП, финансовая устойчивость |
+| Radial Bar | \`RadialBarChart\` + \`RadialBar\` | \`ChartContainer\` | Gauge: ликвидность, Cash Runway |
+| Waterfall | \`BarChart\` + \`Bar\` (кастомный shape) | \`ChartContainer\` | Анализ ДДС (операц. → инвест. → фин.) |
+
+Для всех графиков обязателен \`accessibilityLayer\` (keyboard + screen reader support).
 
 ### 4.5.2 Спецификация данных для графиков
+
+Каждый executor возвращает объект с \`chartConfig\` (маппинг ключей → label + color) и \`chartData\` (массив данных). Фронтенд рендерит их через \`ChartContainer\`:
 
 **Динамика выручки (Area Chart)**
 
 Executor: \`cfo.chart_revenue\`
 
-```json
-{
-  "chart_type": "area",
-  "title": "Динамика выручки",
-  "period": "30d",
-  "x_key": "date",
-  "series": [
-    {"key": "revenue", "label": "Выручка", "color": "var(--chart-1)"},
-    {"key": "profit", "label": "Прибыль", "color": "var(--chart-2)"}
-  ],
-  "data": [
-    {"date": "2026-01-15", "revenue": 750000, "profit": 320000},
-    {"date": "2026-01-16", "revenue": 680000, "profit": 290000}
-  ]
-}
+```typescript
+// ChartConfig
+const chartConfig = {
+  revenue: { label: "Выручка", color: "var(--chart-1)" },
+  profit: { label: "Прибыль", color: "var(--chart-2)" },
+} satisfies ChartConfig
+
+// chartData
+const chartData = [
+  { date: "2026-01-15", revenue: 750000, profit: 320000 },
+  { date: "2026-01-16", revenue: 680000, profit: 290000 },
+]
+```
+
+```
+ChartContainer [config={chartConfig}, className="min-h-[300px]"]
+└── AreaChart [accessibilityLayer, data={chartData}]
+    ├── CartesianGrid [vertical={false}]
+    ├── XAxis [dataKey="date", tickFormatter=formatDate]
+    ├── YAxis [tickFormatter=formatRub]
+    ├── ChartTooltip [content={<ChartTooltipContent />}]
+    ├── ChartLegend [content={<ChartLegendContent />}]
+    ├── Area [dataKey="revenue", fill="var(--color-revenue)", type="natural"]
+    └── Area [dataKey="profit", fill="var(--color-profit)", type="natural"]
 ```
 
 **P&L по маркетплейсам (Bar Chart)**
 
 Executor: \`cfo.pnl_marketplace\`
 
-```json
-{
-  "chart_type": "bar",
-  "title": "P&L по маркетплейсам",
-  "x_key": "marketplace",
-  "series": [
-    {"key": "revenue", "label": "Выручка", "color": "var(--chart-1)"},
-    {"key": "expenses", "label": "Расходы", "color": "var(--chart-5)"},
-    {"key": "profit", "label": "Прибыль", "color": "var(--chart-2)"}
-  ],
-  "data": [
-    {"marketplace": "Wildberries", "revenue": 3500000, "expenses": 1925000, "profit": 1575000},
-    {"marketplace": "Ozon", "revenue": 1200000, "expenses": 780000, "profit": 420000},
-    {"marketplace": "Яндекс.Маркет", "revenue": 550000, "expenses": 308000, "profit": 242000}
-  ]
-}
+```typescript
+const chartConfig = {
+  revenue: { label: "Выручка", color: "var(--chart-1)" },
+  expenses: { label: "Расходы", color: "var(--chart-5)" },
+  profit: { label: "Прибыль", color: "var(--chart-2)" },
+} satisfies ChartConfig
+
+const chartData = [
+  { marketplace: "Wildberries", revenue: 3500000, expenses: 1925000, profit: 1575000 },
+  { marketplace: "Ozon", revenue: 1200000, expenses: 780000, profit: 420000 },
+  { marketplace: "Яндекс.Маркет", revenue: 550000, expenses: 308000, profit: 242000 },
+]
+```
+
+```
+ChartContainer [config={chartConfig}, className="min-h-[300px]"]
+└── BarChart [accessibilityLayer, data={chartData}]
+    ├── CartesianGrid [vertical={false}]
+    ├── XAxis [dataKey="marketplace"]
+    ├── YAxis [tickFormatter=formatRub]
+    ├── ChartTooltip [content={<ChartTooltipContent />}]
+    ├── ChartLegend [content={<ChartLegendContent />}]
+    ├── Bar [dataKey="revenue", fill="var(--color-revenue)", radius={4}]
+    ├── Bar [dataKey="expenses", fill="var(--color-expenses)", radius={4}]
+    └── Bar [dataKey="profit", fill="var(--color-profit)", radius={4}]
 ```
 
 **Распределение ABC (Pie Chart)**
 
 Executor: \`cfo.abc_analysis\`
 
-```json
-{
-  "chart_type": "pie",
-  "title": "Распределение прибыли по ABC",
-  "data": [
-    {"class": "A", "value": 7200000, "count": 47, "fill": "var(--abc-a)"},
-    {"class": "B", "value": 1350000, "count": 89, "fill": "var(--abc-b)"},
-    {"class": "C", "value": 450000, "count": 156, "fill": "var(--abc-c)"},
-    {"class": "D", "value": -180000, "count": 23, "fill": "var(--abc-d)"}
-  ]
-}
+```typescript
+const chartConfig = {
+  A: { label: "Класс A", color: "var(--abc-a)" },
+  B: { label: "Класс B", color: "var(--abc-b)" },
+  C: { label: "Класс C", color: "var(--abc-c)" },
+  D: { label: "Класс D", color: "var(--abc-d)" },
+} satisfies ChartConfig
+
+const chartData = [
+  { class: "A", value: 7200000, count: 47, fill: "var(--color-A)" },
+  { class: "B", value: 1350000, count: 89, fill: "var(--color-B)" },
+  { class: "C", value: 450000, count: 156, fill: "var(--color-C)" },
+  { class: "D", value: -180000, count: 23, fill: "var(--color-D)" },
+]
 ```
 
-**Динамика маржи (Line Chart)**
+```
+ChartContainer [config={chartConfig}, className="min-h-[300px]"]
+└── PieChart [accessibilityLayer]
+    ├── ChartTooltip [content={<ChartTooltipContent nameKey="class" />}]
+    ├── ChartLegend [content={<ChartLegendContent nameKey="class" />}]
+    └── Pie [data={chartData}, dataKey="value", nameKey="class", innerRadius={60}]
+```
+
+**Тренд маржинальности (Line Chart)**
 
 Executor: \`cfo.chart_margin\`
 
-```json
-{
-  "chart_type": "line",
-  "title": "Тренд маржинальности",
-  "x_key": "date",
-  "y_suffix": "%",
-  "reference_line": {"value": 40, "label": "Целевая маржа"},
-  "series": [
-    {"key": "margin_wb", "label": "Wildberries", "color": "#CB11AB"},
-    {"key": "margin_ozon", "label": "Ozon", "color": "#005BFF"},
-    {"key": "margin_ym", "label": "Яндекс.Маркет", "color": "#FFCC00"}
-  ],
-  "data": [
-    {"date": "2026-01-15", "margin_wb": 45.2, "margin_ozon": 38.1, "margin_ym": 41.5}
-  ]
+```typescript
+const chartConfig = {
+  margin_wb: { label: "Wildberries", color: "var(--mp-wb)" },
+  margin_ozon: { label: "Ozon", color: "var(--mp-ozon)" },
+  margin_ym: { label: "Яндекс.Маркет", color: "var(--mp-ym)" },
+} satisfies ChartConfig
+
+const chartData = [
+  { date: "2026-01-15", margin_wb: 45.2, margin_ozon: 38.1, margin_ym: 41.5 },
+]
+```
+
+```
+ChartContainer [config={chartConfig}, className="min-h-[300px]"]
+└── LineChart [accessibilityLayer, data={chartData}]
+    ├── CartesianGrid [vertical={false}]
+    ├── XAxis [dataKey="date", tickFormatter=formatDate]
+    ├── YAxis [tickFormatter=v => v + "%"]
+    ├── ChartTooltip [content={<ChartTooltipContent indicator="line" />}]
+    ├── ChartLegend [content={<ChartLegendContent />}]
+    ├── Line [dataKey="margin_wb", stroke="var(--color-margin_wb)"]
+    ├── Line [dataKey="margin_ozon", stroke="var(--color-margin_ozon)"]
+    ├── Line [dataKey="margin_ym", stroke="var(--color-margin_ym)"]
+    └── ReferenceLine [y={40}, label="Целевая маржа", strokeDasharray="3 3"]
+```
+
+**Прогноз выручки — 3 сценария (Line Chart, KB)**
+
+Executor: \`cfo.forecast\`
+
+```typescript
+const chartConfig = {
+  actual: { label: "Факт", color: "var(--chart-1)" },
+  pessimistic: { label: "Пессимистичный", color: "var(--chart-5)" },
+  base: { label: "Базовый", color: "var(--chart-4)" },
+  optimistic: { label: "Оптимистичный", color: "var(--chart-2)" },
+} satisfies ChartConfig
+```
+
+```
+ChartContainer [config={chartConfig}, className="min-h-[350px]"]
+└── LineChart [accessibilityLayer, data={chartData}]
+    ├── CartesianGrid [vertical={false}]
+    ├── XAxis [dataKey="month"]
+    ├── YAxis [tickFormatter=formatRub]
+    ├── ChartTooltip [content={<ChartTooltipContent />}]
+    ├── ChartLegend [content={<ChartLegendContent />}]
+    ├── Line [dataKey="actual", stroke="var(--color-actual)", strokeWidth={2}]
+    ├── Line [dataKey="pessimistic", stroke="var(--color-pessimistic)", strokeDasharray="5 5"]
+    ├── Line [dataKey="base", stroke="var(--color-base)", strokeDasharray="5 5"]
+    └── Line [dataKey="optimistic", stroke="var(--color-optimistic)", strokeDasharray="5 5"]
+```
+
+**Gauge ликвидности (Radial Bar Chart, KB)**
+
+Executor: \`cfo.liquidity\`
+
+```typescript
+const chartConfig = {
+  current_ratio: { label: "Текущая ликвидность", color: "var(--chart-5)" },
+} satisfies ChartConfig
+
+const chartData = [{ current_ratio: 0.82, fill: "var(--color-current_ratio)" }]
+// Цвет определяется severity: < 1.0 → --chart-5 (красный), < 1.5 → --chart-4, >= 1.5 → --chart-2
+```
+
+```
+ChartContainer [config={chartConfig}, className="min-h-[200px]"]
+└── RadialBarChart [data={chartData}, startAngle={180}, endAngle={0}, innerRadius={80}, outerRadius={130}]
+    ├── RadialBar [dataKey="current_ratio", background, cornerRadius={10}]
+    └── text (центр): "0.82" + Badge[destructive] "< 1.0"
+```
+
+### 4.5.3 Цветовая схема и ChartConfig
+
+Цвета определяются через CSS-переменные и реферируются в \`ChartConfig\` по стандарту [shadcn/ui Chart Theming](https://ui.shadcn.com/docs/components/chart#theming):
+
+```css
+/* globals.css */
+@layer base {
+  :root {
+    --chart-1: oklch(0.646 0.222 41.116);   /* Синий — серия 1 */
+    --chart-2: oklch(0.6 0.118 184.704);     /* Зелёный — прибыль */
+    --chart-3: oklch(0.5 0.05 260);          /* Серый — нейтрал */
+    --chart-4: oklch(0.75 0.15 85);          /* Жёлтый — акцент */
+    --chart-5: oklch(0.55 0.2 25);           /* Красный — расходы */
+    --mp-wb: #CB11AB;                        /* Wildberries */
+    --mp-ozon: #005BFF;                      /* Ozon */
+    --mp-ym: #FFCC00;                        /* Яндекс.Маркет */
+    --abc-a: oklch(0.65 0.2 145);            /* ABC A — зелёный */
+    --abc-b: oklch(0.6 0.18 250);            /* ABC B — синий */
+    --abc-c: oklch(0.75 0.15 85);            /* ABC C — жёлтый */
+    --abc-d: oklch(0.55 0.2 25);             /* ABC D — красный */
+  }
 }
 ```
 
-### 4.5.3 Цветовая схема графиков
+Пример \`ChartConfig\` для P&L по маркетплейсам:
 
-| Назначение | CSS Variable | Цвет |
-|------------|-------------|------|
-| Серия 1 (основная) | \`--chart-1\` | Синий |
-| Серия 2 (прибыль) | \`--chart-2\` | Зелёный |
-| Серия 3 (нейтрал) | \`--chart-3\` | Серый |
-| Серия 4 (акцент) | \`--chart-4\` | Жёлтый |
-| Серия 5 (расходы) | \`--chart-5\` | Красный |
-| Wildberries | \`--mp-wb\` | #CB11AB |
-| Ozon | \`--mp-ozon\` | #005BFF |
-| Яндекс.Маркет | \`--mp-ym\` | #FFCC00 |
-| ABC A | \`--abc-a\` | Зелёный |
-| ABC B | \`--abc-b\` | Синий |
-| ABC C | \`--abc-c\` | Жёлтый |
-| ABC D | \`--abc-d\` | Красный |
+```typescript
+const chartConfig = {
+  wb: {
+    label: "Wildberries",
+    color: "var(--mp-wb)",
+  },
+  ozon: {
+    label: "Ozon",
+    color: "var(--mp-ozon)",
+  },
+  ym: {
+    label: "Яндекс.Маркет",
+    color: "var(--mp-ym)",
+  },
+} satisfies ChartConfig
+```
+
+В Recharts-компонентах цвета используются как \`fill="var(--color-wb)"\` — shadcn/ui \`ChartContainer\` автоматически создаёт \`--color-\{key\}\` переменные из \`ChartConfig\`.
 
 ---
 
@@ -1076,11 +1307,55 @@ Executor: \`cfo.chart_margin\`
 
 ### 4.6.1 Структура Result Page
 
-Каждая Result Page содержит следующие блоки (сверху вниз): навигация назад и breadcrumb, переключатель периода, график (если применимо), таблица данных, сводка (итого), кнопки связанных отчётов и экспорта.
+Каждая Result Page собирается из shadcn/ui компонентов (сверху вниз):
+
+```
+Page Layout
+├── Breadcrumb                          ← shadcn/ui Breadcrumb
+│   └── "Финансы / P&L по категориям"
+├── div.header
+│   ├── Typography.h3 (заголовок отчёта)
+│   └── Toggle Group (Нед | Мес | Кв)  ← shadcn/ui Toggle Group
+├── Tabs                                ← shadcn/ui Tabs
+│   ├── TabsList
+│   │   ├── TabsTrigger "График"
+│   │   ├── TabsTrigger "Таблица"
+│   │   └── TabsTrigger "Сводка"
+│   ├── TabsContent "График"
+│   │   └── ChartContainer              ← shadcn/ui Chart
+│   │       └── BarChart / AreaChart / ...
+│   ├── TabsContent "Таблица"
+│   │   └── Data Table                  ← shadcn/ui Data Table
+│   │       ├── Table + TableHeader + TableBody + TableRow + TableCell
+│   │       ├── сортировка по столбцам
+│   │       ├── Combobox (поиск SKU)    ← shadcn/ui Combobox
+│   │       └── Pagination              ← shadcn/ui Pagination
+│   └── TabsContent "Сводка"
+│       └── Card[]                      ← shadcn/ui Card
+│           └── итоговые показатели + Badge severity
+├── Separator                           ← shadcn/ui Separator
+├── Button Group (связанные отчёты)     ← shadcn/ui Button Group
+└── Button Group (экспорт)              ← shadcn/ui Button Group
+```
+
+Для KB-отчётов (категории 7–11) структура расширена:
+
+```
+Page Layout (KB-отчёт)
+├── ... (стандартная структура сверху)
+├── Alert [variant="destructive"]       ← shadcn/ui Alert
+│   └── "Критический показатель: ликвидность 0.82 (норма > 1.0)"
+├── Card "AI-комментарий"               ← shadcn/ui Card
+│   └── Markdown-текст от LLM (анализ + рекомендации)
+├── Progress                            ← shadcn/ui Progress
+│   └── "Выполнение roadmap: 35%"
+└── Accordion "Методология расчёта"     ← shadcn/ui Accordion
+    └── формулы, источники, допущения
+```
 
 ### 4.6.2 Переключатель периода
 
-Все отчёты поддерживают переключение периода без возврата на дашборд:
+Реализован через [Toggle Group](https://ui.shadcn.com/docs/components/toggle-group) с \`type="single"\`:
 
 | Кнопка | Период | API-параметр |
 |--------|--------|-------------|
@@ -1088,11 +1363,13 @@ Executor: \`cfo.chart_margin\`
 | Мес | Последние 30 дней | \`period=month\` |
 | Кв | Последние 90 дней | \`period=quarter\` |
 
-При переключении периода данные перезагружаются через тот же executor с новым параметром.
+При переключении данные перезагружаются через тот же executor с новым параметром. Во время загрузки график и таблица заменяются на [Skeleton](https://ui.shadcn.com/docs/components/skeleton).
+
+Для KB-отчётов периоды соответствуют отчётным периодам документов (Q1 2025, H1 2025, 9М 2025) и отображаются через [Select](https://ui.shadcn.com/docs/components/select) вместо Toggle Group.
 
 ### 4.6.3 Кнопки навигации между отчётами
 
-На каждой Result Page отображаются кнопки быстрого перехода к связанным отчётам:
+Реализованы через [Button Group](https://ui.shadcn.com/docs/components/button-group) — группа [Button](https://ui.shadcn.com/docs/components/button) с \`variant="outline"\`:
 
 | Текущий отчёт | Связанные кнопки |
 |---------------|------------------|
@@ -1104,16 +1381,20 @@ Executor: \`cfo.chart_margin\`
 | Убыточные SKU | AI-рекомендации, ABC-анализ, Excel |
 | Остатки | Отгрузки, Оценка запасов |
 | Себестоимость | Цены поставщиков, Динамика |
+| Ликвидность | Долговая нагрузка, EBITDA, Cash Flow |
+| Критические риски | Прогноз, Roadmap, Аудит |
+| Маржа по каналам | Комиссии МП, % выкупа, Бенчмарк |
+| ДЗ aging | КЗ aging, Поставщики |
 
 ### 4.6.4 Экспорт
 
-Все табличные отчёты поддерживают экспорт:
+Кнопки экспорта реализованы через [Button Group](https://ui.shadcn.com/docs/components/button-group). Подтверждение через [Alert Dialog](https://ui.shadcn.com/docs/components/alert-dialog). Уведомление о завершении через [Toast](https://ui.shadcn.com/docs/components/toast) (Sonner):
 
-| Формат | Кнопка | Реализация |
-|--------|--------|------------|
-| Excel | 📥 Excel | \`cfo.export\` → \`.xlsx\` файл |
-| PDF | 📄 PDF | \`cfo.export\` → \`.pdf\` файл |
-| Копировать | 📋 Копировать | Clipboard API → markdown-таблица |
+| Формат | Button variant | Реализация |
+|--------|---------------|------------|
+| Excel | \`outline\` + icon \`download\` | \`cfo.export\` → \`.xlsx\` файл |
+| PDF | \`outline\` + icon \`file-text\` | \`cfo.export\` → \`.pdf\` файл |
+| Копировать | \`ghost\` + icon \`clipboard\` | Clipboard API → markdown-таблица |
 
 ---
 
