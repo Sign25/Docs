@@ -3,833 +3,627 @@ title: "Раздел 1: Архитектура"
 mode: "wide"
 ---
 
-**Проект:** Интеллектуальная система мониторинга цен конкурентов  
+**Проект:** ADOLF — AI-Driven Operations Layer Framework  
 **Модуль:** Watcher / Architecture  
-**Версия:** 2.0  
-**Дата:** Январь 2026
+**Версия:** 4.0  
+**Дата:** Февраль 2026
 
 ---
 
-## 1.1 Обзор архитектуры
-
-### Принципы проектирования
+## 1.1 Принципы проектирования
 
 | Принцип | Описание |
 |---------|----------|
-| Распределённость | Агенты на офисных ПК, сервер на VPS |
-| Отказоустойчивость | Выход агента из строя не останавливает систему |
-| Масштабируемость | От 3 до 15 агентов без изменения архитектуры |
-| Защита от блокировок | Множество IP, эмуляция поведения, cookies менеджеров |
-| AI-first | Извлечение данных через LLM, без CSS-селекторов |
+| Двухчастность | Collector (сбор данных) и Analyzer (аналитика) — независимые подсистемы |
+| Автономность Collector | Работает без подключения к основному серверу ADOLF; связь только через Knowledge Pipeline |
+| Распределённость | Домашние ПК как браузерные агенты, VPS как управляющий узел |
+| Отказоустойчивость | Выход ПК из строя не останавливает систему; автоматическое обнаружение и повторные попытки |
+| Масштабируемость | Пул ПК расширяется без изменения архитектуры (порты 9300–9399, до 100 агентов) |
+| Защита от блокировок | Домашние IP, FRP-туннели, эмуляция поведения, оркестрация чередования |
+| Минимализм зависимостей | 4 npm-пакета для Collector; native HTTP-серверы без фреймворков |
 
-### Общая схема
+---
+
+## 1.2 Топология развёртывания
 
 ```mermaid
 graph TB
-    subgraph OFFICE["Офис"]
-        subgraph PC1["ПК Менеджера 1"]
-            CHROME1["Chrome<br/>(дневной режим)"]
-            AGENT1["Watcher Agent<br/>(ночной режим)"]
-            MODEM1["USB-модем"]
-        end
-        
-        subgraph PC2["ПК Менеджера 2"]
-            CHROME2["Chrome"]
-            AGENT2["Watcher Agent"]
-            MODEM2["USB-модем"]
-        end
-        
-        subgraph PCN["ПК Менеджера N"]
-            CHROMEN["Chrome"]
-            AGENTN["Watcher Agent"]
-            MODEMN["USB-модем"]
-        end
+    subgraph HOMES["Домашние ПК (Chrome + frpc)"]
+        direction LR
+        H1["ПК 1<br/>Chrome :9222<br/>frpc → :9301"]
+        H2["ПК 2<br/>Chrome :9222<br/>frpc → :9347"]
+        HN["ПК N<br/>Chrome :9222<br/>frpc → :93XX"]
     end
-    
-    subgraph VPS["VPS Timeweb Cloud"]
-        subgraph API_LAYER["API Layer"]
-            REST["REST API<br/>(FastAPI)"]
-            WS["WebSocket<br/>Server"]
+
+    subgraph VPS["VPS Collector (Node.js)"]
+        direction TB
+        subgraph INFRA["Инфраструктура"]
+            FRPS["frps<br/>:7000 (туннели)<br/>:7500 (Admin API)"]
+            NGINX["Nginx<br/>:443 (SSL)<br/>agent.adolf.su"]
         end
-        
-        subgraph CORE["Core Services"]
-            TD["Task Dispatcher"]
-            SEM["IP Semaphore"]
-            PARSER["AI Parser"]
+
+        subgraph SERVICES["Сервисы"]
+            POOL["cdp-pool.js<br/>:3000"]
+            MONITOR["monitor/server.js<br/>:3001"]
+            API["api.js<br/>:3002"]
+            BOT["bot.js<br/>(scheduler + orchestrator + runner)"]
         end
-        
-        subgraph STORAGE["Storage"]
-            PG[("PostgreSQL")]
-            REDIS[("Redis")]
-        end
-        
-        subgraph WORKERS["Background Workers"]
-            CELERY["Celery Workers"]
-            BEAT["Celery Beat"]
+
+        subgraph STORAGE["Хранение"]
+            SQLITE[("watcher.db<br/>SQLite WAL")]
+            FILES["results/<br/>catalog/ + enriched/"]
+            LOGS["logs/<br/>scan_*.log"]
+            CONFIG["config.json<br/>(hot-reload)"]
         end
     end
-    
-    subgraph EXTERNAL["External Services"]
-        AI["Timeweb AI<br/>(GPT-5 mini)"]
-        WB["Wildberries"]
-        OZ["Ozon"]
-        YM["Yandex.Market"]
-    end
-    
-    CHROME1 -.->|cookies| AGENT1
-    CHROME2 -.->|cookies| AGENT2
-    CHROMEN -.->|cookies| AGENTN
-    
-    AGENT1 & AGENT2 & AGENTN <-->|HTTPS| REST
-    AGENT1 & AGENT2 & AGENTN <-->|WSS| WS
-    
-    AGENT1 -->|mobile IP| MODEM1 --> WB & OZ & YM
-    AGENT2 -->|mobile IP| MODEM2 --> WB & OZ & YM
-    AGENTN -->|mobile IP| MODEMN --> WB & OZ & YM
-    
-    REST --> TD
-    WS --> TD
-    TD <--> SEM
-    TD <--> REDIS
-    TD --> PARSER
-    PARSER --> AI
-    PARSER --> PG
-    
-    CELERY --> PG
-    CELERY --> REDIS
-    BEAT --> CELERY
-```
 
----
-
-## 1.2 Компоненты системы
-
-### 1.2.1 Клиентская часть (Office)
-
-| Компонент | Назначение | Технология |
-|-----------|------------|------------|
-| **Watcher Agent** | Основное приложение парсинга | Python + Playwright |
-| **Browser Cloner** | Копирование cookies из Chrome | Python (sqlite3, cryptography) |
-| **Network Switcher** | Переключение сетевых интерфейсов | Python (subprocess, netsh) |
-| **Modem Controller** | Управление USB-модемом | Python (pyserial, AT-commands) |
-| **Local Cache** | Кэш задач при потере связи | SQLite |
-
-### 1.2.2 Серверная часть (VPS)
-
-| Компонент | Назначение | Технология |
-|-----------|------------|------------|
-| **REST API** | Получение задач, отправка результатов | FastAPI |
-| **WebSocket Server** | Команды управления агентами | FastAPI WebSocket |
-| **Task Dispatcher** | Распределение задач между агентами | Python |
-| **IP Semaphore** | Предотвращение коллизий IP | Redis |
-| **AI Parser** | Извлечение данных из текста | GPT-5 mini |
-| **Alert Engine** | Генерация демпинг-алертов | Python |
-| **Celery Workers** | Фоновые задачи | Celery |
-| **Celery Beat** | Планировщик задач | Celery Beat |
-
-### 1.2.3 Хранилища данных
-
-| Хранилище | Назначение | Данные |
-|-----------|------------|--------|
-| **PostgreSQL** | Основное хранилище | Агенты, задачи, история цен, подписки, конкуренты |
-| **Redis** | Оперативные данные | Очередь задач, IP Semaphore, сессии WebSocket |
-
----
-
-## 1.3 Потоки данных
-
-### 1.3.1 Поток получения задачи
-
-```mermaid
-sequenceDiagram
-    participant AG as Watcher Agent
-    participant API as REST API
-    participant TD as Task Dispatcher
-    participant SEM as IP Semaphore
-    participant REDIS as Redis
-    participant PG as PostgreSQL
-    
-    AG->>API: GET /api/v1/watcher/tasks/next
-    API->>TD: request_task(agent_id, agent_ip)
-    
-    TD->>SEM: acquire(agent_ip, target_domain)
-    SEM->>REDIS: SETNX ip:{ip}:domain:{domain}
-    
-    alt IP свободен
-        REDIS-->>SEM: OK
-        SEM-->>TD: acquired
-        
-        TD->>REDIS: LPOP task_queue:{marketplace}
-        REDIS-->>TD: task_id
-        
-        TD->>PG: UPDATE tasks SET status='in_progress', agent_id=?
-        PG-->>TD: OK
-        
-        TD-->>API: task_data
-        API-->>AG: 200 OK {task}
-    else IP занят
-        REDIS-->>SEM: FAIL
-        SEM-->>TD: blocked
-        TD-->>API: no_task
-        API-->>AG: 204 No Content
-    end
-```
-
-### 1.3.2 Поток отправки результата
-
-```mermaid
-sequenceDiagram
-    participant AG as Watcher Agent
-    participant API as REST API
-    participant TD as Task Dispatcher
-    participant PARSER as AI Parser
-    participant AI as GPT-5 mini
-    participant PG as PostgreSQL
-    participant SEM as IP Semaphore
-    participant ALERT as Alert Engine
-    
-    AG->>API: POST /api/v1/watcher/tasks/{id}/report
-    Note over AG,API: {raw_text, screenshot_base64, timing}
-    
-    API->>TD: process_report(task_id, raw_text)
-    
-    TD->>PARSER: parse(raw_text, marketplace)
-    PARSER->>AI: Extract product data...
-    AI-->>PARSER: JSON {price, stock, rating, ...}
-    PARSER-->>TD: parsed_data
-    
-    TD->>PG: INSERT INTO price_history
-    TD->>PG: UPDATE tasks SET status='completed'
-    
-    TD->>SEM: release(agent_ip, target_domain)
-    
-    TD->>ALERT: check_alerts(sku, new_price, old_price)
-    
-    alt Демпинг обнаружен
-        ALERT->>PG: INSERT INTO notifications
-        ALERT->>API: send_notification(users, alert)
-    end
-    
-    TD-->>API: success
-    API-->>AG: 200 OK
-```
-
-### 1.3.3 Поток команд управления
-
-```mermaid
-sequenceDiagram
-    participant ADMIN as Admin (Open WebUI)
-    participant MW as Middleware
-    participant WS as WebSocket Server
-    participant AG as Watcher Agent
-    
-    ADMIN->>MW: POST /api/v1/watcher/agents/{id}/command
-    Note over ADMIN,MW: {command: "pause"}
-    
-    MW->>WS: send_command(agent_id, "pause")
-    WS->>AG: WSS: {"type": "command", "action": "pause"}
-    
-    AG->>AG: pause_execution()
-    AG->>WS: WSS: {"type": "ack", "status": "paused"}
-    
-    WS-->>MW: command_delivered
-    MW-->>ADMIN: 200 OK
-```
-
-### 1.3.4 Поток копирования cookies
-
-```mermaid
-sequenceDiagram
-    participant SCHED as Windows Scheduler
-    participant CLONER as Browser Cloner
-    participant CHROME as Chrome Profile
-    participant AGENT as Watcher Agent
-    participant API as REST API
-    
-    Note over SCHED: 20:00 - Trigger
-    
-    SCHED->>CLONER: run()
-    
-    CLONER->>CLONER: kill_chrome_processes()
-    CLONER->>CHROME: read Cookies SQLite
-    CLONER->>CLONER: decrypt_cookies(DPAPI)
-    CLONER->>AGENT: save_cookies(cookies.json)
-    
-    CLONER->>CLONER: switch_network(USB_MODEM)
-    
-    CLONER->>API: POST /api/v1/watcher/agents/{id}/status
-    Note over CLONER,API: {status: "ready", cookies_updated: true}
-    
-    API-->>CLONER: 200 OK
-```
-
----
-
-## 1.4 Сетевая архитектура
-
-### 1.4.1 Split Tunneling
-
-```mermaid
-graph LR
-    subgraph AGENT_PC["ПК Агента"]
-        AGENT["Watcher Agent"]
-        SYSTEM["System Services"]
-    end
-    
-    subgraph NETWORK["Сетевые интерфейсы"]
-        ETH["Ethernet<br/>(Office LAN)"]
-        USB["USB-модем<br/>(Mobile IP)"]
-    end
-    
-    subgraph DESTINATIONS["Назначение"]
-        VPS["VPS Server<br/>(API)"]
-        MP["Маркетплейсы<br/>(WB, Ozon, YM)"]
-        CORP["Корпоративные<br/>ресурсы"]
-    end
-    
-    AGENT -->|Route: Marketplaces| USB --> MP
-    AGENT -->|Route: VPS API| ETH --> VPS
-    SYSTEM -->|Default route| ETH --> CORP
-```
-
-### 1.4.2 Таблица маршрутизации агента
-
-| Назначение | Маска | Интерфейс | Примечание |
-|------------|-------|-----------|------------|
-| `*.wildberries.ru` | — | USB-модем | Парсинг WB |
-| `*.ozon.ru` | — | USB-модем | Парсинг Ozon |
-| `*.yandex.ru` | — | USB-модем | Парсинг YM |
-| `market.yandex.ru` | — | USB-модем | Парсинг YM |
-| VPS IP | /32 | Ethernet | API сервера |
-| `0.0.0.0` | /0 | Ethernet | Default route |
-
-### 1.4.3 IP Semaphore
-
-```mermaid
-graph TB
-    subgraph AGENTS["Агенты"]
-        A1["Agent 1<br/>IP: 10.0.0.1"]
-        A2["Agent 2<br/>IP: 10.0.0.2"]
-        A3["Agent 3<br/>IP: 10.0.0.3"]
-    end
-    
-    subgraph SEMAPHORE["IP Semaphore (Redis)"]
-        S1["ip:10.0.0.1:wb.ru = locked"]
-        S2["ip:10.0.0.2:ozon.ru = locked"]
-        S3["ip:10.0.0.3:wb.ru = locked"]
-    end
-    
-    subgraph RULE["Правило"]
-        R["1 IP = 1 домен<br/>в единицу времени"]
-    end
-    
-    A1 -.->|lock| S1
-    A2 -.->|lock| S2
-    A3 -.->|lock| S3
-```
-
-**Логика:**
-
-1. Агент запрашивает задачу
-2. Task Dispatcher проверяет: свободен ли IP агента для целевого домена?
-3. Если да — выдаёт задачу и блокирует `ip:{agent_ip}:domain:{domain}`
-4. Если нет — возвращает 204 No Content
-5. После завершения задачи — снимает блокировку
-
-**TTL блокировки:** 5 минут (защита от зависших агентов)
-
----
-
-## 1.5 Зависимости от ADOLF Core
-
-### 1.5.1 Middleware
-
-```mermaid
-graph LR
-    subgraph CLIENT["Client"]
+    subgraph MAIN["Основной сервер ADOLF (Python/FastAPI)"]
+        KNOW_IN["Knowledge<br/>входная директория"]
+        QDRANT[("Qdrant<br/>vector DB")]
+        ANALYZER["Watcher Analyzer<br/>FastAPI"]
         OWUI["Open WebUI"]
-        AGENT["Watcher Agent"]
     end
-    
-    subgraph CORE["ADOLF Core"]
-        MW["Middleware"]
-        AUTH["Auth Service"]
+
+    H1 & H2 & HN ====>|FRP-туннели :7000| FRPS
+    FRPS -->|TCP proxy :93XX| POOL
+
+    NGINX -->|/api/v1/*| API
+    NGINX -->|/api/* + /ws| MONITOR
+    NGINX -->|/| MONITOR
+
+    BOT --> POOL
+    BOT --> SQLITE
+    BOT --> FILES
+    POOL --> FRPS
+    API --> SQLITE
+    MONITOR --> POOL
+
+    FILES -->|"Knowledge Pipeline<br/>(JSON→MD, rsync/scp)"| KNOW_IN
+    KNOW_IN --> QDRANT
+    QDRANT --> ANALYZER
+    ANALYZER --> OWUI
+```
+
+---
+
+## 1.3 Компоненты Collector
+
+### Карта процессов и портов
+
+| Процесс | systemd-сервис | Порт | Протокол | Описание |
+|---------|---------------|------|----------|----------|
+| frps | `frps.service` | 7000 (туннели), 7500 (Admin API) | TCP, HTTP | FRP-сервер для туннелей к домашним ПК |
+| cdp-pool.js | `cdp-pool.service` | 3000 | HTTP | Управление пулом браузеров |
+| bot.js | `watcher-bot.service` | — | Telegram API | Бот + scheduler + orchestrator + runner |
+| api.js | `watcher-api.service` | 3002 | HTTP/JSON | REST API для программного доступа |
+| monitor/server.js | `watcher-monitor.service` | 3001 | HTTP + WebSocket | Web-интерфейс мониторинга |
+| nginx | `nginx.service` | 443 | HTTPS | Reverse proxy + SSL (agent.adolf.su) |
+
+### Взаимодействие компонентов
+
+```mermaid
+graph LR
+    subgraph BOT_PROC["bot.js (единый процесс)"]
+        BOT["Telegram Bot"]
+        SCHED["Scheduler"]
+        ORCH["Orchestrator"]
+        RUNNER["Runner"]
     end
-    
-    subgraph WATCHER["Watcher"]
-        API["Watcher API"]
+
+    POOL["cdp-pool.js<br/>:3000"]
+    DB[("SQLite")]
+    SKILL["SKILL/<br/>scanner_*.js<br/>enricher_*.js"]
+    API["api.js<br/>:3002"]
+    MON["monitor/<br/>server.js<br/>:3001"]
+    CFG["config.json"]
+
+    BOT -->|команды| SCHED
+    SCHED -->|расписания| ORCH
+    SCHED -->|расписания| RUNNER
+    ORCH -->|выбор ПК| POOL
+    ORCH -->|история| DB
+    RUNNER -->|child_process| SKILL
+    RUNNER -->|acquire/release| POOL
+    RUNNER -->|результаты| DB
+    SKILL -->|CDP| POOL
+
+    API -->|read| DB
+    MON -->|read| POOL
+    MON -->|read/write| CFG
+
+    CFG -.->|hot-reload<br/>fs.watchFile 2с| BOT_PROC
+```
+
+### Жизненный цикл задачи
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: Telegram-команда<br/>или расписание
+
+    queued --> waiting_pc: Scheduler.tryRunNext()
+    waiting_pc --> queued: Нет свободных ПК
+    waiting_pc --> cooldown: Все ПК нарушают<br/>правила чередования
+    cooldown --> waiting_pc: Cooldown истёк<br/>(5–10 мин)
+
+    waiting_pc --> running: Orchestrator.choosePC()<br/>→ Runner.runScan()
+
+    running --> completed: Скан завершён
+    running --> failed: Ошибка / таймаут
+
+    failed --> queued: Retry<br/>(до 3 попыток)
+    failed --> [*]: maxRetries исчерпан
+
+    completed --> [*]: Результаты в БД<br/>и на диске
+```
+
+---
+
+## 1.4 Подробная архитектура компонентов
+
+### cdp-pool.js — Пул браузеров
+
+Автономный процесс, управляющий жизненным циклом подключений к домашним ПК.
+
+```mermaid
+flowchart TB
+    subgraph DISCOVERY["Цикл обнаружения (каждые 10 сек)"]
+        FRP_API["FRP Admin API<br/>:7500 /api/proxy/tcp"]
+        CHECK["Проверка CDP<br/>/json/version"]
+        STATES["Обновление состояний"]
+        CLEANUP["Удаление offline &gt; 30 мин"]
+
+        FRP_API --> CHECK
+        CHECK --> STATES
+        STATES --> CLEANUP
     end
-    
-    OWUI -->|user_id, role| MW
-    MW -->|auth check| AUTH
-    MW -->|proxy| API
-    
-    AGENT -->|api_key| API
+
+    subgraph POOL_STATE["Состояния ПК"]
+        OFFLINE["Offline<br/>(нет туннеля / Chrome не отвечает)"]
+        ALIVE["Alive<br/>(туннель + Chrome отвечает)"]
+        STABLE["Stable<br/>(online &gt; 60 сек)"]
+        BUSY["Busy<br/>(занят задачей)"]
+
+        OFFLINE -->|туннель + CDP ответ| ALIVE
+        ALIVE -->|60 сек| STABLE
+        STABLE -->|/acquire| BUSY
+        BUSY -->|/release| STABLE
+        ALIVE -->|потеря связи| OFFLINE
+        STABLE -->|потеря связи| OFFLINE
+    end
+
+    subgraph API["HTTP API :3000"]
+        STATUS["/status → список ПК"]
+        SUMMARY["/summary → total, online, stable, busy, free"]
+        ACQUIRE["/acquire?task=X&amp;port=P → занять ПК"]
+        RELEASE["/release?port=P → освободить"]
+        SYNC["/sync → принудительный опрос"]
+    end
 ```
 
-**Функции Middleware для Watcher:**
+Ключевые параметры: стабильность после 60 секунд online (защита от flapping), удаление из пула после 30 минут offline, автообнаружение новых ПК через FRP Admin API.
 
-| Функция | Описание |
-|---------|----------|
-| Авторизация пользователей | Проверка роли (Manager+) для Open WebUI |
-| Фильтрация по бренду | brand_id injection в запросы |
-| Проксирование | Маршрутизация `/api/v1/watcher/*` |
-| Аудит | Логирование действий пользователей |
+### bot.js — Telegram-бот
 
-### 1.5.2 PostgreSQL
+Точка входа Collector (`node bot.js`). Запускает scheduler.js при старте. Принимает команды из Telegram и обрабатывает их.
 
-Watcher добавляет следующие таблицы в общую БД:
+Типы входных данных:
 
-| Таблица | Назначение |
-|---------|------------|
-| `watcher_agents` | Реестр агентов |
-| `watcher_tasks` | Очередь и история задач |
-| `watcher_competitors` | Конкуренты |
-| `watcher_subscriptions` | Подписки на мониторинг SKU |
-| `watcher_price_history` | История цен |
-| `watcher_alerts` | Демпинг-алерты |
-| `watcher_settings` | Настройки модуля |
+| Ввод | Интерпретация |
+|------|---------------|
+| `WB125487` | Быстрый скан продавца 125487 на Wildberries |
+| `OZ465656` | Быстрый скан продавца 465656 на Ozon |
+| `YM213246` | Быстрый скан продавца 213246 на Яндекс.Маркет |
+| Голое число | Выбор маркетплейса через inline-кнопки |
+| `/add <mp> <id> <имя>` | Добавление продавца в отслеживание |
+| `/scan <id>` | Ручной запуск сканирования |
+| `/enrich <id>` | Ручной запуск обогащения |
 
-### 1.5.3 Celery
+Полный список команд описан в [Разделе 2: Telegram-бот и планировщик](/watcher/adolf_watcher_2_bot_scheduler).
 
-Watcher использует общую инфраструктуру Celery:
+### scheduler.js — Планировщик
 
-| Задача | Очередь | Расписание |
-|--------|---------|------------|
-| `watcher.generate_tasks` | default | 20:30 ежедневно |
-| `watcher.check_alerts` | default | */15 минут |
-| `watcher.cleanup_old_tasks` | default | 03:00 ежедневно |
-| `watcher.sync_agent_status` | critical | */1 минута |
-| `watcher.calculate_priorities` | heavy | 04:00 ежедневно |
+Работает внутри процесса bot.js. Управляет шестью циклическими задачами.
 
-### 1.5.4 Redis
+| Цикл | Интервал по умолчанию | Hot-reload | Описание |
+|------|----------------------|:----------:|----------|
+| checkSchedules | 5 мин | Нет (после рестарта) | Проверяет `next_scan_at`, создаёт задачи в очереди |
+| checkEnrichSchedules | 5 мин | Нет (после рестарта) | Проверяет `next_enrich_at`, создаёт enrich-задачи |
+| tryRunNext | 30 сек | Нет (после рестарта) | Берёт задачи из очереди, запрашивает ПК, запускает |
+| monitorPCs | 15 сек | Нет (после рестарта) | Отслеживает online/offline ПК, отправляет алерты |
+| rotateFiles | 24 часа | Нет (после рестарта) | Удаляет старые файлы результатов |
+| morningSummary | 05:00 UTC (ежедневно) | Да | Утренняя сводка в Telegram |
 
-| Ключ | Назначение | TTL |
-|------|------------|-----|
-| `watcher:task_queue:{marketplace}` | Очередь задач по маркетплейсам | — |
-| `watcher:ip_semaphore:{ip}:{domain}` | Блокировка IP для домена | 5 мин |
-| `watcher:agent:{id}:status` | Текущий статус агента | 2 мин |
-| `watcher:agent:{id}:ws_session` | WebSocket session ID | — |
-| `watcher:stats:daily` | Дневная статистика | 24 ч |
+Пять интервалов планировщика применяются только после перезапуска сервиса. Остальные 18 параметров конфигурации (оркестратор, раннер, монитор) применяются мгновенно через hot-reload.
 
-### 1.5.5 Notifications
+### orchestrator.js — Оркестратор
 
-| Событие | Уровень | Получатели |
-|---------|---------|------------|
-| Демпинг-алерт | warning | Manager (по бренду), Senior, Director |
-| Агент offline | warning | Administrator |
-| CAPTCHA/блокировка | warning | Administrator |
-| Cookies истекли | warning | Administrator |
-| Критическая ошибка | critical | Administrator |
+Алгоритм выбора ПК для задачи. Реализует скоринговую модель с штрафами и бонусами.
+
+```mermaid
+flowchart TB
+    START["Входящая задача<br/>(marketplace, seller_id)"] --> GET_FREE["Получить свободные ПК<br/>из CDP Pool"]
+    GET_FREE -->|Нет свободных| RETURN_NULL["return null"]
+    GET_FREE -->|Есть свободные| SCORE["Рассчитать score<br/>для каждого ПК"]
+
+    SCORE --> CHECK_COOL["Отфильтровать ПК<br/>на cooldown"]
+    CHECK_COOL --> CALC["Для каждого ПК:<br/>+ штраф за того же продавца (+100)<br/>+ штраф за тот же МП (+50)<br/>+ количество задач за 24ч<br/>− бонус за простой (до −20)<br/>− бонус если не использовался (−20)"]
+
+    CALC --> SORT["Сортировка по score ↑<br/>(меньше = лучше)"]
+    SORT --> BEST["Лучший кандидат"]
+    BEST -->|Без нарушений| RETURN_PC["return ПК"]
+    BEST -->|Есть чистый кандидат| RETURN_CLEAN["return чистый ПК"]
+    BEST -->|Все нарушают| COOLDOWN["Cooldown 5–10 мин<br/>return null"]
+```
+
+История назначений хранится в таблице `assignments` (SQLite), что обеспечивает персистентность при перезапусках.
+
+### runner.js — Исполнитель
+
+Запускает сканеры и обогатители как дочерние процессы (`child_process.spawn`).
+
+| Параметр | Сканирование | Обогащение |
+|----------|-------------|------------|
+| Процесс | `node SKILL/scanner_*.js <seller_id>` | `node SKILL/enricher_*.js <seller_id>` |
+| Переменные окружения | `CDP_PORT`, `MARKETPLACE`, `SELLER_SLUG` | `CDP_PORT` (если нужен CDP) |
+| Таймаут | 3 часа (`runner.scanTimeoutMs`) | 30 мин (`runner.enrichTimeoutMs`) |
+| Повторные попытки | До 3 (`runner.maxRetries`) | Нет |
+| Требует CDP | Всегда | WB — нет; Ozon, YM — да |
+| Результат | `results/results_seller_<id>.json` | `results/enriched_seller_<id>.json` |
+| Архивная копия | `results/catalog/{mp}_seller_{id}_{date}.json` | `results/enriched/{mp}_seller_{id}_{date}.json` |
+
+Параллельность: runner поддерживает запуск нескольких задач одновременно (по числу свободных ПК). Каждая задача отслеживается в `Map` по `scanId`.
 
 ---
 
-## 1.6 Интеграция с модулями-потребителями
+## 1.5 Компоненты Analyzer
 
-### 1.6.1 Marketing
-
-```mermaid
-sequenceDiagram
-    participant MKT as Marketing Module
-    participant API as Watcher API
-    participant PG as PostgreSQL
-    
-    MKT->>API: GET /api/v1/watcher/prices/competitors
-    Note over MKT,API: ?sku=OM-12345&marketplace=wb
-    
-    API->>PG: SELECT FROM watcher_price_history
-    PG-->>API: competitor_prices[]
-    
-    API-->>MKT: {competitors: [{name, price, position, bid}]}
-    
-    Note over MKT: Bid Correction:<br/>new_bid = competitor_bid + 1₽
-```
-
-### 1.6.2 Scout
-
-```mermaid
-sequenceDiagram
-    participant SCOUT as Scout Module
-    participant API as Watcher API
-    participant PG as PostgreSQL
-    
-    SCOUT->>API: GET /api/v1/watcher/category/analysis
-    Note over SCOUT,API: ?category_url=...
-    
-    API->>PG: SELECT FROM watcher_price_history
-    Note over API,PG: Агрегация: avg_price, price_range,<br/>top_sellers, monopoly_rate
-    
-    PG-->>API: aggregated_data
-    API-->>SCOUT: {avg_price, monopoly_rate, top_sellers[]}
-    
-    Note over SCOUT: Unit-Calc:<br/>margin = market_price - costs
-```
-
-### 1.6.3 Content Factory (v2.0)
-
-```mermaid
-sequenceDiagram
-    participant CF as Content Factory
-    participant API as Watcher API
-    participant PG as PostgreSQL
-    
-    CF->>API: GET /api/v1/watcher/competitors/cards
-    Note over CF,API: ?sku=OM-12345&top=20
-    
-    API->>PG: SELECT FROM watcher_price_history
-    Note over API,PG: JOIN card_content
-    
-    PG-->>API: competitor_cards[]
-    API-->>CF: {cards: [{title, description, attributes}]}
-    
-    Note over CF: TF-IDF анализ<br/>для генерации контента
-```
-
-### 1.6.4 Lex
-
-Lex использует инфраструктуру Watcher:
-
-| Компонент Watcher | Использование в Lex |
-|-------------------|---------------------|
-| Agent | Парсинг КонсультантПлюс, Гарант |
-| Task Dispatcher | Распределение задач парсинга |
-| Browser Cloner | Не используется (публичный доступ) |
-| AI Parser | Извлечение текста документов |
-
-**Отличия:**
-
-| Параметр | Watcher | Lex |
-|----------|---------|-----|
-| Цели | WB, Ozon, YM | КонсультантПлюс, Гарант |
-| Расписание | Ежедневно 21:00–07:00 | Выходные + вечера |
-| Output | JSON → PostgreSQL | Markdown → Knowledge Base |
-| Cookies | Менеджера | Не требуются |
-
----
-
-## 1.7 Безопасность
-
-### 1.7.1 Аутентификация
-
-| Компонент | Метод | Описание |
-|-----------|-------|----------|
-| Open WebUI → Middleware | JWT | Сессия пользователя |
-| Agent → API | API Key | Уникальный ключ агента |
-| WebSocket | API Key | В query string при подключении |
-
-### 1.7.2 Авторизация
-
-| Действие | Проверка |
-|----------|----------|
-| Просмотр цен | role ∈ \{manager, senior, director, admin\} |
-| Добавление SKU | role ∈ \{manager, senior, director, admin\} |
-| Настройка алертов | role = admin |
-| Управление агентами | role = admin |
-| Выполнение задач | valid api_key |
-
-### 1.7.3 Защита данных
-
-| Данные | Защита |
-|--------|--------|
-| Cookies менеджеров | Локальное хранение, не передаются на сервер |
-| API Keys | Хеширование в БД, передача по HTTPS |
-| Результаты парсинга | Шифрование в transit (TLS) |
-| История цен | Фильтрация по brand_id |
-
-### 1.7.4 Сетевая безопасность
-
-| Мера | Описание |
-|------|----------|
-| HTTPS only | Все API endpoints |
-| WSS only | WebSocket соединения |
-| IP whitelist | Опционально для агентов |
-| Rate limiting | 100 req/min на агента |
-
----
-
-## 1.8 Отказоустойчивость
-
-### 1.8.1 Сбой агента
-
-```mermaid
-graph TD
-    A["Агент перестал отвечать"] --> B["Heartbeat timeout (2 мин)"]
-    B --> C["Статус = offline"]
-    C --> D["Задачи агента возвращаются в очередь"]
-    D --> E["Алерт администратору"]
-    E --> F["Task Dispatcher исключает агента"]
-    F --> G["Задачи распределяются на других агентов"]
-```
-
-### 1.8.2 Потеря связи агента с сервером
-
-```mermaid
-graph TD
-    A["Потеря связи"] --> B["Агент продолжает из локального кэша"]
-    B --> C["Результаты накапливаются локально"]
-    C --> D["Retry с exponential backoff"]
-    D --> E{"Связь восстановлена?"}
-    E -->|Да| F["Отправка накопленных результатов"]
-    E -->|Нет| G["Продолжение из кэша"]
-    G --> D
-```
-
-### 1.8.3 CAPTCHA / Блокировка
-
-```mermaid
-graph TD
-    A["Обнаружена CAPTCHA/403"] --> B["PANIC mode"]
-    B --> C["Отправка флага на сервер"]
-    C --> D["Блокировка IP на 60 мин"]
-    D --> E["Попытка перезагрузки модема"]
-    E --> F{"Программная перезагрузка?"}
-    F -->|Успех| G["Новый IP, продолжение"]
-    F -->|Неудача| H["Аппаратная перезагрузка"]
-    H --> I{"Успех?"}
-    I -->|Да| G
-    I -->|Нет| J["Алерт администратору"]
-    J --> K["Агент ждёт ручного вмешательства"]
-```
-
-### 1.8.4 Невалидные cookies
-
-```mermaid
-graph TD
-    A["Cookies истекли/невалидны"] --> B["Ошибка авторизации на маркетплейсе"]
-    B --> C["Агент помечается как cookie_expired"]
-    C --> D["Задачи перераспределяются"]
-    D --> E["Алерт администратору"]
-    E --> F["Ожидание следующего копирования cookies"]
-```
-
----
-
-## 1.9 Мониторинг
-
-### 1.9.1 Метрики агентов
-
-| Метрика | Описание | Хранение |
-|---------|----------|----------|
-| `agent_status` | online/offline/error | Redis |
-| `agent_tasks_completed` | Выполнено задач за ночь | PostgreSQL |
-| `agent_tasks_failed` | Ошибки за ночь | PostgreSQL |
-| `agent_speed` | URL/минута | Redis |
-| `agent_last_activity` | Timestamp | Redis |
-| `agent_current_task` | ID текущей задачи | Redis |
-
-### 1.9.2 Метрики системы
-
-| Метрика | Описание |
-|---------|----------|
-| `total_tasks_queued` | Задач в очереди |
-| `total_tasks_completed` | Выполнено за период |
-| `total_tasks_failed` | Ошибок за период |
-| `avg_parse_time` | Среднее время парсинга |
-| `captcha_rate` | % CAPTCHA от общего числа |
-| `alert_count` | Сгенерировано алертов |
-
-### 1.9.3 Health Checks
-
-| Проверка | Интервал | Действие при сбое |
-|----------|----------|-------------------|
-| Agent heartbeat | 30 сек | Статус = offline через 2 мин |
-| API availability | 1 мин | Алерт администратору |
-| Redis connection | 30 сек | Алерт, fallback |
-| PostgreSQL connection | 30 сек | Алерт, retry |
-| AI Parser availability | 5 мин | Алерт, очередь накапливается |
-
----
-
-## 1.10 Конфигурация
-
-### 1.10.1 Серверная конфигурация (Environment)
-
-```bash
-# Database
-DATABASE_URL=postgresql://adolf:password@postgres:5432/adolf
-
-# Redis
-REDIS_URL=redis://redis:6379/0
-
-# AI
-TIMEWEB_AI_URL=https://api.timeweb.cloud/ai/v1
-TIMEWEB_AI_KEY=xxx
-
-# Watcher settings
-WATCHER_TASK_BATCH_SIZE=100
-WATCHER_IP_SEMAPHORE_TTL=300
-WATCHER_AGENT_HEARTBEAT_TIMEOUT=120
-WATCHER_PANIC_COOLDOWN=3600
-
-# Alerts
-WATCHER_ALERT_CHECK_INTERVAL=900
-```
-
-### 1.10.2 Конфигурация агента (config.yaml)
-
-```yaml
-# Идентификация
-agent_id: "AGENT-PC1"
-api_key: "watcher_agent_key_xxx"
-
-# Сервер
-server:
-  api_url: "https://adolf.su/api/v1/watcher"
-  ws_url: "wss://adolf.su/ws/watcher"
-  timeout: 30
-  retry_attempts: 3
-  retry_delay: 5
-
-# Сеть
-network:
-  modem_interface: "Mobile Broadband"
-  office_interface: "Ethernet"
-  modem_com_port: "COM3"
-  modem_baud_rate: 115200
-
-# Расписание
-schedule:
-  cookies_copy_time: "20:00"
-  work_start_time: "21:00"
-  work_end_time: "07:00"
-
-# Браузер
-browser:
-  chrome_profile_path: "C:\\Users\\Manager\\AppData\\Local\\Google\\Chrome\\User Data\\Default"
-  headless: true
-  user_agent: "Mozilla/5.0 ..."
-
-# Эмуляция (локальные переопределения)
-emulation:
-  # null = использовать серверные настройки
-  min_delay: null
-  max_delay: null
-  scroll_enabled: null
-  mouse_movement: null
-
-# Локальный кэш
-cache:
-  enabled: true
-  max_tasks: 500
-  db_path: "./cache.db"
-
-# Логирование
-logging:
-  level: "INFO"
-  file: "./logs/agent.log"
-  max_size_mb: 50
-  backup_count: 5
-```
-
-### 1.10.3 Глобальные настройки эмуляции (PostgreSQL)
-
-```sql
--- watcher_settings
-INSERT INTO watcher_settings (key, value, description) VALUES
-('emulation.min_delay_ms', '2000', 'Минимальная задержка между действиями'),
-('emulation.max_delay_ms', '5000', 'Максимальная задержка между действиями'),
-('emulation.scroll_enabled', 'true', 'Включить эмуляцию скролла'),
-('emulation.scroll_steps', '3', 'Количество шагов скролла'),
-('emulation.mouse_movement', 'true', 'Включить движения мыши'),
-('emulation.mouse_curve', 'bezier', 'Тип кривой движения мыши'),
-('emulation.page_view_min_ms', '3000', 'Минимальное время просмотра страницы'),
-('emulation.page_view_max_ms', '8000', 'Максимальное время просмотра страницы'),
-('emulation.random_order', 'true', 'Случайный порядок обхода URL');
-```
-
----
-
-## 1.11 Масштабирование
-
-### 1.11.1 Горизонтальное (агенты)
-
-| Параметр | Мин | Рекомендуемо | Макс |
-|----------|:---:|:------------:|:----:|
-| Агентов | 3 | 10 | 15 |
-| URL/ночь | 33 000 | 33 000 | 33 000 |
-| URL/агент | 11 000 | 3 300 | 2 200 |
-| URL/мин | 18 | 5.5 | 3.7 |
-
-### 1.11.2 Вертикальное (сервер)
-
-| Нагрузка | CPU | RAM | Описание |
-|----------|:---:|:---:|----------|
-| 3-5 агентов | 2 | 4 GB | Минимальная |
-| 6-10 агентов | 4 | 8 GB | Рекомендуемая |
-| 11-15 агентов | 4 | 16 GB | Максимальная |
-
-### 1.11.3 Ограничения
-
-| Ресурс | Лимит | Причина |
-|--------|-------|---------|
-| Агентов | 15 | Количество офисных ПК |
-| URL/ночь | ~50 000 | 10-часовое окно × производительность |
-| AI Parser | 60 req/min | Rate limit Timeweb AI |
-
----
-
-## 1.12 Диаграмма развёртывания
+Analyzer работает на основном сервере ADOLF в составе Python/FastAPI-стека.
 
 ```mermaid
 graph TB
-    subgraph OFFICE["Офис (Windows 10/11)"]
-        subgraph PC1["PC-MANAGER-1"]
-            SVC1["Watcher Service"]
-            CONF1["config.yaml"]
-            CACHE1["cache.db"]
-            LOG1["logs/"]
+    subgraph ANALYZER_SRV["Основной сервер ADOLF"]
+        subgraph WATCHER_ANALYZER["Watcher Analyzer"]
+            API_AN["FastAPI endpoints<br/>/api/v1/watcher/analytics/*"]
+            CELERY_AN["Celery tasks<br/>аналитические задачи"]
+            CACHE["Redis cache<br/>кэш аналитики"]
         end
-        
-        subgraph PC2["PC-MANAGER-2"]
-            SVC2["Watcher Service"]
-            CONF2["config.yaml"]
-            CACHE2["cache.db"]
-            LOG2["logs/"]
-        end
+
+        CORE["ADOLF Core<br/>Middleware, Auth"]
+        KNOWLEDGE_MOD["Knowledge Module"]
+        QDRANT[("Qdrant")]
+        OWUI["Open WebUI<br/>Pipeline &amp; Tools"]
     end
-    
-    subgraph VPS["VPS Timeweb Cloud (Ubuntu 24)"]
-        subgraph DOCKER["Docker Compose"]
-            NGINX["Nginx<br/>:443"]
-            API["Watcher API<br/>:8001"]
-            CELERY_W["Celery Worker"]
-            CELERY_B["Celery Beat"]
-        end
-        
-        subgraph DATA["Data Layer"]
-            PG["PostgreSQL<br/>:5432"]
-            REDIS["Redis<br/>:6379"]
-        end
+
+    CORE --> API_AN
+    API_AN --> KNOWLEDGE_MOD
+    KNOWLEDGE_MOD --> QDRANT
+    API_AN --> CACHE
+    CELERY_AN --> KNOWLEDGE_MOD
+    CELERY_AN --> CACHE
+    OWUI -->|RAG запросы| QDRANT
+    OWUI -->|API вызовы| API_AN
+```
+
+### Взаимодействие с Knowledge
+
+Analyzer не хранит данные о конкурентах самостоятельно. Все данные извлекаются из Qdrant через модуль Knowledge:
+
+| Операция | Метод | Описание |
+|----------|-------|----------|
+| Поиск по продавцу | Semantic search | Поиск документов по `seller_id` + `marketplace` |
+| Поиск по SKU | Semantic search | Поиск обогащённых данных конкретного товара |
+| Поиск изменений | Metadata filter | Фильтр по `subcategory: price_changes` + дате |
+| Агрегация | Multi-query | Сбор данных за период для трендового анализа |
+
+### Open WebUI интеграция
+
+| Компонент | Тип | Описание |
+|-----------|-----|----------|
+| Watcher Pipeline | Pipeline | Обработка запросов о конкурентах через RAG |
+| Watcher Tools | Tool | Прямые API-вызовы для структурированных данных |
+| Watcher Alerts | Notification | Push-уведомления о критических изменениях |
+
+---
+
+## 1.6 Потоки данных
+
+### Поток 1: Сканирование каталога
+
+```mermaid
+sequenceDiagram
+    participant TG as Telegram / Scheduler
+    participant BOT as bot.js
+    participant ORCH as orchestrator.js
+    participant POOL as cdp-pool.js
+    participant RUNNER as runner.js
+    participant SCAN as scanner_*.js
+    participant CHROME as Chrome (домашний ПК)
+    participant DB as SQLite
+    participant FS as Файловая система
+
+    TG->>BOT: WB1025130 / расписание
+    BOT->>DB: createScan (status: queued)
+
+    loop Каждые 30 сек (tryRunNext)
+        BOT->>ORCH: choosePC(marketplace, sellerId)
+        ORCH->>POOL: GET /status
+        POOL-->>ORCH: список свободных ПК
+        ORCH->>DB: getLastAssignment, getTaskCount
+        ORCH-->>BOT: выбранный порт + имя ПК
     end
-    
-    subgraph EXTERNAL["External"]
-        AI["Timeweb AI"]
+
+    BOT->>RUNNER: runScan(scan, port)
+    RUNNER->>POOL: GET /acquire?port=XXXX
+    POOL-->>RUNNER: ОК (ПК занят)
+
+    RUNNER->>SCAN: spawn("node scanner_wb.js 1025130")
+    SCAN->>CHROME: CDP: navigate, scroll, collect
+    CHROME-->>SCAN: HTML → JSON данные
+    SCAN-->>RUNNER: results_seller_1025130.json
+
+    RUNNER->>DB: INSERT products, price_history
+    RUNNER->>FS: copy → results/catalog/{mp}_seller_{id}_{date}.json
+    RUNNER->>POOL: GET /release?port=XXXX
+    RUNNER->>DB: UPDATE scans SET status=completed
+    RUNNER->>DB: UPDATE sellers SET next_scan_at
+    RUNNER-->>BOT: результат
+    BOT->>TG: Текстовый отчёт
+```
+
+### Поток 2: Обогащение данных
+
+```mermaid
+sequenceDiagram
+    participant TG as Telegram / Scheduler
+    participant BOT as bot.js
+    participant RUNNER as runner.js
+    participant ENRICH as enricher_*.js
+    participant CHROME as Chrome / HTTP API
+    participant DB as SQLite
+    participant FS as Файловая система
+
+    TG->>BOT: /enrich 1025130 / авторасписание
+    BOT->>DB: createEnrichScan (task_type: enrich)
+
+    BOT->>RUNNER: runEnrich(scan)
+    Note over RUNNER: WB enricher: HTTP (без CDP)<br/>Ozon/YM enricher: CDP (через Pool)
+
+    RUNNER->>ENRICH: spawn("node enricher_*.js 1025130")
+    ENRICH->>CHROME: Запрос детальных данных по каждому SKU
+    CHROME-->>ENRICH: Детальные данные
+
+    ENRICH-->>RUNNER: enriched_seller_1025130.json
+
+    RUNNER->>DB: UPSERT product_details (data_json)
+    RUNNER->>FS: copy → results/enriched/{mp}_seller_{id}_{date}.json
+    RUNNER->>DB: UPDATE sellers SET last_enriched_at, next_enrich_at
+
+    alt Ручной запуск
+        BOT->>TG: Отчёт + JSON-файл
+    else Автообогащение
+        BOT->>TG: Только текстовый отчёт
     end
-    
-    PC1 & PC2 <-->|HTTPS/WSS| NGINX
-    NGINX --> API
-    API --> PG & REDIS
-    API --> AI
-    CELERY_W --> PG & REDIS
-    CELERY_B --> REDIS
+```
+
+### Поток 3: Knowledge Pipeline
+
+```mermaid
+sequenceDiagram
+    participant FS as Файловая система VPS
+    participant CONV as Converter (JSON→MD)
+    participant NET as Сетевая передача
+    participant KNOW as Knowledge (входная директория)
+    participant QDRANT as Qdrant
+    participant ANALYZER as Analyzer (FastAPI)
+    participant OWUI as Open WebUI
+
+    FS->>CONV: enriched_seller_1025130.json
+    CONV->>CONV: Парсинг JSON
+    CONV->>CONV: Формирование YAML-заголовка
+    CONV->>CONV: Генерация Markdown-таблиц
+    CONV->>NET: seller_1025130_enriched.md
+
+    NET->>KNOW: rsync / scp (VPS → основной сервер)
+    KNOW->>QDRANT: Индексация (chunk + embed)
+
+    OWUI->>QDRANT: RAG-запрос: "цены конкурента X"
+    QDRANT-->>OWUI: Релевантные чанки
+    OWUI->>ANALYZER: API: /analytics/price-comparison
+    ANALYZER->>QDRANT: Structured query
+    QDRANT-->>ANALYZER: Данные
+    ANALYZER-->>OWUI: Аналитический отчёт
 ```
 
 ---
 
-## Приложение А: Контрольные точки архитектуры
+## 1.7 Инфраструктура
 
-| Критерий | Проверка |
-|----------|----------|
-| Агенты подключаются | WebSocket сессии активны |
-| Task Dispatcher работает | Задачи распределяются равномерно |
-| IP Semaphore работает | Нет коллизий IP в логах |
-| AI Parser отвечает | Время ответа &lt; 5 сек |
-| Алерты генерируются | Уведомления приходят в Open WebUI |
-| Данные сохраняются | Записи в price_history появляются |
-| Интеграции работают | Marketing, Scout получают данные |
+### FRP-туннели
+
+FRP (Fast Reverse Proxy) обеспечивает подключение к домашним ПК без проброса портов на роутерах.
+
+| Компонент | Расположение | Конфигурация |
+|-----------|-------------|--------------|
+| frps (сервер) | VPS | Порт 7000 (туннели), 7500 (Admin API, Basic auth) |
+| frpc (клиент) | Каждый домашний ПК | Пробрасывает локальный Chrome CDP-порт (9222) на VPS (9300–9399) |
+
+Автоназначение портов: `remotePort = 0` в конфиге frpc — сервер выделяет порт из диапазона 9300–9399 автоматически. CDP Pool обнаруживает новые туннели через FRP Admin API каждые 10 секунд.
+
+### Nginx
+
+Reverse proxy `agent.adolf.su` с SSL (Let's Encrypt).
+
+| Location | Upstream | Описание |
+|----------|----------|----------|
+| `/api/v1/*` | `127.0.0.1:3002` | REST API (api.js) |
+| `/api/*` | `127.0.0.1:3001` | Monitor API |
+| `/ws` | `127.0.0.1:3001` | WebSocket (Monitor) |
+| `/` | `127.0.0.1:3001` | Frontend Monitor (через Node.js для auth-проверки) |
+
+### systemd-сервисы
+
+| Сервис | Зависимости | Описание |
+|--------|-------------|----------|
+| `frps.service` | — | FRP-сервер (запускается первым) |
+| `cdp-pool.service` | `frps.service` | CDP Pool API |
+| `watcher-bot.service` | `cdp-pool.service` | Telegram-бот + scheduler + orchestrator + runner |
+| `watcher-api.service` | — | REST API (независимый процесс) |
+| `watcher-monitor.service` | `cdp-pool.service` | Web UI backend |
+| `nginx.service` | — | Reverse proxy |
+
+Порядок запуска: frps → cdp-pool → watcher-bot. Остальные сервисы могут запускаться параллельно.
 
 ---
 
-**Документ подготовлен:** Январь 2026  
-**Версия:** 2.0  
+## 1.8 Система конфигурации
+
+### Централизованный конфиг (config.js)
+
+Все настраиваемые параметры хранятся в `config.json` и управляются через модуль `config.js`.
+
+| Характеристика | Описание |
+|----------------|----------|
+| Формат | JSON (`config.json`) |
+| Дефолты | Встроены в `config.js`, применяются при отсутствии файла |
+| Hot-reload | `fs.watchFile` с интервалом 2 секунды |
+| Валидация | Тип, min/max, кросс-валидация |
+| API | `get(dotPath)`, `set(dotPath, value)`, `getAll()`, `getSchema()` |
+| Параметров | 23 (7 оркестратор, 12 планировщик, 3 раннер, 1 монитор) |
+
+### Группы параметров
+
+| Группа | Кол-во | Hot-reload | Примеры |
+|--------|:------:|:----------:|---------|
+| orchestrator | 7 | Да | `penaltySameSeller`, `cooldownMinMs`, `idleBonusMax` |
+| scheduler | 12 | Частично (5 интервалов — после рестарта) | `defaultScanScheduleHours`, `enrichLimit`, `catalogKeepPerSeller` |
+| runner | 3 | Да | `scanTimeoutMs`, `enrichTimeoutMs`, `maxRetries` |
+| monitor | 1 | Да | `pollIntervalMs` |
+
+Изменение через Web UI: вкладка «Настройки» на agent.adolf.su. Автосохранение с debounce 800 мс, WebSocket-синхронизация между вкладками.
+
+---
+
+## 1.9 Зависимости
+
+### npm-пакеты Collector
+
+| Пакет | Версия | Назначение |
+|-------|--------|------------|
+| `better-sqlite3` | ^12.6.2 | SQLite с синхронным API |
+| `dotenv` | ^17.2.4 | Переменные окружения из .env |
+| `node-telegram-bot-api` | ^0.63.0 | Telegram Bot API |
+| `playwright-core` | ^1.58.2 | CDP-подключение к браузерам |
+
+Сканеры и обогатители используют `playwright-core` для CDP-подключения. Playwright не управляет установкой браузера — Chrome установлен на домашних ПК пользователями вручную.
+
+### Внешние зависимости Monitor
+
+| Ресурс | Источник | Назначение |
+|--------|----------|------------|
+| Tailwind CSS | CDN | Стилизация UI |
+| Lucide Icons | CDN | Иконки |
+| WebSocket (ws) | npm (в monitor/package.json) | Realtime-обновления |
+
+### Python-зависимости Analyzer
+
+| Пакет | Назначение |
+|-------|------------|
+| FastAPI | REST API |
+| Celery | Фоновые аналитические задачи |
+| Redis | Кэш и очередь |
+| qdrant-client | Взаимодействие с Qdrant |
+| httpx | HTTP-запросы (при необходимости) |
+
+---
+
+## 1.10 Безопасность
+
+### Collector
+
+| Уровень | Механизм |
+|---------|----------|
+| Telegram | `ADMIN_CHAT_ID` — доступ только для администратора |
+| Web Monitor | Login/password, HttpOnly cookie-сессия (7 дней) |
+| REST API | Слушает `127.0.0.1:3002` — недоступен извне напрямую |
+| CDP Pool | Слушает `127.0.0.1:3000` — только локальный доступ |
+| FRP Admin | Basic auth на `127.0.0.1:7500` |
+| Nginx | SSL (Let's Encrypt), проксирование через auth-проверку |
+| .env | Секреты (`BOT_TOKEN`, `ADMIN_CHAT_ID`) вне git |
+
+### Analyzer
+
+| Уровень | Механизм |
+|---------|----------|
+| API | ADOLF Core Middleware (JWT, роли) |
+| Данные | Фильтрация по `brand_id` и `access_level` через ролевую модель |
+| Open WebUI | Стандартная авторизация ADOLF |
+
+---
+
+## 1.11 Отказоустойчивость
+
+| Сценарий | Поведение |
+|----------|-----------|
+| ПК ушёл offline во время задачи | Runner фиксирует таймаут, задача переходит в `failed`, автоповтор (до 3 раз) |
+| CDP Pool недоступен | Scheduler использует fallback: если runner не занят, пытается запустить одну задачу |
+| Все ПК нарушают правила чередования | Orchestrator назначает cooldown (5–10 мин), задача откладывается |
+| Ошибка сканера (CAPTCHA, crash) | try/catch на уровне SKU, сохранение прогресса каждые 20 SKU, resume при рестарте |
+| config.json повреждён | config.js использует встроенные дефолты |
+| Перезапуск bot.js | Состояние задач в SQLite, очередь восстанавливается; история назначений сохранена |
+| Потеря связи VPS → основной сервер | Knowledge Pipeline откладывает передачу; данные накапливаются на VPS |
+
+---
+
+## 1.12 Файловая структура проекта
+
+```
+/opt/watcher/
+├── bot.js                  # Telegram-бот (точка входа)
+├── scheduler.js            # Планировщик задач
+├── orchestrator.js         # Оркестратор (распределение по ПК)
+├── runner.js               # Исполнитель задач
+├── config.js               # Конфигурация (hot-reload)
+├── config.json             # Файл конфига (создаётся автоматически)
+├── api.js                  # REST API (:3002)
+├── cdp-pool.js             # CDP Pool Service (:3000)
+├── cdp.js                  # CDP Client Module
+├── db.js                   # БД (SQLite)
+├── utils.js                # Утилиты (computeDiff)
+├── package.json            # 4 зависимости
+├── .env                    # Секреты (gitignored)
+├── watcher.db              # SQLite база (gitignored)
+├── frp-port-memory.json    # Персистентная карта FRP-портов
+│
+├── SKILL/
+│   ├── SKILL.md            # Описание skill для Claude Code
+│   ├── scanner_wb.js       # Сканер Wildberries (CDP)
+│   ├── scanner_ozon.js     # Сканер Ozon (CDP)
+│   ├── scanner_ymarket.js  # Сканер Яндекс.Маркет (CDP)
+│   ├── enricher_wb.js      # Обогатитель Wildberries (HTTP)
+│   ├── enricher_ozon.js    # Обогатитель Ozon (CDP)
+│   ├── enricher_ymarket.js # Обогатитель Яндекс.Маркет (CDP)
+│   └── human.js            # Эмуляция поведения
+│
+├── monitor/
+│   ├── server.js           # Backend Web UI (:3001)
+│   ├── package.json        # Зависимость: ws
+│   └── public/             # Frontend (HTML/CSS/JS)
+│       ├── index.html
+│       ├── login.html
+│       └── ...
+│
+├── results/                # JSON-результаты (gitignored)
+│   ├── results_seller_*.json     # Текущие результаты сканов
+│   ├── enriched_seller_*.json    # Текущие результаты обогащения
+│   ├── catalog/                  # Архив сканов (датированные)
+│   └── enriched/                 # Архив обогащений (датированные)
+│
+└── logs/                   # Логи сканов (gitignored)
+    └── scan_<id>_<seller>.log
+```
+
+---
+
+**Документ подготовлен:** Февраль 2026  
+**Версия:** 4.0  
 **Статус:** Черновик
