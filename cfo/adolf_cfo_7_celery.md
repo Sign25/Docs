@@ -17,7 +17,7 @@ mode: "wide"
 | Задача | Тип | Очередь | Периодичность | Описание |
 |--------|-----|---------|---------------|----------|
 | `import_marketplace_data` | periodic | default | 06:00 OMS | Импорт данных с маркетплейсов (API + Excel) |
-| `monitor_brain_freshness` | periodic | default | */60 | Мониторинг свежести brain\_\* таблиц |
+| `monitor_1c_freshness` | periodic | default | */60 | Мониторинг свежести 1C\_\* таблиц |
 | `generate_pnl_report` | async | heavy | По запросу | Генерация P&L |
 | `calculate_unit_economics` | async | default | По запросу | Unit-экономика |
 | `export_to_excel` | async | export | По запросу | Экспорт в Excel |
@@ -25,7 +25,7 @@ mode: "wide"
 | `office_heartbeat` | periodic | default | */1 | Статус в Office Dashboard |
 
 <Note>
-**Изменение v2.0:** Задачи `sync_1c_data`, `process_cost_prices`, `process_excel_reports` (файловый обмен с 1С) удалены. Данные из 1С поступают в `brain_*` таблицы через Экстрактор данных 1С автоматически. CFO читает их через VIEW. Добавлена задача `monitor_brain_freshness` для контроля актуальности данных.
+**Изменение v2.0:** Задачи `sync_1c_data`, `process_cost_prices`, `process_excel_reports` (файловый обмен с 1С) удалены. Данные из 1С поступают в `1C_*` таблицы через Экстрактор данных 1С автоматически. CFO читает их через VIEW. Добавлена задача `monitor_1c_freshness` для контроля актуальности данных.
 </Note>
 
 ### Диаграмма очередей
@@ -34,7 +34,7 @@ mode: "wide"
 flowchart TB
     subgraph BEAT["Celery Beat (расписание)"]
         B1["import_marketplace_data<br/>06:00 OMS ежедневно"]
-        B2["monitor_brain_freshness<br/>каждые 60 мин"]
+        B2["monitor_1c_freshness<br/>каждые 60 мин"]
         B3["cleanup_old_reports<br/>03:00 ежедневно"]
         B4["office_heartbeat<br/>каждые 60 сек"]
     end
@@ -79,7 +79,7 @@ beat_schedule = {
         "options": {"queue": "default"}
     },
     "cfo-monitor-brain": {
-        "task": "cfo.tasks.monitor_brain_freshness",
+        "task": "cfo.tasks.monitor_1c_freshness",
         "schedule": crontab(minute="*/60"),
         "options": {"queue": "default"}
     },
@@ -102,7 +102,7 @@ beat_schedule = {
 
 ### import\_marketplace\_data
 
-Импорт финансовых данных с маркетплейсов. Себестоимость подтягивается из VIEW `cfo_v_cost_prices` (brain\_\*).
+Импорт финансовых данных с маркетплейсов. Себестоимость подтягивается из VIEW `cfo_v_cost_prices` (1C\_\*).
 
 ```python
 from celery import shared_task
@@ -121,7 +121,7 @@ def import_marketplace_data():
     """Ежедневный импорт данных с маркетплейсов.
     
     Себестоимость читается из VIEW cfo_v_cost_prices
-    (brain_account_turns_90, заполняется Экстрактором 1С).
+    (1C_account_turns_90, заполняется Экстрактором 1С).
     """
     
     reporter.report_working("Импорт данных с маркетплейсов")
@@ -158,14 +158,14 @@ def import_marketplace_data():
 
 ### monitor\_brain\_freshness
 
-Контроль актуальности данных в таблицах `brain_*`. Если данные устарели — алерт администратору.
+Контроль актуальности данных в таблицах `1C_*`. Если данные устарели — алерт администратору.
 
 ```python
-@shared_task(name='cfo.tasks.monitor_brain_freshness')
-def monitor_brain_freshness():
-    """Мониторинг свежести данных brain_*.
+@shared_task(name='cfo.tasks.monitor_1c_freshness')
+def monitor_1c_freshness():
+    """Мониторинг свежести данных 1C_*.
     
-    Проверяет loaded_at в brain_account_turns_90.
+    Проверяет loaded_at в 1C_account_turns_90.
     Алерт если данные старше порога (по умолчанию 240 часов = 10 дней).
     """
     
@@ -176,11 +176,11 @@ def monitor_brain_freshness():
         if freshness["is_stale"]:
             # Отправка алерта через Core Notifications
             send_alert(
-                event_type="brain_data_stale",
+                event_type="1c_data_stale",
                 level="warning",
                 title="Устаревшие данные 1С",
                 message=(
-                    f"brain_account_turns_90: последняя загрузка "
+                    f"1C_account_turns_90: последняя загрузка "
                     f"{freshness['last_loaded']}. "
                     f"Проверьте работу Экстрактора данных 1С."
                 ),
@@ -188,7 +188,7 @@ def monitor_brain_freshness():
             )
             
             reporter.report_error(
-                f"brain_* data stale: last_loaded={freshness['last_loaded']}"
+                f"1C_* data stale: last_loaded={freshness['last_loaded']}"
             )
         
         return {
@@ -215,7 +215,7 @@ def monitor_brain_freshness():
 def generate_pnl_report(self, period: str, brand: str):
     """Генерация отчёта P&L.
     
-    Себестоимость подтягивается из cfo_v_cost_prices (brain_*).
+    Себестоимость подтягивается из cfo_v_cost_prices (1C_*).
     """
     
     reporter.report_working(f"Генерация P&L за {period}")
@@ -277,8 +277,8 @@ def office_heartbeat():
 | transactions\_saved | Транзакций сохранено при последнем импорте |
 | transactions\_invalid | Невалидных транзакций при последнем импорте |
 | reports\_generated\_today | Отчётов сгенерировано за день |
-| brain\_last\_loaded | Время последней загрузки brain\_\* |
-| brain\_is\_stale | Флаг устаревания данных brain\_\* |
+| brain\_last\_loaded | Время последней загрузки 1C\_\* |
+| brain\_is\_stale | Флаг устаревания данных 1C\_\* |
 
 ---
 
@@ -288,12 +288,12 @@ def office_heartbeat():
 
 | Компонент | Было (v1.1) | Стало (v2.0) |
 |-----------|-------------|--------------|
-| `sync_1c_data` | Файловая синхронизация с 1С (CSV) | **Удалена** — данные пишутся Экстрактором напрямую в brain\_\* |
+| `sync_1c_data` | Файловая синхронизация с 1С (CSV) | **Удалена** — данные пишутся Экстрактором напрямую в 1C\_\* |
 | `process_cost_prices` | Импорт CSV себестоимости | **Удалена** |
 | `process_excel_reports` | Парсинг Excel из 1С | **Удалена** |
 | `import_marketplace_data` | Отсутствовала | **Добавлена** — импорт API + Excel маркетплейсов |
-| `monitor_brain_freshness` | Отсутствовала | **Добавлена** — алерт при устаревании brain\_\* |
-| Метрики Office | `last_sync` | `last_import`, `brain_last_loaded`, `brain_is_stale` |
+| `monitor_1c_freshness` | Отсутствовала | **Добавлена** — алерт при устаревании 1C\_\* |
+| Метрики Office | `last_sync` | `last_import`, `1c_last_loaded`, `1c_is_stale` |
 
 ---
 
