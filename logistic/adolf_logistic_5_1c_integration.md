@@ -109,7 +109,7 @@ logger = structlog.get_logger("logistic.1c_reader")
 
 
 @dataclass
-class BrainStockRow:
+class OneCStockRow:
     """Строка остатка из 1C_stock_balance."""
     article: str
     nomenclature: str
@@ -155,7 +155,7 @@ class OneCDataReader:
         loaded_at = await self._get_loaded_at("1C_stock_balance")
 
         stock_rows = [
-            BrainStockRow(
+            OneCStockRow(
                 article=r["article"],
                 nomenclature=r["nomenclature"],
                 warehouse=r["warehouse"],
