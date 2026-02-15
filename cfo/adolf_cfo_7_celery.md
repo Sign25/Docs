@@ -5,8 +5,8 @@ mode: "wide"
 
 **Проект:** Финансовая отчётность и аналитика  
 **Модуль:** CFO / Celery  
-**Версия:** 1.1  
-**Дата:** Январь 2026
+**Версия:** 2.0  
+**Дата:** Февраль 2026
 
 ---
 
@@ -16,12 +16,54 @@ mode: "wide"
 
 | Задача | Тип | Очередь | Периодичность | Описание |
 |--------|-----|---------|---------------|----------|
-| `sync_1c_data` | periodic | default | */30 | Синхронизация с 1С |
+| `import_marketplace_data` | periodic | default | 06:00 OMS | Импорт данных с маркетплейсов (API + Excel) |
+| `monitor_brain_freshness` | periodic | default | */60 | Мониторинг свежести brain\_\* таблиц |
 | `generate_pnl_report` | async | heavy | По запросу | Генерация P&L |
 | `calculate_unit_economics` | async | default | По запросу | Unit-экономика |
 | `export_to_excel` | async | export | По запросу | Экспорт в Excel |
 | `cleanup_old_reports` | periodic | default | 03:00 | Очистка старых отчётов |
 | `office_heartbeat` | periodic | default | */1 | Статус в Office Dashboard |
+
+<Note>
+**Изменение v2.0:** Задачи `sync_1c_data`, `process_cost_prices`, `process_excel_reports` (файловый обмен с 1С) удалены. Данные из 1С поступают в `brain_*` таблицы через Экстрактор данных 1С автоматически. CFO читает их через VIEW. Добавлена задача `monitor_brain_freshness` для контроля актуальности данных.
+</Note>
+
+### Диаграмма очередей
+
+```mermaid
+flowchart TB
+    subgraph BEAT["Celery Beat (расписание)"]
+        B1["import_marketplace_data<br/>06:00 OMS ежедневно"]
+        B2["monitor_brain_freshness<br/>каждые 60 мин"]
+        B3["cleanup_old_reports<br/>03:00 ежедневно"]
+        B4["office_heartbeat<br/>каждые 60 сек"]
+    end
+
+    subgraph QUEUES["Очереди"]
+        Q_DEF["default"]
+        Q_HEAVY["heavy"]
+        Q_EXPORT["export"]
+    end
+
+    subgraph WORKERS["Workers"]
+        W1["cfo-worker-default"]
+        W2["cfo-worker-heavy"]
+        W3["cfo-worker-export"]
+    end
+
+    B1 --> Q_DEF
+    B2 --> Q_DEF
+    B3 --> Q_DEF
+    B4 --> Q_DEF
+
+    Q_DEF --> W1
+    Q_HEAVY --> W2
+    Q_EXPORT --> W3
+
+    USER["Запрос пользователя<br/>(Open WebUI)"] -->|"generate_pnl_report"| Q_HEAVY
+    USER -->|"export_to_excel"| Q_EXPORT
+    USER -->|"calculate_unit_economics"| Q_DEF
+```
 
 ---
 
@@ -31,9 +73,14 @@ mode: "wide"
 from celery.schedules import crontab
 
 beat_schedule = {
-    "cfo-sync-1c": {
-        "task": "cfo.tasks.sync_1c_data",
-        "schedule": crontab(minute="*/30"),
+    "cfo-import-marketplace": {
+        "task": "cfo.tasks.import_marketplace_data",
+        "schedule": crontab(hour=6, minute=0),  # 06:00 OMS (Asia/Omsk)
+        "options": {"queue": "default"}
+    },
+    "cfo-monitor-brain": {
+        "task": "cfo.tasks.monitor_brain_freshness",
+        "schedule": crontab(minute="*/60"),
         "options": {"queue": "default"}
     },
     "cfo-cleanup": {
@@ -53,7 +100,9 @@ beat_schedule = {
 
 ## 7.3 Основные задачи
 
-### sync_1c_data
+### import\_marketplace\_data
+
+Импорт финансовых данных с маркетплейсов. Себестоимость подтягивается из VIEW `cfo_v_cost_prices` (brain\_\*).
 
 ```python
 from celery import shared_task
@@ -67,29 +116,95 @@ reporter = OfficeReporter(
     fte_coefficient=1.0
 )
 
-@shared_task(name='cfo.tasks.sync_1c_data')
-def sync_1c_data():
-    """Синхронизация данных из 1С."""
+@shared_task(name='cfo.tasks.import_marketplace_data')
+def import_marketplace_data():
+    """Ежедневный импорт данных с маркетплейсов.
     
-    reporter.report_working("Синхронизация с 1С")
+    Себестоимость читается из VIEW cfo_v_cost_prices
+    (brain_account_turns_90, заполняется Экстрактором 1С).
+    """
+    
+    reporter.report_working("Импорт данных с маркетплейсов")
     
     try:
-        # ... логика синхронизации ...
-        records_synced = fetch_1c_data()
+        service = get_ingestion_service()
+        
+        # Период: вчера (для ежедневного импорта)
+        yesterday = date.today() - timedelta(days=1)
+        
+        result = await service.import_all(
+            date_from=yesterday,
+            date_to=yesterday
+        )
         
         reporter.report_idle(metrics={
-            "reports_generated_today": get_daily_reports_count(),
-            "last_sync": datetime.utcnow().isoformat()
+            "last_import": datetime.utcnow().isoformat(),
+            "transactions_saved": result.saved,
+            "transactions_invalid": result.invalid
         })
         
-        return {"success": True, "synced": records_synced}
+        return {
+            "success": True,
+            "total": result.total,
+            "saved": result.saved,
+            "invalid": result.invalid,
+            "duplicates": result.duplicates
+        }
         
     except Exception as e:
-        reporter.report_error(f"1C sync: {e}")
+        reporter.report_error(f"Marketplace import: {e}")
         raise
 ```
 
-### generate_pnl_report
+### monitor\_brain\_freshness
+
+Контроль актуальности данных в таблицах `brain_*`. Если данные устарели — алерт администратору.
+
+```python
+@shared_task(name='cfo.tasks.monitor_brain_freshness')
+def monitor_brain_freshness():
+    """Мониторинг свежести данных brain_*.
+    
+    Проверяет loaded_at в brain_account_turns_90.
+    Алерт если данные старше порога (по умолчанию 240 часов = 10 дней).
+    """
+    
+    try:
+        cost_service = get_cost_service()
+        freshness = await cost_service.check_data_freshness()
+        
+        if freshness["is_stale"]:
+            # Отправка алерта через Core Notifications
+            send_alert(
+                event_type="brain_data_stale",
+                level="warning",
+                title="Устаревшие данные 1С",
+                message=(
+                    f"brain_account_turns_90: последняя загрузка "
+                    f"{freshness['last_loaded']}. "
+                    f"Проверьте работу Экстрактора данных 1С."
+                ),
+                recipient_roles=["administrator"]
+            )
+            
+            reporter.report_error(
+                f"brain_* data stale: last_loaded={freshness['last_loaded']}"
+            )
+        
+        return {
+            "success": True,
+            "last_loaded": str(freshness["last_loaded"]),
+            "last_period": str(freshness["last_period"]),
+            "sku_count": freshness["sku_count"],
+            "is_stale": freshness["is_stale"]
+        }
+        
+    except Exception as e:
+        reporter.report_error(f"Brain freshness check: {e}")
+        raise
+```
+
+### generate\_pnl\_report
 
 ```python
 @shared_task(
@@ -98,12 +213,14 @@ def sync_1c_data():
     time_limit=600
 )
 def generate_pnl_report(self, period: str, brand: str):
-    """Генерация отчёта P&L."""
+    """Генерация отчёта P&L.
+    
+    Себестоимость подтягивается из cfo_v_cost_prices (brain_*).
+    """
     
     reporter.report_working(f"Генерация P&L за {period}")
     
     try:
-        # ... логика генерации ...
         report = build_pnl_report(period, brand)
         
         reporter.report_idle(metrics={
@@ -123,9 +240,9 @@ def generate_pnl_report(self, period: str, brand: str):
 
 ### Агент CFO
 
-| agent_id | name | salary_equivalent | fte_coefficient |
+| agent\_id | name | salary\_equivalent | fte\_coefficient |
 |----------|------|-------------------|-----------------|
-| cfo_report | Отчёт P&L | 80000 | 1.0 |
+| cfo\_report | Отчёт P&L | 80000 | 1.0 |
 
 ### Инициализация репортера
 
@@ -156,11 +273,30 @@ def office_heartbeat():
 
 | Метрика | Описание |
 |---------|----------|
-| reports_generated_today | Отчётов сгенерировано за день |
-| last_sync | Время последней синхронизации с 1С |
+| last\_import | Время последнего импорта с маркетплейсов |
+| transactions\_saved | Транзакций сохранено при последнем импорте |
+| transactions\_invalid | Невалидных транзакций при последнем импорте |
+| reports\_generated\_today | Отчётов сгенерировано за день |
+| brain\_last\_loaded | Время последней загрузки brain\_\* |
+| brain\_is\_stale | Флаг устаревания данных brain\_\* |
 
 ---
 
-**Документ подготовлен:** Январь 2026  
-**Версия:** 1.1  
+## 7.5 История изменений
+
+### v2.0 (Февраль 2026)
+
+| Компонент | Было (v1.1) | Стало (v2.0) |
+|-----------|-------------|--------------|
+| `sync_1c_data` | Файловая синхронизация с 1С (CSV) | **Удалена** — данные пишутся Экстрактором напрямую в brain\_\* |
+| `process_cost_prices` | Импорт CSV себестоимости | **Удалена** |
+| `process_excel_reports` | Парсинг Excel из 1С | **Удалена** |
+| `import_marketplace_data` | Отсутствовала | **Добавлена** — импорт API + Excel маркетплейсов |
+| `monitor_brain_freshness` | Отсутствовала | **Добавлена** — алерт при устаревании brain\_\* |
+| Метрики Office | `last_sync` | `last_import`, `brain_last_loaded`, `brain_is_stale` |
+
+---
+
+**Документ подготовлен:** Февраль 2026  
+**Версия:** 2.0  
 **Статус:** Черновик
