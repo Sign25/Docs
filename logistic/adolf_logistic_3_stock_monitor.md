@@ -17,7 +17,7 @@ mode: "wide"
 
 Stock Monitor — компонент модуля Logistic, отвечающий за:
 - Отслеживание остатков FBO по 31 кластеру Ozon
-- Отслеживание остатков внутреннего склада (из `brain_stock_balance`)
+- Отслеживание остатков внутреннего склада (из `1C_stock_balance`)
 - Детекцию дефицита: дни до обнуления &lt; порога
 - Сопоставление рекомендаций Ozon с внутренним прогнозом
 - Генерацию алертов при достижении порогов
@@ -29,7 +29,7 @@ Stock Monitor — компонент модуля Logistic, отвечающий
 flowchart TD
     subgraph SOURCES["Источники данных"]
         OZON["Ozon Seller API<br/>Остатки FBO по кластерам<br/>Оборачиваемость<br/>Рекомендации"]
-        ONE_C["PostgreSQL brain_stock_balance<br/>Остатки внутреннего склада"]
+        ONE_C["PostgreSQL 1C_stock_balance<br/>Остатки внутреннего склада"]
     end
     
     subgraph MONITOR["Stock Monitor"]
@@ -176,13 +176,13 @@ class ClusterStockSnapshot:
 
 @dataclass
 class WarehouseStockSnapshot:
-    """Снимок остатков внутреннего склада (из brain_stock_balance)."""
+    """Снимок остатков внутреннего склада (из 1C_stock_balance)."""
     id: UUID
     article: str                   # артикул = offer_id Ozon
     product_name: str
     warehouse_stock: int           # остаток на складе (шт)
-    balance_date: datetime         # дата остатка из brain_*
-    brain_loaded_at: datetime      # время загрузки Экстрактором
+    balance_date: datetime         # дата остатка из 1C_*
+    1c_loaded_at: datetime      # время загрузки Экстрактором
     brand_id: str
 ```
 
@@ -247,13 +247,13 @@ logger = structlog.get_logger("logistic.stock_monitor")
 
 
 class StockMonitorService:
-    """Сервис мониторинга остатков v2.1 (Ozon + brain_stock_balance)."""
+    """Сервис мониторинга остатков v2.1 (Ozon + 1C_stock_balance)."""
     
     def __init__(
         self,
         ozon_adapter: OzonLogisticAdapter,
         stock_repo: StockRepository,
-        brain_reader: BrainDataReader,
+        1c_reader: OneCDataReader,
         analytics_repo: AnalyticsRepository,
         alert_service: AlertService,
         config: StockMonitorConfig
@@ -652,7 +652,7 @@ class StockForecaster:
             else None
         )
         
-        # Проверяем наличие на внутреннем складе (из brain_stock_balance)
+        # Проверяем наличие на внутреннем складе (из 1C_stock_balance)
         warehouse_stock = await self.stock_repo.get_latest_stock(article)
         
         priority = self._determine_priority(days, ozon_recommendation)
@@ -741,7 +741,7 @@ class StockAggregator:
             brand_id=brand_id
         )
         
-        # Остатки внутреннего склада (из brain_stock_balance)
+        # Остатки внутреннего склада (из 1C_stock_balance)
         warehouse_stocks = await self.stock_repo.get_latest_stocks(
             brand_id=brand_id
         )
@@ -1026,7 +1026,7 @@ async def get_warehouse_stocks(
     stock_repo: StockRepository = Depends(get_stock_repo),
     current_user: User = Depends(get_current_user)
 ) -> list[WarehouseStockSnapshot]:
-    """Текущие остатки на внутреннем складе (из brain_stock_balance)."""
+    """Текущие остатки на внутреннем складе (из 1C_stock_balance)."""
     effective_brand = brand_id or current_user.brand_id
     return await stock_repo.get_latest_stocks(brand_id=effective_brand)
 ```
@@ -1106,7 +1106,7 @@ adolf_logistic_3_stock_monitor_v2_0.md
 1. StockMonitorService: sync_ozon_stocks() — получает остатки FBO по кластерам + 
    оборачиваемость, сохраняет snapshots, генерирует алерты
 2. VelocityCalculator: приоритет — Ozon avg_daily_demand, fallback — WMA 28 дней
-3. StockForecaster: прогноз с учётом наличия на складе (из brain_stock_balance)
+3. StockForecaster: прогноз с учётом наличия на складе (из 1C_stock_balance)
 4. StockAggregator: сводка по кластерам + внутренний склад, детализация по артикулу
 5. Пороги: days-based (urgent < 3, soon < 7), иерархия SKU → cluster → default
 6. Алерты: дедупликация Redis, типы URGENT/LOW/OOS/OZON_URGENT/WAREHOUSE_LOW
@@ -1114,7 +1114,7 @@ adolf_logistic_3_stock_monitor_v2_0.md
    /forecast/{article}, /warehouse
 8. Celery: sync каждые 30 мин, cleanup ежедневно
 
-Зависимости: OzonLogisticAdapter (из раздела 2), BrainDataReader (из раздела 5 v3.0),
+Зависимости: OzonLogisticAdapter (из раздела 2), OneCDataReader (из раздела 5 v3.0),
 StockRepository, AnalyticsRepository
 ```
 
