@@ -5,9 +5,9 @@ mode: "wide"
 
 **Проект:** Интеллектуальная система управления логистикой маркетплейсов  
 **Модуль:** Logistic / Stock Monitor  
-**Версия:** 2.0  
+**Версия:** 2.1  
 **Дата:** Февраль 2026  
-**Заменяет:** adolf_logistic_3_stock_monitor_v1_0.md
+**Заменяет:** Раздел 3 v2.0
 
 ---
 
@@ -17,7 +17,7 @@ mode: "wide"
 
 Stock Monitor — компонент модуля Logistic, отвечающий за:
 - Отслеживание остатков FBO по 31 кластеру Ozon
-- Отслеживание остатков внутреннего склада (1С)
+- Отслеживание остатков внутреннего склада (из `brain_stock_balance`)
 - Детекцию дефицита: дни до обнуления &lt; порога
 - Сопоставление рекомендаций Ozon с внутренним прогнозом
 - Генерацию алертов при достижении порогов
@@ -29,7 +29,7 @@ Stock Monitor — компонент модуля Logistic, отвечающий
 flowchart TD
     subgraph SOURCES["Источники данных"]
         OZON["Ozon Seller API<br/>Остатки FBO по кластерам<br/>Оборачиваемость<br/>Рекомендации"]
-        ONE_C["1С (файловый импорт)<br/>Остатки внутреннего склада"]
+        ONE_C["PostgreSQL brain_stock_balance<br/>Остатки внутреннего склада"]
     end
     
     subgraph MONITOR["Stock Monitor"]
@@ -176,13 +176,13 @@ class ClusterStockSnapshot:
 
 @dataclass
 class WarehouseStockSnapshot:
-    """Снимок остатков внутреннего склада (1С)."""
+    """Снимок остатков внутреннего склада (из brain_stock_balance)."""
     id: UUID
-    import_id: str                 # ID импорта файла
     article: str                   # артикул = offer_id Ozon
     product_name: str
     warehouse_stock: int           # остаток на складе (шт)
-    imported_at: datetime
+    balance_date: datetime         # дата остатка из brain_*
+    brain_loaded_at: datetime      # время загрузки Экстрактором
     brand_id: str
 ```
 
@@ -247,13 +247,13 @@ logger = structlog.get_logger("logistic.stock_monitor")
 
 
 class StockMonitorService:
-    """Сервис мониторинга остатков v2.0 (Ozon + 1С)."""
+    """Сервис мониторинга остатков v2.1 (Ozon + brain_stock_balance)."""
     
     def __init__(
         self,
         ozon_adapter: OzonLogisticAdapter,
         stock_repo: StockRepository,
-        import_repo: ImportRepository,
+        brain_reader: BrainDataReader,
         analytics_repo: AnalyticsRepository,
         alert_service: AlertService,
         config: StockMonitorConfig
@@ -618,10 +618,10 @@ class StockForecaster:
     def __init__(
         self,
         velocity_calculator: VelocityCalculator,
-        import_repo: ImportRepository
+        stock_repo: StockRepository
     ):
         self.velocity = velocity_calculator
-        self.import_repo = import_repo
+        self.stock_repo = stock_repo
     
     async def forecast(
         self,
@@ -652,8 +652,8 @@ class StockForecaster:
             else None
         )
         
-        # Проверяем наличие на внутреннем складе
-        warehouse_stock = await self.import_repo.get_latest_stock(article)
+        # Проверяем наличие на внутреннем складе (из brain_stock_balance)
+        warehouse_stock = await self.stock_repo.get_latest_stock(article)
         
         priority = self._determine_priority(days, ozon_recommendation)
         
@@ -721,16 +721,14 @@ class MonitoringSummary:
 
 
 class StockAggregator:
-    """Агрегация остатков для dashboard v2.0."""
+    """Агрегация остатков для dashboard v2.1."""
     
     def __init__(
         self,
         stock_repo: StockRepository,
-        import_repo: ImportRepository,
         config: StockMonitorConfig
     ):
         self.stock_repo = stock_repo
-        self.import_repo = import_repo
         self.config = config
     
     async def get_summary(
@@ -743,11 +741,11 @@ class StockAggregator:
             brand_id=brand_id
         )
         
-        # 1С остатки
-        warehouse_stocks = await self.import_repo.get_latest_stocks(
+        # Остатки внутреннего склада (из brain_stock_balance)
+        warehouse_stocks = await self.stock_repo.get_latest_stocks(
             brand_id=brand_id
         )
-        last_import = await self.import_repo.get_last_import_date()
+        last_sync = await self.stock_repo.get_last_sync_date()
         
         # Группируем по кластерам
         by_cluster: dict[str, list] = {}
@@ -1025,12 +1023,12 @@ async def get_stock_forecast(
 @router.get("/warehouse")
 async def get_warehouse_stocks(
     brand_id: str | None = Query(None),
-    import_repo: ImportRepository = Depends(get_import_repo),
+    stock_repo: StockRepository = Depends(get_stock_repo),
     current_user: User = Depends(get_current_user)
 ) -> list[WarehouseStockSnapshot]:
-    """Текущие остатки на внутреннем складе (1С)."""
+    """Текущие остатки на внутреннем складе (из brain_stock_balance)."""
     effective_brand = brand_id or current_user.brand_id
-    return await import_repo.get_latest_stocks(brand_id=effective_brand)
+    return await stock_repo.get_latest_stocks(brand_id=effective_brand)
 ```
 
 ---
@@ -1108,21 +1106,22 @@ adolf_logistic_3_stock_monitor_v2_0.md
 1. StockMonitorService: sync_ozon_stocks() — получает остатки FBO по кластерам + 
    оборачиваемость, сохраняет snapshots, генерирует алерты
 2. VelocityCalculator: приоритет — Ozon avg_daily_demand, fallback — WMA 28 дней
-3. StockForecaster: прогноз с учётом наличия на складе 1С
-4. StockAggregator: сводка по кластерам + 1С, детализация по артикулу
+3. StockForecaster: прогноз с учётом наличия на складе (из brain_stock_balance)
+4. StockAggregator: сводка по кластерам + внутренний склад, детализация по артикулу
 5. Пороги: days-based (urgent < 3, soon < 7), иерархия SKU → cluster → default
 6. Алерты: дедупликация Redis, типы URGENT/LOW/OOS/OZON_URGENT/WAREHOUSE_LOW
 7. API: /summary, /by-article/{article}, /by-cluster/{cluster}, /urgent, 
    /forecast/{article}, /warehouse
 8. Celery: sync каждые 30 мин, cleanup ежедневно
 
-Зависимости: OzonLogisticAdapter (из раздела 2), ImportService (из раздела 5),
-StockRepository, ImportRepository, AnalyticsRepository
+Зависимости: OzonLogisticAdapter (из раздела 2), BrainDataReader (из раздела 5 v3.0),
+StockRepository, AnalyticsRepository
 ```
 
 ---
 
 **Документ подготовлен:** Февраль 2026  
-**Версия:** 2.0  
+**Версия:** 2.1  
 **Статус:** Черновик  
-**Заменяет:** adolf_logistic_3_stock_monitor_v1_0.md
+**Заменяет:** Раздел 3 v2.0
+
