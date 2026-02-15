@@ -5,9 +5,9 @@ mode: "wide"
 
 **Проект:** Интеллектуальная система управления логистикой маркетплейсов  
 **Модуль:** Logistic / 1С Integration  
-**Версия:** 2.0  
+**Версия:** 3.0  
 **Дата:** Февраль 2026  
-**Заменяет:** adolf_logistic_5_recommendation_engine_v1_0.md
+**Заменяет:** Раздел 5 v2.0 (файловый обмен XLSX/XML)
 
 ---
 
@@ -16,976 +16,631 @@ mode: "wide"
 ### Описание
 
 1С Integration — компонент модуля Logistic, отвечающий за:
-- Импорт остатков внутреннего склада из 1С (файловый обмен XLSX/XML)
-- Маппинг артикулов 1С ↔ Ozon offer_id ↔ ozon_sku
-- Валидацию и нормализацию импортируемых данных
-- Отслеживание истории импортов и обнаружение аномалий
+
+- Чтение данных из PostgreSQL-таблиц `brain_*`, наполняемых Экстрактором данных 1С
+- Маппинг артикулов 1С → offer_id Ozon → ozon_sku
+- Валидацию и обнаружение аномалий в остатках
+- Ведение истории остатков (`logistic_stock_history`) для трендов и аналитики
 - Экспорт наряд-заданий в формат, совместимый с 1С
-- Архивирование обработанных файлов
 
 ### Роль в системе
 
 ```mermaid
 flowchart LR
-    subgraph ONE_C["1С:Предприятие"]
-        EXPORT["Выгрузка остатков<br/>(XLSX / XML)"]
+    subgraph EXTRACTOR["Экстрактор данных 1С"]
+        direction TB
+        E1["Q-06: brain_stock_balance"]
+        E2["Q-07: brain_customer_orders"]
+        E3["Q-08: brain_supplier_orders"]
+        E4["Q-09: brain_goods_receipts"]
     end
-    
-    subgraph DELIVERY["Доставка файла"]
-        SFTP["SFTP / Сетевая папка"]
-        UPLOAD["Ручная загрузка<br/>через Open WebUI"]
+
+    subgraph INTEGRATION["1С Integration"]
+        READER["BrainDataReader<br/>чтение brain_* таблиц"]
+        VALIDATOR["ImportValidator<br/>маппинг + валидация"]
+        HISTORY["HistoryService<br/>снимки + аномалии"]
     end
-    
-    subgraph LOGISTIC["1С Integration"]
-        SCAN["FileScanner<br/>мониторинг директории"]
-        PARSE["FileImportAdapter<br/>парсинг XLSX/XML"]
-        VALIDATE["ImportValidator<br/>проверка + маппинг"]
-        IMPORT_SVC["ImportService<br/>upsert + архивация"]
-    end
-    
+
     subgraph CONSUMERS["Потребители"]
         STOCK_MON["Stock Monitor<br/>(dual-source)"]
-        TASK_GEN["TaskGenerator<br/>(проверка наличия)"]
+        TASK_GEN["Supply Task Engine<br/>(прогноз + задания)"]
     end
-    
-    EXPORT --> SFTP & UPLOAD
-    SFTP --> SCAN
-    UPLOAD --> PARSE
-    SCAN --> PARSE --> VALIDATE --> IMPORT_SVC
-    IMPORT_SVC --> STOCK_MON & TASK_GEN
+
+    E1 & E2 & E3 & E4 --> READER
+    READER --> VALIDATOR --> HISTORY
+    HISTORY --> STOCK_MON & TASK_GEN
 ```
 
-### Отличие от Recommendation Engine v1.0
+### Отличие от v2.0
 
-| Параметр | v1.0 (Recommendation Engine) | v2.0 (1С Integration) |
-|----------|-----------------------------|-----------------------|
-| Задача | Расчёт распределения поставок по складам WB | Импорт/экспорт данных между ADOLF и 1С |
-| Вход | Спрос по регионам + коэфф. приёмки WB | Файлы XLSX/XML из 1С |
-| Выход | Рекомендация по распределению | Актуальные остатки внутреннего склада |
-| Маркетплейс | Wildberries | Не зависит (внутренний склад) |
-| Статус | Удалён | Новый компонент |
+| Параметр | v2.0 (файловый обмен) | v3.0 (PostgreSQL) |
+|----------|----------------------|-------------------|
+| Источник | XLSX/XML файлы через SFTP | Таблицы `brain_*` в PostgreSQL |
+| Доставка данных | FileScanner → FileImportAdapter | Прямое чтение SQL |
+| Компоненты | FileScanner, FileImportAdapter, ImportService | BrainDataReader, ImportValidator, HistoryService |
+| Парсинг | openpyxl, lxml | Не требуется |
+| Мониторинг | Сканирование директории | Проверка `loaded_at` в `brain_*` |
+| Архивирование | Перемещение файлов в YYYY-MM/ | Не требуется |
+| История остатков | warehouse_stocks_history | logistic_stock_history |
 
-> **Примечание:** Логика расчёта распределения перенесена в Supply Task Engine (раздел 4). 1С Integration — чисто интеграционный модуль.
+<Warning>
+Компоненты `FileScanner`, `FileImportAdapter`, SFTP/сетевая папка и форматы XLSX/XML удалены. Данные поступают через Экстрактор данных 1С напрямую в PostgreSQL. Подробнее — [Приложение А1: Реестр запросов 1С → PostgreSQL](/cfo/adolf_cfo_a1_1c_reports).
+</Warning>
 
 ---
 
-## 5.2 Формат файла 1С
+## 5.2 Источники данных (brain_* таблицы)
 
-### Ожидаемая структура XLSX
+Все таблицы наполняются Экстрактором данных 1С ежедневно. Подробные спецификации — в [Приложении А1](/cfo/adolf_cfo_a1_1c_reports).
 
-| Колонка | Тип | Обязательное | Описание |
-|---------|-----|:---:|----------|
-| Артикул | string | ✅ | Внутренний артикул товара (= offer_id в Ozon) |
-| Наименование | string | ✅ | Название товара |
-| Остаток | int | ✅ | Количество на складе (шт) |
-| Единица | string | — | Единица измерения (по умолчанию «шт») |
-| Штрихкод | string | — | EAN-13 (для дополнительного маппинга) |
+| Таблица | Запрос | Расписание | Назначение в Logistic |
+|---------|:------:|:----------:|----------------------|
+| `brain_stock_balance` | Q-06 | 06:00 ежедневно | Остатки на внутреннем складе (основной источник для Stock Monitor) |
+| `brain_customer_orders` | Q-07 | 06:15 ежедневно | Незакрытые заказы клиентов → прогноз спроса |
+| `brain_supplier_orders` | Q-08 | 06:30 ежедневно | Открытые заказы поставщикам → товар в пути |
+| `brain_goods_receipts` | Q-09 | 06:45 ежедневно | Поступления за 7 дней → скорость пополнения |
 
-### Ожидаемая структура XML
+### Ключевые поля для маппинга
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<ОстаткиСклада Дата="2026-02-06" Склад="Основной">
-  <Товар>
-    <Артикул>51005/54</Артикул>
-    <Наименование>Платье миди зелёное</Наименование>
-    <Остаток>340</Остаток>
-    <Единица>шт</Единица>
-  </Товар>
-  <Товар>
-    <Артикул>K-20115</Артикул>
-    <Наименование>Комбинезон детский</Наименование>
-    <Остаток>120</Остаток>
-    <Единица>шт</Единица>
-  </Товар>
-</ОстаткиСклада>
-```
-
-### Конфигурация
-
-```python
-@dataclass
-class ImportConfig:
-    """Конфигурация импорта 1С."""
-    
-    # Директория для сканирования
-    import_dir: str = "/data/1c-import"
-    
-    # Директория для архива
-    archive_dir: str = "/data/1c-archive"
-    
-    # Допустимые форматы
-    allowed_extensions: list[str] = field(
-        default_factory=lambda: [".xlsx", ".xml"]
-    )
-    
-    # XLSX: номера колонок (0-based) или названия
-    xlsx_article_col: int | str = 0      # "Артикул"
-    xlsx_name_col: int | str = 1         # "Наименование"
-    xlsx_quantity_col: int | str = 2     # "Остаток"
-    xlsx_barcode_col: int | str | None = 4  # "Штрихкод" (опционально)
-    xlsx_header_row: int = 0             # строка заголовков
-    
-    # Валидация
-    max_quantity: int = 100_000          # максимально допустимый остаток
-    min_rows: int = 1                    # минимум строк для валидного файла
-    max_rows: int = 50_000              # максимум строк
-    
-    # Аномалии
-    anomaly_threshold_pct: float = 50.0  # % изменения → предупреждение
-```
-
----
-
-## 5.3 FileImportAdapter
-
-### Парсинг файлов
-
-```python
-import structlog
-from pathlib import Path
-from dataclasses import dataclass
-from datetime import datetime
-
-logger = structlog.get_logger("logistic.1c_import")
-
-
-@dataclass
-class ParsedStockRow:
-    """Одна строка импортированных данных."""
-    article: str
-    product_name: str
-    quantity: int
-    unit: str = "шт"
-    barcode: str | None = None
-    row_number: int = 0
-
-
-@dataclass
-class ParseResult:
-    """Результат парсинга файла."""
-    rows: list[ParsedStockRow]
-    file_name: str
-    file_format: str         # "xlsx" | "xml"
-    file_date: datetime | None  # дата из файла (если указана)
-    parse_errors: list[str]
-    total_rows: int
-    valid_rows: int
-
-
-class FileImportAdapter:
-    """Адаптер для парсинга файлов 1С (XLSX/XML)."""
-    
-    def __init__(self, config: ImportConfig):
-        self.config = config
-    
-    def parse(self, file_path: str | Path) -> ParseResult:
-        """
-        Парсинг файла. Автоматическое определение формата.
-        
-        Raises:
-            UnsupportedFormatError: неподдерживаемый формат
-            EmptyFileError: файл пуст
-        """
-        path = Path(file_path)
-        ext = path.suffix.lower()
-        
-        if ext == ".xlsx":
-            return self._parse_xlsx(path)
-        elif ext == ".xml":
-            return self._parse_xml(path)
-        else:
-            raise UnsupportedFormatError(
-                f"Формат {ext} не поддерживается. "
-                f"Допустимые: {self.config.allowed_extensions}"
-            )
-    
-    def _parse_xlsx(self, path: Path) -> ParseResult:
-        """Парсинг XLSX через openpyxl."""
-        from openpyxl import load_workbook
-        
-        wb = load_workbook(path, read_only=True, data_only=True)
-        ws = wb.active
-        
-        rows: list[ParsedStockRow] = []
-        errors: list[str] = []
-        total = 0
-        
-        for i, row in enumerate(ws.iter_rows(
-            min_row=self.config.xlsx_header_row + 2,  # skip header
-            values_only=True
-        )):
-            total += 1
-            row_num = i + self.config.xlsx_header_row + 2
-            
-            try:
-                article = self._clean_string(row[self._col_idx("article")])
-                name = self._clean_string(row[self._col_idx("name")])
-                qty = self._parse_quantity(row[self._col_idx("quantity")])
-                barcode = self._safe_get(row, self._col_idx("barcode"))
-                
-                if not article:
-                    errors.append(f"Строка {row_num}: пустой артикул")
-                    continue
-                
-                if qty < 0:
-                    errors.append(f"Строка {row_num}: отрицательный остаток ({qty})")
-                    continue
-                
-                if qty > self.config.max_quantity:
-                    errors.append(
-                        f"Строка {row_num}: остаток {qty} > max ({self.config.max_quantity})"
-                    )
-                    continue
-                
-                rows.append(ParsedStockRow(
-                    article=article,
-                    product_name=name or "",
-                    quantity=qty,
-                    barcode=str(barcode) if barcode else None,
-                    row_number=row_num
-                ))
-                
-            except Exception as e:
-                errors.append(f"Строка {row_num}: {str(e)}")
-        
-        wb.close()
-        
-        return ParseResult(
-            rows=rows,
-            file_name=path.name,
-            file_format="xlsx",
-            file_date=None,
-            parse_errors=errors,
-            total_rows=total,
-            valid_rows=len(rows)
-        )
-    
-    def _parse_xml(self, path: Path) -> ParseResult:
-        """Парсинг XML через lxml."""
-        from lxml import etree
-        
-        tree = etree.parse(str(path))
-        root = tree.getroot()
-        
-        # Получаем дату из атрибута корневого элемента
-        file_date = None
-        date_str = root.get("Дата") or root.get("date")
-        if date_str:
-            try:
-                file_date = datetime.strptime(date_str, "%Y-%m-%d")
-            except ValueError:
-                pass
-        
-        rows: list[ParsedStockRow] = []
-        errors: list[str] = []
-        total = 0
-        
-        for i, item in enumerate(root.findall(".//Товар")):
-            total += 1
-            row_num = i + 1
-            
-            try:
-                article = self._clean_string(
-                    item.findtext("Артикул") or item.findtext("Article")
-                )
-                name = self._clean_string(
-                    item.findtext("Наименование") or item.findtext("Name")
-                )
-                qty_text = item.findtext("Остаток") or item.findtext("Quantity")
-                qty = self._parse_quantity(qty_text)
-                
-                if not article:
-                    errors.append(f"Товар #{row_num}: пустой артикул")
-                    continue
-                
-                rows.append(ParsedStockRow(
-                    article=article,
-                    product_name=name or "",
-                    quantity=qty,
-                    row_number=row_num
-                ))
-                
-            except Exception as e:
-                errors.append(f"Товар #{row_num}: {str(e)}")
-        
-        return ParseResult(
-            rows=rows,
-            file_name=path.name,
-            file_format="xml",
-            file_date=file_date,
-            parse_errors=errors,
-            total_rows=total,
-            valid_rows=len(rows)
-        )
-    
-    def _clean_string(self, value) -> str | None:
-        if value is None:
-            return None
-        return str(value).strip()
-    
-    def _parse_quantity(self, value) -> int:
-        if value is None:
-            return 0
-        return int(float(str(value).replace(",", ".").strip()))
-    
-    def _col_idx(self, field: str) -> int:
-        mapping = {
-            "article": self.config.xlsx_article_col,
-            "name": self.config.xlsx_name_col,
-            "quantity": self.config.xlsx_quantity_col,
-            "barcode": self.config.xlsx_barcode_col,
-        }
-        col = mapping.get(field)
-        if col is None:
-            return -1
-        if isinstance(col, int):
-            return col
-        return col  # имя колонки — lookup по заголовку
-    
-    def _safe_get(self, row: tuple, idx: int):
-        if idx < 0 or idx >= len(row):
-            return None
-        return row[idx]
-```
-
----
-
-## 5.4 ImportService
-
-### Основной сервис
+Поле `article` во всех таблицах `brain_*` соответствует `offer_id` в Ozon. Маппинг `article → ozon_sku` выполняется через таблицу `sku_mapping`.
 
 ```mermaid
-flowchart TD
-    START["Запуск импорта<br/>(Celery / ручной)"]
-    
-    SCAN["Сканирование<br/>import_dir"]
-    
-    FOUND{{"Новые файлы?"}}
-    DONE["Завершено:<br/>нет новых файлов"]
-    
-    PARSE["FileImportAdapter<br/>парсинг файла"]
-    
-    VALIDATE["Валидация:<br/>— формат ОК?<br/>— артикулы в маппинге?<br/>— нет аномалий?"]
-    
-    VAL_OK{{"Валидация<br/>пройдена?"}}
-    
-    UPSERT["Upsert в warehouse_stocks<br/>(по артикулу)"]
-    
-    ANOMALY["Обнаружение аномалий:<br/>|Δ| > 50% от прошлого импорта"]
-    
-    LOG_OK["import_log: status=success"]
-    LOG_ERR["import_log: status=error<br/>+ детали ошибок"]
-    
-    ARCHIVE["Архивирование файла<br/>→ archive_dir/YYYY-MM/"]
-    
-    ALERT_ANOMALY["⚠ IMPORT_ANOMALY<br/>алерт менеджеру"]
-    
-    START --> SCAN --> FOUND
-    FOUND -->|Нет| DONE
-    FOUND -->|Да| PARSE --> VALIDATE --> VAL_OK
-    
-    VAL_OK -->|Да| UPSERT --> ANOMALY
-    VAL_OK -->|Нет| LOG_ERR --> ARCHIVE
-    
-    ANOMALY -->|Есть| ALERT_ANOMALY
-    ANOMALY -->|Нет| LOG_OK
-    ALERT_ANOMALY --> LOG_OK --> ARCHIVE
+flowchart LR
+    BRAIN["brain_stock_balance<br/>article: '51005/54'"]
+    SKU["sku_mapping<br/>article → ozon_sku"]
+    OZON["Ozon API<br/>ozon_sku: 1234567"]
+
+    BRAIN -->|article| SKU -->|ozon_sku| OZON
 ```
 
-### Реализация
+---
+
+## 5.3 BrainDataReader
+
+Компонент чтения данных из `brain_*` таблиц. Заменяет `FileScanner` + `FileImportAdapter`.
 
 ```python
-class ImportService:
-    """Сервис импорта данных из 1С."""
-    
-    def __init__(
-        self,
-        adapter: FileImportAdapter,
-        import_repo: ImportRepository,
-        mapping_repo: SKUMappingRepository,
-        alert_service: AlertService,
-        config: ImportConfig
-    ):
-        self.adapter = adapter
-        self.import_repo = import_repo
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Optional
+import structlog
+
+logger = structlog.get_logger("logistic.brain_reader")
+
+
+@dataclass
+class BrainStockRow:
+    """Строка остатка из brain_stock_balance."""
+    article: str
+    nomenclature: str
+    warehouse: str
+    quantity: int
+    balance_date: datetime
+    loaded_at: datetime
+
+
+@dataclass
+class BrainReadResult:
+    """Результат чтения brain_* таблицы."""
+    rows: list
+    table_name: str
+    loaded_at: datetime | None
+    row_count: int
+    is_fresh: bool           # loaded_at < порога свежести
+
+
+class BrainDataReader:
+    """Чтение данных из brain_* таблиц PostgreSQL."""
+
+    # Порог свежести: если loaded_at старше — алерт
+    FRESHNESS_THRESHOLD_HOURS = 26
+
+    def __init__(self, db):
+        self.db = db
+
+    async def read_stock_balance(
+        self, warehouse: str | None = None
+    ) -> BrainReadResult:
+        """
+        Чтение остатков из brain_stock_balance.
+        Основной источник для Stock Monitor (dual-source).
+        """
+        query = "SELECT * FROM brain_stock_balance"
+        params = {}
+        if warehouse:
+            query += " WHERE warehouse = :warehouse"
+            params["warehouse"] = warehouse
+
+        rows = await self.db.fetch_all(query, params)
+        loaded_at = await self._get_loaded_at("brain_stock_balance")
+
+        stock_rows = [
+            BrainStockRow(
+                article=r["article"],
+                nomenclature=r["nomenclature"],
+                warehouse=r["warehouse"],
+                quantity=int(r["quantity"]),
+                balance_date=r["balance_date"],
+                loaded_at=r["loaded_at"]
+            )
+            for r in rows
+        ]
+
+        is_fresh = self._check_freshness(loaded_at)
+        if not is_fresh:
+            logger.warning(
+                "brain_data_stale",
+                table="brain_stock_balance",
+                loaded_at=str(loaded_at),
+                threshold_hours=self.FRESHNESS_THRESHOLD_HOURS
+            )
+
+        return BrainReadResult(
+            rows=stock_rows,
+            table_name="brain_stock_balance",
+            loaded_at=loaded_at,
+            row_count=len(stock_rows),
+            is_fresh=is_fresh
+        )
+
+    async def read_customer_orders(self) -> BrainReadResult:
+        """Чтение незакрытых заказов клиентов (Q-07)."""
+        rows = await self.db.fetch_all(
+            "SELECT * FROM brain_customer_orders"
+        )
+        loaded_at = await self._get_loaded_at("brain_customer_orders")
+        return BrainReadResult(
+            rows=rows,
+            table_name="brain_customer_orders",
+            loaded_at=loaded_at,
+            row_count=len(rows),
+            is_fresh=self._check_freshness(loaded_at)
+        )
+
+    async def read_supplier_orders(self) -> BrainReadResult:
+        """Чтение открытых заказов поставщикам (Q-08)."""
+        rows = await self.db.fetch_all(
+            "SELECT * FROM brain_supplier_orders"
+        )
+        loaded_at = await self._get_loaded_at("brain_supplier_orders")
+        return BrainReadResult(
+            rows=rows,
+            table_name="brain_supplier_orders",
+            loaded_at=loaded_at,
+            row_count=len(rows),
+            is_fresh=self._check_freshness(loaded_at)
+        )
+
+    async def read_goods_receipts(
+        self, days_back: int = 7
+    ) -> BrainReadResult:
+        """Чтение поступлений товаров за период (Q-09)."""
+        rows = await self.db.fetch_all(
+            "SELECT * FROM brain_goods_receipts "
+            "WHERE document_date >= :since",
+            {"since": datetime.now() - timedelta(days=days_back)}
+        )
+        loaded_at = await self._get_loaded_at("brain_goods_receipts")
+        return BrainReadResult(
+            rows=rows,
+            table_name="brain_goods_receipts",
+            loaded_at=loaded_at,
+            row_count=len(rows),
+            is_fresh=self._check_freshness(loaded_at)
+        )
+
+    async def _get_loaded_at(self, table: str) -> datetime | None:
+        """Получить время последней загрузки из brain_* таблицы."""
+        row = await self.db.fetch_one(
+            f"SELECT MAX(loaded_at) as last FROM {table}"
+        )
+        return row["last"] if row else None
+
+    def _check_freshness(self, loaded_at: datetime | None) -> bool:
+        if loaded_at is None:
+            return False
+        delta = datetime.now() - loaded_at
+        return delta.total_seconds() < self.FRESHNESS_THRESHOLD_HOURS * 3600
+```
+
+---
+
+## 5.4 ImportValidator
+
+Валидация и маппинг артикулов. Сохранён из v2.0, адаптирован для чтения из `brain_*`.
+
+```python
+@dataclass
+class ValidatedStock:
+    """Провалидированный остаток с маппингом."""
+    article: str
+    ozon_sku: int | None
+    product_name: str
+    warehouse_stock: int
+    brand_id: str
+    balance_date: datetime
+
+
+class ImportValidator:
+    """Валидация данных из brain_* и маппинг артикулов."""
+
+    ANOMALY_THRESHOLD_PCT = 50.0
+
+    def __init__(self, mapping_repo, history_repo):
         self.mapping = mapping_repo
-        self.alert_service = alert_service
-        self.config = config
-    
-    async def scan_and_import(self) -> list[ImportResult]:
+        self.history = history_repo
+
+    async def validate_stocks(
+        self, brain_result: BrainReadResult
+    ) -> tuple[list[ValidatedStock], list[str]]:
         """
-        Сканирование директории и импорт новых файлов.
-        Celery task: по расписанию (1-2 раза в день).
+        Валидация остатков из brain_stock_balance.
+
+        Returns:
+            (validated, unmapped_articles)
         """
-        import_dir = Path(self.config.import_dir)
-        if not import_dir.exists():
-            logger.warning("import_dir_not_found", path=str(import_dir))
-            return []
-        
-        results = []
-        
-        for file_path in sorted(import_dir.iterdir()):
-            if file_path.suffix.lower() not in self.config.allowed_extensions:
-                continue
-            if file_path.name.startswith("."):
-                continue
-            
-            # Проверяем, не обработан ли уже
-            if await self.import_repo.is_file_processed(file_path.name):
-                continue
-            
-            result = await self.import_file(file_path)
-            results.append(result)
-        
-        return results
-    
-    async def import_file(
-        self, file_path: str | Path
-    ) -> ImportResult:
-        """
-        Импорт одного файла.
-        
-        Может вызываться:
-        - Автоматически (scan_and_import)
-        - Вручную (через API / Open WebUI)
-        """
-        path = Path(file_path)
-        import_id = f"imp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{path.stem}"
-        
-        logger.info("file_import_started", file=path.name, import_id=import_id)
-        
-        try:
-            # 1. Парсинг
-            parsed = self.adapter.parse(path)
-            
-            if not parsed.rows:
-                return await self._log_failure(
-                    import_id, path.name, "Файл не содержит валидных строк",
-                    parsed.parse_errors
-                )
-            
-            # 2. Маппинг артикулов
-            mapped_rows, unmapped = await self._map_articles(parsed.rows)
-            
-            # 3. Обнаружение аномалий
-            anomalies = await self._detect_anomalies(mapped_rows)
-            
-            # 4. Upsert в БД
-            await self.import_repo.upsert_warehouse_stocks(
-                import_id=import_id,
-                stocks=[
-                    WarehouseStockRecord(
-                        article=row.article,
-                        product_name=row.product_name,
-                        warehouse_stock=row.quantity,
-                        import_id=import_id,
-                        brand_id=self._detect_brand(row.article)
-                    )
-                    for row in mapped_rows
-                ]
-            )
-            
-            # 5. Логирование
-            import_log = ImportLog(
-                import_id=import_id,
-                file_name=path.name,
-                file_format=parsed.file_format,
-                status="success",
-                total_rows=parsed.total_rows,
-                valid_rows=parsed.valid_rows,
-                unmapped_count=len(unmapped),
-                anomaly_count=len(anomalies),
-                parse_errors=parsed.parse_errors,
-                unmapped_articles=unmapped,
-                imported_at=datetime.now()
-            )
-            await self.import_repo.save_log(import_log)
-            
-            # 6. Алерты
-            if anomalies:
-                await self._alert_anomalies(import_id, anomalies)
-            if unmapped:
-                logger.warning(
-                    "unmapped_articles",
-                    count=len(unmapped),
-                    articles=unmapped[:10]
-                )
-            
-            # 7. Архивирование
-            self._archive_file(path)
-            
-            logger.info(
-                "file_import_completed",
-                import_id=import_id,
-                valid=parsed.valid_rows,
-                unmapped=len(unmapped),
-                anomalies=len(anomalies)
-            )
-            
-            return ImportResult(
-                import_id=import_id,
-                success=True,
-                valid_rows=parsed.valid_rows,
-                unmapped=unmapped,
-                anomalies=anomalies
-            )
-            
-        except Exception as e:
-            logger.error("file_import_failed", file=path.name, error=str(e))
-            return await self._log_failure(import_id, path.name, str(e))
-    
-    async def _map_articles(
-        self, rows: list[ParsedStockRow]
-    ) -> tuple[list[ParsedStockRow], list[str]]:
-        """Проверка артикулов по маппингу SKU."""
         known_articles = await self.mapping.get_all_articles()
-        
-        mapped = []
+
+        validated = []
         unmapped = []
-        
-        for row in rows:
-            if row.article in known_articles:
-                mapped.append(row)
-            else:
+
+        for row in brain_result.rows:
+            if row.article not in known_articles:
                 unmapped.append(row.article)
-        
-        return mapped, unmapped
-    
-    async def _detect_anomalies(
-        self, rows: list[ParsedStockRow]
+                continue
+
+            mapping = await self.mapping.get_by_article(row.article)
+            validated.append(ValidatedStock(
+                article=row.article,
+                ozon_sku=mapping.ozon_sku if mapping else None,
+                product_name=row.nomenclature,
+                warehouse_stock=row.quantity,
+                brand_id=self._detect_brand(row.article),
+                balance_date=row.balance_date
+            ))
+
+        if unmapped:
+            logger.warning(
+                "unmapped_articles",
+                count=len(unmapped),
+                sample=unmapped[:10]
+            )
+
+        return validated, unmapped
+
+    async def detect_anomalies(
+        self, validated: list[ValidatedStock]
     ) -> list[dict]:
         """Обнаружение аномальных изменений остатков."""
         anomalies = []
-        threshold = self.config.anomaly_threshold_pct
-        
-        for row in rows:
-            prev = await self.import_repo.get_previous_stock(row.article)
-            if prev is None:
+
+        for stock in validated:
+            prev = await self.history.get_previous_quantity(
+                stock.article
+            )
+            if prev is None or prev == 0:
                 continue
-            
-            if prev == 0:
-                if row.quantity > 0:
-                    continue  # нормально: было 0, стало > 0
-            else:
-                change_pct = abs(row.quantity - prev) / prev * 100
-                if change_pct >= threshold:
-                    anomalies.append({
-                        "article": row.article,
-                        "previous": prev,
-                        "current": row.quantity,
-                        "change_pct": round(change_pct, 1)
-                    })
-        
+
+            change_pct = abs(stock.warehouse_stock - prev) / prev * 100
+            if change_pct >= self.ANOMALY_THRESHOLD_PCT:
+                anomalies.append({
+                    "article": stock.article,
+                    "previous": prev,
+                    "current": stock.warehouse_stock,
+                    "change_pct": round(change_pct, 1)
+                })
+
         return anomalies
-    
-    def _archive_file(self, path: Path) -> None:
-        """Перемещение файла в архив."""
-        archive_dir = Path(self.config.archive_dir)
-        month_dir = archive_dir / datetime.now().strftime("%Y-%m")
-        month_dir.mkdir(parents=True, exist_ok=True)
-        
-        timestamp = datetime.now().strftime("%H%M%S")
-        archive_name = f"{timestamp}_{path.name}"
-        path.rename(month_dir / archive_name)
-    
-    async def _log_failure(
-        self, import_id: str, file_name: str, error: str,
-        parse_errors: list[str] | None = None
-    ) -> ImportResult:
-        log = ImportLog(
-            import_id=import_id,
-            file_name=file_name,
-            file_format="unknown",
-            status="error",
-            total_rows=0, valid_rows=0,
-            unmapped_count=0, anomaly_count=0,
-            parse_errors=parse_errors or [error],
-            imported_at=datetime.now()
-        )
-        await self.import_repo.save_log(log)
-        return ImportResult(import_id=import_id, success=False, error=error)
-    
-    async def _alert_anomalies(
-        self, import_id: str, anomalies: list[dict]
-    ) -> None:
-        await self.alert_service.create_alert(StockAlert(
-            id=uuid4(),
-            type=AlertType.IMPORT_ANOMALY,
-            severity=AlertSeverity.MEDIUM,
-            article="IMPORT",
-            ozon_sku=None,
-            cluster_name="WAREHOUSE",
-            message=f"Импорт {import_id}: {len(anomalies)} аномалий "
-                    f"(изменение > {self.config.anomaly_threshold_pct}%)",
-            details={"import_id": import_id, "anomalies": anomalies[:20]},
-            brand_id="all",
-            created_at=datetime.now()
-        ))
-    
-    def _detect_brand(self, article: str) -> str:
+
+    @staticmethod
+    def _detect_brand(article: str) -> str:
         return "ohana_kids" if article.startswith("K") else "ohana_market"
 ```
 
 ---
 
-## 5.5 Модель данных
+## 5.5 HistoryService
 
-### Записи импорта
+Сохранение снимков остатков в `logistic_stock_history` и обработка результатов валидации.
 
 ```python
-@dataclass
-class WarehouseStockRecord:
-    """Запись остатка на внутреннем складе."""
-    article: str
-    product_name: str
-    warehouse_stock: int
-    import_id: str
-    brand_id: str
-    updated_at: datetime = field(default_factory=datetime.now)
+class HistoryService:
+    """Управление историей остатков и синхронизацией."""
 
+    def __init__(
+        self,
+        brain_reader: BrainDataReader,
+        validator: ImportValidator,
+        history_repo,
+        stock_repo,
+        alert_service
+    ):
+        self.reader = brain_reader
+        self.validator = validator
+        self.history_repo = history_repo
+        self.stock_repo = stock_repo
+        self.alerts = alert_service
 
-@dataclass
-class ImportLog:
-    """Лог импорта файла."""
-    import_id: str
-    file_name: str
-    file_format: str           # xlsx / xml
-    status: str                # success / error
-    total_rows: int
-    valid_rows: int
-    unmapped_count: int
-    anomaly_count: int
-    parse_errors: list[str]
-    unmapped_articles: list[str] = field(default_factory=list)
-    imported_at: datetime = field(default_factory=datetime.now)
+    async def sync_stocks(self) -> dict:
+        """
+        Основной цикл синхронизации:
+        1. Чтение brain_stock_balance
+        2. Валидация + маппинг
+        3. Снимок в logistic_stock_history
+        4. Обнаружение аномалий
+        5. Upsert в warehouse_stocks
+        6. Алерты
 
+        Вызывается Celery-задачей после 06:00 ежедневно.
+        """
+        # 1. Чтение
+        brain_result = await self.reader.read_stock_balance()
 
-@dataclass
-class ImportResult:
-    """Результат операции импорта."""
-    import_id: str
-    success: bool
-    valid_rows: int = 0
-    unmapped: list[str] = field(default_factory=list)
-    anomalies: list[dict] = field(default_factory=list)
-    error: str | None = None
+        if not brain_result.is_fresh:
+            await self.alerts.create_alert(
+                type="DATA_STALE",
+                severity="HIGH",
+                message=(
+                    f"brain_stock_balance: loaded_at="
+                    f"{brain_result.loaded_at}, "
+                    f"порог={BrainDataReader.FRESHNESS_THRESHOLD_HOURS}ч"
+                )
+            )
+            return {"status": "stale", "loaded_at": str(brain_result.loaded_at)}
+
+        # 2. Валидация
+        validated, unmapped = await self.validator.validate_stocks(
+            brain_result
+        )
+
+        if not validated:
+            return {"status": "empty", "unmapped": len(unmapped)}
+
+        # 3. Снимок истории (до upsert)
+        await self.history_repo.save_snapshot(
+            stocks=validated,
+            loaded_at=brain_result.loaded_at
+        )
+
+        # 4. Аномалии
+        anomalies = await self.validator.detect_anomalies(validated)
+
+        # 5. Upsert текущих остатков
+        await self.stock_repo.upsert_warehouse_stocks(validated)
+
+        # 6. Алерты
+        if anomalies:
+            await self.alerts.create_alert(
+                type="STOCK_ANOMALY",
+                severity="MEDIUM",
+                message=f"{len(anomalies)} аномалий (Δ > 50%)",
+                details={"anomalies": anomalies[:20]}
+            )
+
+        if len(unmapped) > 10:
+            await self.alerts.create_alert(
+                type="UNMAPPED_ARTICLES",
+                severity="MEDIUM",
+                message=f"{len(unmapped)} артикулов без маппинга",
+                details={"articles": unmapped[:20]}
+            )
+
+        return {
+            "status": "success",
+            "validated": len(validated),
+            "unmapped": len(unmapped),
+            "anomalies": len(anomalies),
+            "loaded_at": str(brain_result.loaded_at)
+        }
+```
+
+---
+
+## 5.6 Модель данных
+
+### logistic_stock_history
+
+Таблица истории остатков для обнаружения аномалий и трендов.
+
+```sql
+CREATE TABLE logistic_stock_history (
+    id BIGSERIAL PRIMARY KEY,
+    article VARCHAR(100) NOT NULL,
+    warehouse_stock INTEGER NOT NULL,
+    brand_id VARCHAR(50) NOT NULL,
+    balance_date DATE NOT NULL,
+    brain_loaded_at TIMESTAMP WITH TIME ZONE,
+    snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_lsh_article_date
+    ON logistic_stock_history(article, snapshot_at DESC);
+CREATE INDEX idx_lsh_snapshot
+    ON logistic_stock_history(snapshot_at);
+
+COMMENT ON TABLE logistic_stock_history
+    IS 'История остатков внутреннего склада (снимки из brain_stock_balance)';
+```
+
+### HistoryRepository
+
+```python
+class StockHistoryRepository:
+    """Репозиторий истории остатков."""
+
+    async def save_snapshot(
+        self, stocks: list[ValidatedStock], loaded_at: datetime
+    ) -> int:
+        """Сохранить снимок текущих остатков."""
+        query = """
+            INSERT INTO logistic_stock_history
+            (article, warehouse_stock, brand_id, balance_date, brain_loaded_at)
+            VALUES (:article, :stock, :brand, :date, :loaded)
+        """
+        for s in stocks:
+            await self.db.execute(query, {
+                "article": s.article,
+                "stock": s.warehouse_stock,
+                "brand": s.brand_id,
+                "date": s.balance_date,
+                "loaded": loaded_at
+            })
+        return len(stocks)
+
+    async def get_previous_quantity(self, article: str) -> int | None:
+        """Остаток из предыдущего снимка (для аномалий)."""
+        row = await self.db.fetch_one(
+            """
+            SELECT warehouse_stock FROM logistic_stock_history
+            WHERE article = :article
+            ORDER BY snapshot_at DESC
+            OFFSET 1 LIMIT 1
+            """,
+            {"article": article}
+        )
+        return row["warehouse_stock"] if row else None
+
+    async def get_history(
+        self, article: str, days: int = 30
+    ) -> list[dict]:
+        """История остатков артикула за N дней."""
+        return await self.db.fetch_all(
+            """
+            SELECT balance_date, warehouse_stock, snapshot_at
+            FROM logistic_stock_history
+            WHERE article = :article
+              AND snapshot_at >= NOW() - INTERVAL ':days days'
+            ORDER BY snapshot_at
+            """,
+            {"article": article, "days": days}
+        )
+
+    async def cleanup(self, keep_days: int = 90) -> int:
+        """Удаление старых снимков."""
+        result = await self.db.execute(
+            """
+            DELETE FROM logistic_stock_history
+            WHERE snapshot_at < NOW() - INTERVAL ':days days'
+            """,
+            {"days": keep_days}
+        )
+        return result.rowcount
 ```
 
 ### SKU Mapping
 
-```python
-@dataclass
-class SKUMapping:
-    """Маппинг артикулов между системами."""
-    article: str          # артикул 1С (= offer_id Ozon)
-    ozon_sku: int | None  # SKU Ozon (числовой)
-    product_name: str
-    brand_id: str
-    is_active: bool = True
-    updated_at: datetime = field(default_factory=datetime.now)
-
-
-class SKUMappingRepository:
-    """Репозиторий маппинга артикулов."""
-    
-    async def get_all_articles(self) -> set[str]:
-        """Все известные артикулы."""
-        query = "SELECT article FROM sku_mapping WHERE is_active = true"
-        rows = await self.db.fetch_all(query)
-        return {row["article"] for row in rows}
-    
-    async def get_by_article(self, article: str) -> SKUMapping | None:
-        query = "SELECT * FROM sku_mapping WHERE article = :article"
-        return await self.db.fetch_one(query, {"article": article})
-    
-    async def get_by_ozon_sku(self, ozon_sku: int) -> SKUMapping | None:
-        query = "SELECT * FROM sku_mapping WHERE ozon_sku = :sku"
-        return await self.db.fetch_one(query, {"sku": ozon_sku})
-    
-    async def upsert(self, mapping: SKUMapping) -> None:
-        """Создать или обновить маппинг."""
-        query = """
-            INSERT INTO sku_mapping (article, ozon_sku, product_name, brand_id, is_active, updated_at)
-            VALUES (:article, :ozon_sku, :name, :brand_id, :is_active, NOW())
-            ON CONFLICT (article) DO UPDATE SET
-                ozon_sku = EXCLUDED.ozon_sku,
-                product_name = EXCLUDED.product_name,
-                is_active = EXCLUDED.is_active,
-                updated_at = NOW()
-        """
-        await self.db.execute(query, {
-            "article": mapping.article,
-            "ozon_sku": mapping.ozon_sku,
-            "name": mapping.product_name,
-            "brand_id": mapping.brand_id,
-            "is_active": mapping.is_active
-        })
-    
-    async def sync_from_ozon(self, ozon_products: list[dict]) -> int:
-        """
-        Синхронизация маппинга из каталога Ozon.
-        Вызывается при первой настройке и периодически.
-        """
-        count = 0
-        for product in ozon_products:
-            await self.upsert(SKUMapping(
-                article=product["offer_id"],
-                ozon_sku=product["sku"],
-                product_name=product["name"],
-                brand_id="ohana_kids" if product["offer_id"].startswith("K") else "ohana_market",
-                is_active=product.get("is_visible", True)
-            ))
-            count += 1
-        return count
-```
+Без изменений относительно v2.0. Описание — в [Разделе 5 v2.0, пункт 5.5](/logistic/adolf_logistic_5_1c_integration#55-модель-данных). Таблица `sku_mapping` и `SKUMappingRepository` сохраняются.
 
 ---
 
-## 5.6 Экспорт для 1С
+## 5.7 Экспорт для 1С
 
-### Генерация файлов наряд-заданий
-
-```python
-class ExportService:
-    """Экспорт данных из ADOLF для 1С."""
-    
-    def __init__(
-        self,
-        task_repo: SupplyTaskRepository,
-        config: ImportConfig
-    ):
-        self.task_repo = task_repo
-        self.export_dir = Path(config.import_dir).parent / "1c-export"
-        self.export_dir.mkdir(parents=True, exist_ok=True)
-    
-    async def export_supply_tasks_xlsx(
-        self,
-        date: datetime | None = None,
-        status: str | None = None
-    ) -> Path:
-        """
-        Экспорт наряд-заданий в XLSX для 1С.
-        
-        Формирует файл, который кладовщик может
-        использовать для сборки отгрузки.
-        """
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment, PatternFill
-        
-        tasks = await self.task_repo.get_tasks(
-            date=date or datetime.now(),
-            status=status
-        )
-        
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Наряд-задания"
-        
-        # Заголовки
-        headers = [
-            "№ задания", "Артикул", "Наименование",
-            "Количество (шт)", "Кластер Ozon", "Приоритет",
-            "Статус", "Дней до обнуления", "FBO остаток"
-        ]
-        
-        header_font = Font(bold=True)
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
-            cell.font = header_font
-        
-        # Данные
-        priority_fill = {
-            "urgent": PatternFill(fgColor="FFCCCC", fill_type="solid"),
-            "planned": PatternFill(fgColor="FFFFCC", fill_type="solid"),
-        }
-        
-        for i, task in enumerate(tasks, 2):
-            ws.cell(row=i, column=1, value=task.task_number)
-            ws.cell(row=i, column=2, value=task.article)
-            ws.cell(row=i, column=3, value=task.product_name)
-            ws.cell(row=i, column=4, value=task.quantity)
-            ws.cell(row=i, column=5, value=task.cluster_name)
-            ws.cell(row=i, column=6, value=task.priority.value)
-            ws.cell(row=i, column=7, value=task.status.value)
-            ws.cell(row=i, column=8, value=task.days_to_zero)
-            ws.cell(row=i, column=9, value=task.fbo_stock)
-            
-            # Цветовая маркировка приоритета
-            fill = priority_fill.get(task.priority.value)
-            if fill:
-                for col in range(1, len(headers) + 1):
-                    ws.cell(row=i, column=col).fill = fill
-        
-        # Автоширина
-        for col in ws.columns:
-            max_len = max(len(str(cell.value or "")) for cell in col)
-            ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
-        
-        # Сохранение
-        date_str = (date or datetime.now()).strftime("%Y-%m-%d")
-        file_name = f"supply_tasks_{date_str}.xlsx"
-        file_path = self.export_dir / file_name
-        wb.save(str(file_path))
-        
-        return file_path
-```
-
----
-
-## 5.7 ImportRepository
-
-### Методы репозитория
-
-```python
-class ImportRepository:
-    """Репозиторий для работы с данными импорта 1С."""
-    
-    async def upsert_warehouse_stocks(
-        self, import_id: str, stocks: list[WarehouseStockRecord]
-    ) -> int:
-        """Upsert остатков. Возвращает количество обработанных."""
-        query = """
-            INSERT INTO warehouse_stocks (article, product_name, warehouse_stock, import_id, brand_id, updated_at)
-            VALUES (:article, :product_name, :warehouse_stock, :import_id, :brand_id, NOW())
-            ON CONFLICT (article) DO UPDATE SET
-                product_name = EXCLUDED.product_name,
-                warehouse_stock = EXCLUDED.warehouse_stock,
-                import_id = EXCLUDED.import_id,
-                updated_at = NOW()
-        """
-        for stock in stocks:
-            await self.db.execute(query, asdict(stock))
-        return len(stocks)
-    
-    async def get_latest_stocks(
-        self, brand_id: str | None = None
-    ) -> list[WarehouseStockRecord]:
-        """Текущие остатки на складе."""
-        query = "SELECT * FROM warehouse_stocks"
-        params = {}
-        if brand_id:
-            query += " WHERE brand_id = :brand_id"
-            params["brand_id"] = brand_id
-        return await self.db.fetch_all(query, params)
-    
-    async def get_latest_stock(self, article: str) -> int | None:
-        """Остаток одного артикула."""
-        query = "SELECT warehouse_stock FROM warehouse_stocks WHERE article = :article"
-        row = await self.db.fetch_one(query, {"article": article})
-        return row["warehouse_stock"] if row else None
-    
-    async def get_previous_stock(self, article: str) -> int | None:
-        """Остаток из предыдущего импорта (для обнаружения аномалий)."""
-        query = """
-            SELECT warehouse_stock FROM warehouse_stocks_history
-            WHERE article = :article
-            ORDER BY imported_at DESC LIMIT 1
-        """
-        row = await self.db.fetch_one(query, {"article": article})
-        return row["warehouse_stock"] if row else None
-    
-    async def get_last_import_date(self) -> datetime | None:
-        query = "SELECT MAX(imported_at) as last FROM import_logs WHERE status = 'success'"
-        row = await self.db.fetch_one(query)
-        return row["last"] if row else None
-    
-    async def is_file_processed(self, file_name: str) -> bool:
-        query = "SELECT 1 FROM import_logs WHERE file_name = :name AND status = 'success'"
-        row = await self.db.fetch_one(query, {"name": file_name})
-        return row is not None
-    
-    async def save_log(self, log: ImportLog) -> None:
-        query = """
-            INSERT INTO import_logs 
-            (import_id, file_name, file_format, status, total_rows, valid_rows,
-             unmapped_count, anomaly_count, parse_errors, unmapped_articles, imported_at)
-            VALUES (:import_id, :file_name, :file_format, :status, :total_rows, :valid_rows,
-                    :unmapped_count, :anomaly_count, :parse_errors, :unmapped_articles, :imported_at)
-        """
-        await self.db.execute(query, {
-            **asdict(log),
-            "parse_errors": json.dumps(log.parse_errors),
-            "unmapped_articles": json.dumps(log.unmapped_articles)
-        })
-    
-    async def get_import_history(
-        self, limit: int = 20
-    ) -> list[ImportLog]:
-        query = "SELECT * FROM import_logs ORDER BY imported_at DESC LIMIT :limit"
-        return await self.db.fetch_all(query, {"limit": limit})
-```
+Модуль экспорта наряд-заданий без изменений. Описание и код `ExportService` — в [Разделе 5 v2.0, пункт 5.6](/logistic/adolf_logistic_5_1c_integration#56-экспорт-для-1с).
 
 ---
 
 ## 5.8 API Endpoints
 
-### REST API
-
 ```python
-router = APIRouter(prefix="/logistic/import", tags=["1C Import"])
-
-
-@router.post("/upload")
-async def upload_file(
-    file: UploadFile,
-    service: ImportService = Depends(get_import_service),
-    current_user: User = Depends(get_current_user)
-) -> ImportResult:
-    """
-    Ручная загрузка файла 1С (XLSX/XML).
-    Доступно: Manager+.
-    """
-    # Сохраняем во временный файл
-    temp_path = Path(f"/tmp/1c_upload_{file.filename}")
-    with open(temp_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-    
-    try:
-        return await service.import_file(temp_path)
-    finally:
-        temp_path.unlink(missing_ok=True)
-
-
-@router.post("/trigger-scan")
-async def trigger_scan(
-    service: ImportService = Depends(get_import_service),
-    current_user: User = Depends(get_current_user)
-) -> list[ImportResult]:
-    """Ручной запуск сканирования директории."""
-    return await service.scan_and_import()
-
-
-@router.get("/history")
-async def get_import_history(
-    limit: int = Query(20, le=100),
-    repo: ImportRepository = Depends(get_import_repo)
-) -> list[ImportLog]:
-    """История импортов."""
-    return await repo.get_import_history(limit=limit)
+router = APIRouter(prefix="/logistic/1c", tags=["1C Integration"])
 
 
 @router.get("/stocks")
 async def get_warehouse_stocks(
     brand_id: str | None = Query(None),
-    repo: ImportRepository = Depends(get_import_repo),
+    reader: BrainDataReader = Depends(get_brain_reader),
+    validator: ImportValidator = Depends(get_validator),
     current_user: User = Depends(get_current_user)
-) -> list[WarehouseStockRecord]:
-    """Текущие остатки на складе 1С."""
-    return await repo.get_latest_stocks(
-        brand_id=brand_id or current_user.brand_id
-    )
+) -> dict:
+    """Текущие остатки из brain_stock_balance с маппингом."""
+    result = await reader.read_stock_balance()
+    validated, unmapped = await validator.validate_stocks(result)
+    if brand_id:
+        validated = [v for v in validated if v.brand_id == brand_id]
+    return {
+        "stocks": validated,
+        "unmapped_count": len(unmapped),
+        "loaded_at": str(result.loaded_at),
+        "is_fresh": result.is_fresh
+    }
 
 
 @router.get("/stocks/{article}")
 async def get_article_stock(
     article: str,
-    repo: ImportRepository = Depends(get_import_repo)
+    reader: BrainDataReader = Depends(get_brain_reader)
 ) -> dict:
     """Остаток конкретного артикула."""
-    stock = await repo.get_latest_stock(article)
-    return {"article": article, "warehouse_stock": stock}
+    row = await reader.db.fetch_one(
+        "SELECT * FROM brain_stock_balance WHERE article = :article",
+        {"article": article}
+    )
+    return {"article": article, "stock": row if row else None}
+
+
+@router.get("/stocks/{article}/history")
+async def get_stock_history(
+    article: str,
+    days: int = Query(30, le=365),
+    history_repo: StockHistoryRepository = Depends(get_history_repo)
+) -> list[dict]:
+    """История остатков артикула."""
+    return await history_repo.get_history(article, days)
+
+
+@router.get("/customer-orders")
+async def get_customer_orders(
+    reader: BrainDataReader = Depends(get_brain_reader)
+) -> BrainReadResult:
+    """Незакрытые заказы клиентов из brain_customer_orders."""
+    return await reader.read_customer_orders()
+
+
+@router.get("/supplier-orders")
+async def get_supplier_orders(
+    reader: BrainDataReader = Depends(get_brain_reader)
+) -> BrainReadResult:
+    """Открытые заказы поставщикам из brain_supplier_orders."""
+    return await reader.read_supplier_orders()
+
+
+@router.get("/goods-receipts")
+async def get_goods_receipts(
+    days: int = Query(7, le=30),
+    reader: BrainDataReader = Depends(get_brain_reader)
+) -> BrainReadResult:
+    """Поступления товаров за период."""
+    return await reader.read_goods_receipts(days_back=days)
+
+
+@router.get("/freshness")
+async def check_data_freshness(
+    reader: BrainDataReader = Depends(get_brain_reader)
+) -> dict:
+    """Проверка свежести всех brain_* таблиц Logistic."""
+    tables = [
+        "brain_stock_balance",
+        "brain_customer_orders",
+        "brain_supplier_orders",
+        "brain_goods_receipts"
+    ]
+    result = {}
+    for table in tables:
+        loaded_at = await reader._get_loaded_at(table)
+        result[table] = {
+            "loaded_at": str(loaded_at) if loaded_at else None,
+            "is_fresh": reader._check_freshness(loaded_at)
+        }
+    return result
+
+
+@router.post("/sync")
+async def trigger_sync(
+    service: HistoryService = Depends(get_history_service),
+    current_user: User = Depends(get_current_user)
+) -> dict:
+    """Ручной запуск синхронизации остатков."""
+    return await service.sync_stocks()
 
 
 @router.get("/mapping")
@@ -993,16 +648,15 @@ async def get_sku_mapping(
     brand_id: str | None = Query(None),
     limit: int = Query(100, le=1000),
     mapping_repo: SKUMappingRepository = Depends(get_mapping_repo)
-) -> list[SKUMapping]:
+) -> list:
     """Таблица маппинга артикулов."""
     return await mapping_repo.get_all(brand_id=brand_id, limit=limit)
 
 
 @router.post("/mapping/sync-ozon")
 async def sync_mapping_from_ozon(
-    ozon_adapter: OzonLogisticAdapter = Depends(get_ozon_adapter),
-    mapping_repo: SKUMappingRepository = Depends(get_mapping_repo),
-    current_user: User = Depends(get_current_user)
+    ozon_adapter = Depends(get_ozon_adapter),
+    mapping_repo: SKUMappingRepository = Depends(get_mapping_repo)
 ) -> dict:
     """Синхронизация маппинга из каталога Ozon."""
     products = await ozon_adapter.get_product_list()
@@ -1017,8 +671,6 @@ async def export_supply_tasks(
     export_service: ExportService = Depends(get_export_service)
 ) -> FileResponse:
     """Экспорт наряд-заданий в XLSX для 1С."""
-    from fastapi.responses import FileResponse
-    
     file_path = await export_service.export_supply_tasks_xlsx(date, status)
     return FileResponse(
         path=str(file_path),
@@ -1031,56 +683,100 @@ async def export_supply_tasks(
 
 ## 5.9 Celery Tasks
 
-### Периодические задачи
+### Расписание
 
 ```python
 CELERY_BEAT_SCHEDULE = {
-    "scan-1c-import-morning": {
-        "task": "logistic.tasks.scan_1c_import",
+    # Синхронизация остатков (после загрузки Экстрактором в 06:00)
+    "sync-brain-stocks": {
+        "task": "logistic.tasks.sync_brain_stocks",
         "schedule": crontab(hour=6, minute=30),
     },
-    "scan-1c-import-evening": {
-        "task": "logistic.tasks.scan_1c_import",
-        "schedule": crontab(hour=15, minute=0),
+    # Проверка свежести brain_* таблиц
+    "check-brain-freshness": {
+        "task": "logistic.tasks.check_brain_freshness",
+        "schedule": crontab(hour=8, minute=0),
     },
+    # Синхронизация маппинга из Ozon (еженедельно)
     "sync-sku-mapping-weekly": {
         "task": "logistic.tasks.sync_sku_mapping",
-        "schedule": crontab(hour=2, minute=0, day_of_week=1),  # пн 02:00
+        "schedule": crontab(hour=2, minute=0, day_of_week=1),
+    },
+    # Очистка истории (ежемесячно)
+    "cleanup-stock-history": {
+        "task": "logistic.tasks.cleanup_stock_history",
+        "schedule": crontab(hour=3, minute=0, day_of_month=1),
     },
 }
+```
 
+### Задачи
 
+```python
 @shared_task(bind=True, max_retries=2, default_retry_delay=300)
-def scan_1c_import(self):
-    """Сканирование директории и импорт файлов 1С."""
+def sync_brain_stocks(self):
+    """Синхронизация остатков из brain_stock_balance."""
     import asyncio
-    
-    async def _scan():
-        service = get_import_service()
-        return await service.scan_and_import()
-    
-    results = asyncio.run(_scan())
-    
-    return {
-        "files_processed": len(results),
-        "successful": sum(1 for r in results if r.success),
-        "failed": sum(1 for r in results if not r.success)
-    }
+    service = get_history_service()
+    return asyncio.run(service.sync_stocks())
+
+
+@shared_task
+def check_brain_freshness():
+    """
+    Проверка свежести данных в brain_* таблицах.
+    Алерт если loaded_at старше 26 часов.
+    """
+    import asyncio
+
+    async def _check():
+        reader = get_brain_reader()
+        alerts = get_alert_service()
+        tables = [
+            "brain_stock_balance",
+            "brain_customer_orders",
+            "brain_supplier_orders",
+            "brain_goods_receipts"
+        ]
+        stale = []
+        for table in tables:
+            loaded_at = await reader._get_loaded_at(table)
+            if not reader._check_freshness(loaded_at):
+                stale.append(table)
+
+        if stale:
+            await alerts.create_alert(
+                type="DATA_STALE",
+                severity="HIGH",
+                message=f"Устаревшие данные: {', '.join(stale)}"
+            )
+        return {"stale": stale}
+
+    return asyncio.run(_check())
 
 
 @shared_task
 def sync_sku_mapping():
     """Синхронизация маппинга артикулов из Ozon."""
     import asyncio
-    
+
     async def _sync():
         adapter = get_ozon_adapter()
         repo = get_mapping_repo()
         products = await adapter.get_product_list()
         return await repo.sync_from_ozon(products)
-    
+
     count = asyncio.run(_sync())
     return {"synced_count": count}
+
+
+@shared_task
+def cleanup_stock_history():
+    """Очистка истории остатков старше 90 дней."""
+    import asyncio
+    repo = get_history_repo()
+    deleted = asyncio.run(repo.cleanup(keep_days=90))
+    return {"deleted": deleted}
 ```
 
 ---
@@ -1089,42 +785,52 @@ def sync_sku_mapping():
 
 | Тип | Severity | Триггер | Описание |
 |-----|----------|---------|----------|
-| `IMPORT_SUCCESS` | LOW | Успешный импорт | N строк импортировано |
-| `IMPORT_ERROR` | HIGH | Ошибка парсинга/валидации | Файл не обработан |
-| `IMPORT_ANOMALY` | MEDIUM | Изменение > 50% | Аномальное изменение остатков |
+| `DATA_STALE` | HIGH | `loaded_at` > 26 часов | Экстрактор не обновил brain_* |
+| `STOCK_ANOMALY` | MEDIUM | Изменение остатка > 50% | Аномальное изменение остатков |
 | `UNMAPPED_ARTICLES` | MEDIUM | > 10 артикулов без маппинга | Нужна синхронизация с Ozon |
+| `SYNC_SUCCESS` | LOW | Успешная синхронизация | N строк обработано |
 
 ---
 
 ## 5.11 Промпт для Claude Code
 
 ```
-Реализуй 1С Integration для модуля Logistic согласно 
-adolf_logistic_5_1c_integration_v2_0.md
+Реализуй 1С Integration v3.0 для модуля Logistic согласно
+adolf_logistic_5_1c_integration.md (v3.0)
+
+Контекст: файловый обмен (XLSX/XML) заменён на чтение из
+PostgreSQL-таблиц brain_*, наполняемых Экстрактором данных 1С.
 
 Требования:
-1. FileImportAdapter: парсинг XLSX (openpyxl) и XML (lxml), 
-   автоопределение формата, валидация строк
-2. ImportService: scan_and_import() — сканирование директории, 
-   парсинг, маппинг артикулов, обнаружение аномалий (Δ > 50%), 
-   upsert, архивирование в YYYY-MM/
-3. SKUMappingRepository: маппинг article ↔ ozon_sku, 
-   sync_from_ozon() для первоначального заполнения
-4. ExportService: export_supply_tasks_xlsx() — наряд-задания в XLSX
-5. ImportRepository: upsert_warehouse_stocks, get_latest_stock, 
-   import_logs, is_file_processed
-6. API: POST /upload, POST /trigger-scan, GET /history, GET /stocks, 
-   GET /mapping, POST /mapping/sync-ozon, GET /export/supply-tasks
-7. Celery: импорт 06:30 + 15:00, sync маппинга еженедельно (пн)
-8. Алерты: IMPORT_ERROR, IMPORT_ANOMALY, UNMAPPED_ARTICLES
+1. BrainDataReader: чтение из brain_stock_balance (Q-06),
+   brain_customer_orders (Q-07), brain_supplier_orders (Q-08),
+   brain_goods_receipts (Q-09). Проверка свежести loaded_at
+   (порог 26 часов).
+2. ImportValidator: маппинг article → offer_id → ozon_sku через
+   таблицу sku_mapping. Обнаружение аномалий (Δ > 50%).
+3. HistoryService: sync_stocks() — чтение → валидация →
+   снимок в logistic_stock_history → аномалии → upsert →
+   алерты.
+4. StockHistoryRepository: save_snapshot(), get_previous_quantity(),
+   get_history(), cleanup(90 дней).
+5. API: GET /stocks, /stocks/{article}, /stocks/{article}/history,
+   /customer-orders, /supplier-orders, /goods-receipts,
+   /freshness, /mapping. POST /sync, /mapping/sync-ozon.
+   GET /export/supply-tasks.
+6. Celery: sync_brain_stocks 06:30, check_brain_freshness 08:00,
+   sync_sku_mapping еженедельно (пн), cleanup ежемесячно.
+7. Алерты: DATA_STALE, STOCK_ANOMALY, UNMAPPED_ARTICLES.
 
-Зависимости: openpyxl, lxml, OzonLogisticAdapter (раздел 2),
-AlertService, SupplyTaskRepository (раздел 4)
+Удалено: FileScanner, FileImportAdapter, SFTP, XLSX/XML парсинг.
+Сохранено: SKUMappingRepository, ExportService из v2.0.
+
+Зависимости: OzonLogisticAdapter (раздел 2), AlertService,
+SupplyTaskRepository (раздел 4), structlog.
 ```
 
 ---
 
 **Документ подготовлен:** Февраль 2026  
-**Версия:** 2.0  
+**Версия:** 3.0  
 **Статус:** Черновик  
-**Заменяет:** adolf_logistic_5_recommendation_engine_v1_0.md
+**Заменяет:** Раздел 5 v2.0 (файловый обмен XLSX/XML)
