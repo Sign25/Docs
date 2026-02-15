@@ -5,9 +5,9 @@ mode: "wide"
 
 **Модуль:** Logistic  
 **Компонент:** Celery Background Tasks  
-**Версия:** 2.0  
+**Версия:** 2.1  
 **Дата:** Февраль 2026  
-**Заменяет:** adolf_logistic_8_celery_v1_0.md
+**Заменяет:** Раздел 8 v2.0
 
 ---
 
@@ -16,7 +16,8 @@ mode: "wide"
 Celery обеспечивает выполнение фоновых задач модуля Logistic:
 
 - Периодическая синхронизация остатков FBO с Ozon Seller API
-- Файловый импорт остатков из 1С (XLSX/XML)
+- Синхронизация остатков внутреннего склада из `brain_stock_balance`
+- Проверка свежести данных в `brain_*` таблицах
 - Ежедневная генерация наряд-заданий на отгрузку
 - Автоотмена просроченных заданий
 - Генерация алертов и очистка устаревших данных
@@ -33,10 +34,11 @@ Celery обеспечивает выполнение фоновых задач �
 | `cleanup_old_data` | `cleanup_old_data` (обновлённые таблицы) |
 | — | `sync_ozon_analytics` (продажи Ozon) |
 | — | `sync_ozon_warehouses` (кластеры) |
-| — | `import_1c_stocks` (файловый импорт) |
+| — | `sync_brain_stocks` (чтение brain_stock_balance) |
+| — | `check_brain_freshness` (мониторинг loaded_at) |
 | — | `auto_cancel_expired` (автоотмена заданий) |
 | — | `generate_alerts` (алерты по остаткам) |
-| — | `cleanup_import_archive` (очистка архива 1С) |
+| — | `cleanup_stock_history` (очистка истории остатков) |
 
 ---
 
@@ -55,7 +57,7 @@ graph TB
     
     subgraph WORKERS["Workers"]
         W_SYNC["Worker: sync<br/>(Ozon API tasks)"]
-        W_IMPORT["Worker: import<br/>(1С file tasks)"]
+        W_BRAIN["Worker: brain<br/>(brain_* sync tasks)"]
         W_LOGIC["Worker: logic<br/>(supply tasks, alerts)"]
     end
     
@@ -65,9 +67,9 @@ graph TB
         SYNC_WH["sync_ozon_warehouses<br/>⏱ еженедельно"]
     end
     
-    subgraph TASKS_IMPORT["Импорт 1С"]
-        IMPORT_1C["import_1c_stocks<br/>⏱ 08:00 + 14:00"]
-        CLEANUP_ARCHIVE["cleanup_import_archive<br/>⏱ ежедневно 04:00"]
+    subgraph TASKS_BRAIN["Синхронизация 1С"]
+        SYNC_BRAIN["sync_brain_stocks<br/>⏱ ежедневно 06:30"]
+        CHECK_FRESH["check_brain_freshness<br/>⏱ ежедневно 08:00"]
     end
     
     subgraph TASKS_LOGIC["Бизнес-логика"]
@@ -79,9 +81,9 @@ graph TB
     
     BEAT --> REDIS
     API --> REDIS
-    REDIS --> W_SYNC & W_IMPORT & W_LOGIC
+    REDIS --> W_SYNC & W_BRAIN & W_LOGIC
     W_SYNC --> TASKS_SYNC
-    W_IMPORT --> TASKS_IMPORT
+    W_BRAIN --> TASKS_BRAIN
     W_LOGIC --> TASKS_LOGIC
 ```
 
@@ -122,9 +124,9 @@ app.conf.update(
             "exchange": "logistic",
             "routing_key": "logistic.sync",
         },
-        "logistic.import": {
+        "logistic.brain": {
             "exchange": "logistic",
-            "routing_key": "logistic.import",
+            "routing_key": "logistic.brain",
         },
         "logistic.logic": {
             "exchange": "logistic",
@@ -135,8 +137,9 @@ app.conf.update(
     # Маршрутизация
     task_routes={
         "logistic.tasks.sync_ozon_*": {"queue": "logistic.sync"},
-        "logistic.tasks.import_*": {"queue": "logistic.import"},
-        "logistic.tasks.cleanup_import_*": {"queue": "logistic.import"},
+        "logistic.tasks.sync_brain_*": {"queue": "logistic.brain"},
+        "logistic.tasks.check_brain_*": {"queue": "logistic.brain"},
+        "logistic.tasks.cleanup_stock_*": {"queue": "logistic.brain"},
         "logistic.tasks.generate_*": {"queue": "logistic.logic"},
         "logistic.tasks.auto_cancel_*": {"queue": "logistic.logic"},
         "logistic.tasks.cleanup_old_*": {"queue": "logistic.logic"},
@@ -158,18 +161,18 @@ app.conf.update(
             "schedule": crontab(hour=2, minute=0, day_of_week=1),
         },
         
-        # === Импорт 1С ===
-        "import-1c-stocks-morning": {
-            "task": "logistic.tasks.import_1c_stocks",
+        # === Синхронизация 1С (brain_* таблицы) ===
+        "sync-brain-stocks": {
+            "task": "logistic.tasks.sync_brain_stocks",
+            "schedule": crontab(hour=6, minute=30),
+        },
+        "check-brain-freshness": {
+            "task": "logistic.tasks.check_brain_freshness",
             "schedule": crontab(hour=8, minute=0),
         },
-        "import-1c-stocks-afternoon": {
-            "task": "logistic.tasks.import_1c_stocks",
-            "schedule": crontab(hour=14, minute=0),
-        },
-        "cleanup-import-archive": {
-            "task": "logistic.tasks.cleanup_import_archive",
-            "schedule": crontab(hour=4, minute=0),
+        "cleanup-stock-history": {
+            "task": "logistic.tasks.cleanup_stock_history",
+            "schedule": crontab(hour=3, minute=0, day_of_month=1),
         },
         
         # === Бизнес-логика ===
@@ -354,47 +357,84 @@ def sync_ozon_warehouses(self):
     return {"status": "success", "results": result}
 ```
 
-### 8.4.4 import_1c_stocks
+### 8.4.4 sync_brain_stocks
 
 ```python
-# tasks/import_1c_stocks.py
+# tasks/sync_brain_stocks.py
 @shared_task(
-    name="logistic.tasks.import_1c_stocks",
+    name="logistic.tasks.sync_brain_stocks",
     bind=True,
     max_retries=2,
-    default_retry_delay=600,
+    default_retry_delay=300,
 )
-def import_1c_stocks(self):
+def sync_brain_stocks(self):
     """
-    Импорт остатков внутреннего склада из 1С.
+    Синхронизация остатков из brain_stock_balance.
     
-    Расписание: 08:00 и 14:00
-    Источник: файлы XLSX/XML из /data/imports/1c
-    Результат: warehouse_stocks + import_logs
+    Расписание: 06:30 (после загрузки Экстрактором в 06:00)
+    Источник: PostgreSQL brain_stock_balance (Q-06)
+    Результат: warehouse_stocks + logistic_stock_history
     
-    Подробности: adolf_logistic_5_1c_integration_v2_0.md
+    Подробности: adolf_logistic_5_1c_integration.md (v3.0)
     """
     import asyncio
     
-    async def _import():
-        service = get_import_service()
-        return await service.run_import()
+    async def _sync():
+        service = get_history_service()
+        return await service.sync_stocks()
     
-    result = asyncio.run(_import())
+    result = asyncio.run(_sync())
     
     logger.info(
-        "import_1c_stocks_completed",
-        files_processed=result.files_processed,
-        total_imported=result.total_imported,
-        total_skipped=result.total_skipped
+        "sync_brain_stocks_completed",
+        status=result["status"],
+        validated=result.get("validated", 0),
+        anomalies=result.get("anomalies", 0)
     )
     
-    return {
-        "status": "success",
-        "files_processed": result.files_processed,
-        "total_imported": result.total_imported,
-        "total_skipped": result.total_skipped
-    }
+    return result
+```
+
+### 8.4.4a check_brain_freshness
+
+```python
+# tasks/check_brain_freshness.py
+@shared_task(name="logistic.tasks.check_brain_freshness")
+def check_brain_freshness():
+    """
+    Проверка свежести данных в brain_* таблицах.
+    Алерт если loaded_at старше 26 часов.
+    
+    Расписание: 08:00 ежедневно
+    """
+    import asyncio
+    
+    async def _check():
+        reader = get_brain_reader()
+        alerts = get_alert_service()
+        tables = [
+            "brain_stock_balance",
+            "brain_customer_orders",
+            "brain_supplier_orders",
+            "brain_goods_receipts"
+        ]
+        stale = []
+        for table in tables:
+            loaded_at = await reader._get_loaded_at(table)
+            if not reader._check_freshness(loaded_at):
+                stale.append(table)
+        
+        if stale:
+            await alerts.create_alert(
+                type="DATA_STALE",
+                severity="HIGH",
+                message=f"Устаревшие данные: {', '.join(stale)}"
+            )
+        return {"stale": stale, "all_fresh": len(stale) == 0}
+    
+    result = asyncio.run(_check())
+    logger.info("check_brain_freshness_completed", **result)
+    return result
 ```
 
 ### 8.4.5 generate_supply_tasks
@@ -622,45 +662,37 @@ def cleanup_old_data(retention_days: int = 90):
     return {"status": "success", **result}
 ```
 
-### 8.4.9 cleanup_import_archive
+### 8.4.9 cleanup_stock_history
 
 ```python
-# tasks/cleanup_import_archive.py
+# tasks/cleanup_stock_history.py
 @shared_task(
-    name="logistic.tasks.cleanup_import_archive",
+    name="logistic.tasks.cleanup_stock_history",
 )
-def cleanup_import_archive(days_to_keep: int = 90):
+def cleanup_stock_history(keep_days: int = 90):
     """
-    Очистка архива файлов 1С старше 90 дней.
+    Очистка истории остатков старше 90 дней.
     
-    Расписание: ежедневно 04:00
-    Директория: /data/imports/1c/archive
+    Расписание: ежемесячно (1-е число, 03:00)
+    Таблица: logistic_stock_history
     
-    Подробности: adolf_logistic_5_1c_integration_v2_0.md
+    Подробности: adolf_logistic_5_1c_integration.md (v3.0)
     """
-    from pathlib import Path
-    from datetime import datetime, timedelta
+    import asyncio
     
-    archive_dir = Path("/data/imports/1c/archive")
+    async def _cleanup():
+        repo = get_history_repo()
+        return await repo.cleanup(keep_days=keep_days)
     
-    if not archive_dir.exists():
-        return {"status": "success", "deleted_files": 0}
-    
-    cutoff = datetime.now() - timedelta(days=days_to_keep)
-    deleted = 0
-    
-    for f in archive_dir.iterdir():
-        if f.is_file() and f.stat().st_mtime < cutoff.timestamp():
-            f.unlink()
-            deleted += 1
+    deleted = asyncio.run(_cleanup())
     
     if deleted > 0:
         logger.info(
-            "cleanup_import_archive_completed",
-            deleted_files=deleted
+            "cleanup_stock_history_completed",
+            deleted_rows=deleted
         )
     
-    return {"status": "success", "deleted_files": deleted}
+    return {"status": "success", "deleted_rows": deleted}
 ```
 
 ---
@@ -678,10 +710,9 @@ gantt
     sync_ozon_analytics        :milestone, 05:00, 0d
     sync_ozon_stocks           :crit, 00:00, 24h
     
-    section 1С Import
-    cleanup_import_archive     :milestone, 04:00, 0d
-    import_1c_stocks (утро)    :milestone, 08:00, 0d
-    import_1c_stocks (день)    :milestone, 14:00, 0d
+    section 1С (brain_*)
+    sync_brain_stocks          :milestone, 06:30, 0d
+    check_brain_freshness      :milestone, 08:00, 0d
     
     section Business Logic
     generate_supply_tasks      :milestone, 07:00, 0d
@@ -699,8 +730,9 @@ gantt
 | `sync_ozon_stocks` | `*/30 * * * *` | sync | 3 × 120с | Остатки FBO по кластерам |
 | `sync_ozon_analytics` | `0 5 * * *` | sync | 2 × 600с | Продажи за 28 дней |
 | `sync_ozon_warehouses` | `0 2 * * 1` | sync | 2 | Список кластеров |
-| `import_1c_stocks` | `0 8,14 * * *` | import | 2 × 600с | Файловый импорт 1С |
-| `cleanup_import_archive` | `0 4 * * *` | import | — | Очистка архива > 90 дней |
+| `sync_brain_stocks` | `30 6 * * *` | brain | 2 × 300с | Синхронизация из brain_stock_balance |
+| `check_brain_freshness` | `0 8 * * *` | brain | — | Проверка свежести brain_* |
+| `cleanup_stock_history` | `0 3 1 * *` | brain | — | Очистка истории > 90 дней |
 | `generate_supply_tasks` | `0 7 * * *` | logic | 1 | Наряд-задания |
 | `auto_cancel_expired` | `0 */6 * * *` | logic | — | Автоотмена NEW > 48ч |
 | `generate_alerts` | `*/30 * * * *` | logic | — | Алерты по остаткам |
@@ -710,12 +742,13 @@ gantt
 
 ```
 02:00  sync_ozon_warehouses (понедельник)
+03:00  cleanup_stock_history (1-е число месяца)
 04:00  cleanup_old_data (воскресенье)
-04:00  cleanup_import_archive
 05:00  sync_ozon_analytics
-07:00  generate_supply_tasks ← зависит от свежих данных stocks + 1С
-08:00  import_1c_stocks (утро)
-14:00  import_1c_stocks (день)
+06:00  ← Экстрактор данных 1С загружает brain_stock_balance
+06:30  sync_brain_stocks ← чтение brain_* → валидация → history → upsert
+07:00  generate_supply_tasks ← зависит от свежих данных stocks + brain_*
+08:00  check_brain_freshness ← алерт если loaded_at > 26ч
 */30   sync_ozon_stocks → generate_alerts (цепочка)
 */6h   auto_cancel_expired
 ```
@@ -728,7 +761,7 @@ gantt
 flowchart LR
     SYNC_STOCKS["sync_ozon_stocks<br/>*/30 мин"]
     SYNC_ANALYTICS["sync_ozon_analytics<br/>05:00"]
-    IMPORT_1C["import_1c_stocks<br/>08:00 / 14:00"]
+    SYNC_BRAIN["sync_brain_stocks<br/>06:30"]
     
     GEN_ALERTS["generate_alerts<br/>*/30 мин"]
     GEN_TASKS["generate_supply_tasks<br/>07:00"]
@@ -737,7 +770,7 @@ flowchart LR
     SYNC_STOCKS --> GEN_ALERTS
     SYNC_STOCKS --> GEN_TASKS
     SYNC_ANALYTICS --> GEN_TASKS
-    IMPORT_1C --> GEN_TASKS
+    SYNC_BRAIN --> GEN_TASKS
     GEN_TASKS --> AUTO_CANCEL
     
     style GEN_TASKS fill:#f96,stroke:#333
@@ -746,7 +779,7 @@ flowchart LR
 Критическая цепочка для `generate_supply_tasks` (07:00):
 1. `sync_ozon_stocks` — свежие остатки FBO (последний за 06:30)
 2. `sync_ozon_analytics` — velocity из Ozon (05:00)
-3. `import_1c_stocks` — остатки 1С (предыдущий день 14:00 или утро 08:00)
+3. `sync_brain_stocks` — остатки внутреннего склада из brain_stock_balance (06:30)
 
 ---
 
@@ -792,10 +825,16 @@ ozon_api_calls = Counter(
     ["endpoint", "status"]
 )
 
-import_1c_records = Counter(
-    "logistic_1c_import_records_total",
-    "1C import records",
-    ["status"]  # imported / skipped / error
+brain_sync_records = Counter(
+    "logistic_brain_sync_records_total",
+    "brain_stock_balance sync records",
+    ["status"]  # validated / unmapped / anomaly
+)
+
+brain_freshness = Gauge(
+    "logistic_brain_freshness_hours",
+    "Hours since last brain_* table update",
+    ["table"]
 )
 ```
 
@@ -817,10 +856,10 @@ celery -A logistic.celery_config worker \
     -Q logistic.sync -c 2 \
     --loglevel=INFO -n sync@%h
 
-# Import worker (1С files)
+# Brain worker (brain_* sync)
 celery -A logistic.celery_config worker \
-    -Q logistic.import -c 1 \
-    --loglevel=INFO -n import@%h
+    -Q logistic.brain -c 1 \
+    --loglevel=INFO -n brain@%h
 
 # Logic worker (supply tasks, alerts)
 celery -A logistic.celery_config worker \
@@ -851,13 +890,11 @@ services:
       - redis
       - postgres
   
-  logistic-worker-import:
+  logistic-worker-brain:
     build: .
     command: >
       celery -A logistic.celery_config worker 
-      -Q logistic.import -c 1 -n import@%h
-    volumes:
-      - import_data:/data/imports/1c
+      -Q logistic.brain -c 1 -n brain@%h
     depends_on:
       - redis
       - postgres
@@ -897,7 +934,8 @@ ALLOWED_TASKS = {
     "sync_ozon_stocks": sync_ozon_stocks,
     "sync_ozon_analytics": sync_ozon_analytics,
     "sync_ozon_warehouses": sync_ozon_warehouses,
-    "import_1c_stocks": import_1c_stocks,
+    "sync_brain_stocks": sync_brain_stocks,
+    "check_brain_freshness": check_brain_freshness,
     "generate_supply_tasks": generate_supply_tasks,
     "auto_cancel_expired": auto_cancel_expired,
     "generate_alerts": generate_alerts,
@@ -935,26 +973,28 @@ async def get_task_status(task_id: str) -> dict:
 ## 8.10 Промпт для Claude Code
 
 ```
-Реализуй Celery tasks для модуля Logistic v2.0 согласно
-adolf_logistic_8_celery_v2_0.md
+Реализуй Celery tasks для модуля Logistic v2.1 согласно
+adolf_logistic_8_celery.md
 
 Требования:
-1. Конфигурация: 3 очереди (sync, import, logic), маршрутизация
-2. Задачи (9 штук):
+1. Конфигурация: 3 очереди (sync, brain, logic), маршрутизация
+2. Задачи (10 штук):
    - sync_ozon_stocks (*/30 мин, retry 3×120с)
    - sync_ozon_analytics (05:00, retry 2×600с)
    - sync_ozon_warehouses (пн 02:00)
-   - import_1c_stocks (08:00+14:00, retry 2×600с)
+   - sync_brain_stocks (06:30, retry 2×300с)
+   - check_brain_freshness (08:00, алерт если loaded_at > 26ч)
    - generate_supply_tasks (07:00)
    - auto_cancel_expired (*/6ч, отмена NEW > 48ч)
    - generate_alerts (*/30 мин, после sync_stocks)
    - cleanup_old_data (вс 04:00, SQL функция)
-   - cleanup_import_archive (04:00, файлы > 90 дней)
+   - cleanup_stock_history (1-е число, 03:00, > 90 дней)
 3. Docker Compose: 3 workers + beat
 4. API: ручной запуск + статус задачи
 5. Метрики: Prometheus counters/histograms
 
-Зависимости: celery, redis, structlog, prometheus_client
+Зависимости: celery, redis, structlog, prometheus_client,
+HistoryService + BrainDataReader (из раздела 5 v3.0)
 ```
 
 ---
@@ -967,12 +1007,13 @@ adolf_logistic_8_celery_v2_0.md
 | [2. Ozon Integration](adolf_logistic_2_ozon_integration_v2_0.md) | Ozon API endpoints |
 | [3. Stock Monitor](adolf_logistic_3_stock_monitor_v2_0.md) | Алерты по остаткам |
 | [4. Supply Task Engine](adolf_logistic_4_supply_task_engine_v2_0.md) | Генерация заданий |
-| [5. 1С Integration](adolf_logistic_5_1c_integration_v2_0.md) | Файловый импорт |
-| [6. Database](adolf_logistic_6_database_v2_0.md) | Таблицы, функция cleanup |
+| [5. 1С Integration](/logistic/adolf_logistic_5_1c_integration) | brain_* синхронизация |
+| [6. Database](/logistic/adolf_logistic_6_database) | Таблицы, функция cleanup |
 
 ---
 
 **Документ подготовлен:** Февраль 2026  
-**Версия:** 2.0  
+**Версия:** 2.1  
 **Статус:** Черновик  
-**Заменяет:** adolf_logistic_8_celery_v1_0.md
+**Заменяет:** Раздел 8 v2.0
+
