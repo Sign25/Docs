@@ -5,8 +5,8 @@ mode: "wide"
 
 **Проект:** Финансовый учёт и управленческая аналитика  
 **Модуль:** CFO  
-**Версия:** 1.1  
-**Дата:** Январь 2026
+**Версия:** 2.0  
+**Дата:** Февраль 2026
 
 ---
 
@@ -24,8 +24,12 @@ mode: "wide"
 | Ozon Excel | Файл | Еженедельно | Отчёт о реализации |
 | Яндекс.Маркет API | API | Ежедневно | Финансовый отчёт |
 | Яндекс.Маркет Excel | Файл | Еженедельно | Детализация из ЛК |
-| 1С:КА 2 (себестоимость) | Файл | Еженедельно | SKU → COGS |
+| 1С:КА 2 → PostgreSQL | brain\_\* таблицы | Еженедельно (авто) | Выручка, себестоимость, расходы |
 | Бухгалтерская первичка | Файл | По мере поступления | Накладные, акты |
+
+<Note>
+**Изменение v2.0:** Файловый обмен с 1С (CSV/XLSX → сетевая папка → парсер) полностью заменён прямой записью из 1С:КА 2 в PostgreSQL через Экстрактор данных 1С. Данные поступают в таблицы с префиксом `brain_*` и доступны CFO через PostgreSQL VIEW. Подробности — [Приложение А1: Реестр запросов 1С → PostgreSQL](/cfo/adolf_cfo_a1_1c_reports).
+</Note>
 
 <Note>
 **Изменение v1.1:** Идентификация товаров из 1С производится только по Артикулу (SKU). Штрихкоды в выгрузках 1С не используются, т.к. не указываются при оптовых продажах. Номенклатурные группы не ведутся в базе 1С заказчика.
@@ -43,8 +47,11 @@ graph TB
         WB_API["WB API"]
         OZON_API["Ozon API"]
         YM_API["YM API"]
-        EXCEL["Excel файлы"]
-        CSV_1C["CSV из 1С"]
+        EXCEL["Excel файлы<br/>(из ЛК маркетплейсов)"]
+    end
+
+    subgraph BRAIN_DB["PostgreSQL (brain_*)"]
+        BRAIN["brain_account_turns_90<br/>brain_account_turns_90_expenses<br/>brain_nomenclature<br/>brain_nomenclature_prices"]
     end
 
     subgraph ADAPTERS["Адаптеры"]
@@ -52,7 +59,10 @@ graph TB
         OZON_ADAPTER["OzonFinanceAdapter"]
         YM_ADAPTER["YMFinanceAdapter"]
         EXCEL_PARSER["ExcelParser"]
-        COST_PARSER["CostPriceParser"]
+    end
+
+    subgraph VIEWS["PostgreSQL VIEW"]
+        COST_VIEW["cfo_v_cost_prices<br/>(себестоимость по SKU)"]
     end
 
     subgraph PROCESSING["Обработка"]
@@ -62,18 +72,22 @@ graph TB
     end
 
     subgraph STORAGE["Хранение"]
-        PG["PostgreSQL"]
+        PG["PostgreSQL<br/>(cfo_* таблицы)"]
     end
+
+    ONE_C["1С:КА 2<br/>Экстрактор данных"] -->|"SQL INSERT<br/>psycopg2"| BRAIN_DB
 
     WB_API --> WB_ADAPTER
     OZON_API --> OZON_ADAPTER
     YM_API --> YM_ADAPTER
     EXCEL --> EXCEL_PARSER
-    CSV_1C --> COST_PARSER
+
+    BRAIN --> COST_VIEW
 
     WB_ADAPTER & OZON_ADAPTER & YM_ADAPTER --> NORMALIZE
-    EXCEL_PARSER & COST_PARSER --> NORMALIZE
-    
+    EXCEL_PARSER --> NORMALIZE
+    COST_VIEW -.->|"обогащение<br/>себестоимостью"| NORMALIZE
+
     NORMALIZE --> VALIDATE
     VALIDATE --> DEDUP
     DEDUP --> PG
@@ -90,13 +104,15 @@ graph TB
 │   │   └── Ozon_Realization_2026-01-15.xlsx
 │   └── ym/                    # Excel-отчёты Яндекс.Маркет
 │       └── YM_Finance_2026-01-15.xlsx
-├── costs/                     # Себестоимость из 1С:КА 2
-│   └── cost_prices_2026-01-13.csv
 └── primary/                   # Бухгалтерская первичка
     ├── invoices/              # Накладные
     ├── acts/                  # Акты
     └── contracts/             # Договоры
 ```
+
+<Warning>
+Директория `/data/inbox/cfo/costs/` удалена в v2.0. Себестоимость больше не поступает через файловый обмен — данные записываются Экстрактором напрямую в таблицу `brain_account_turns_90`.
+</Warning>
 
 ---
 
@@ -210,12 +226,9 @@ graph TB
 
 ### 2.3.5 Реализация адаптера
 
-```python
-from dataclasses import dataclass
-from datetime import date, datetime
-from typing import List, Optional
-import aiohttp
+Код реализации WBFinanceAdapter — см. [CFO Раздел 7: Celery, задача cfo\_import\_wb](/cfo/adolf_cfo_7_celery). Ниже — интерфейс и маппинг.
 
+```python
 @dataclass
 class WBTransaction:
     """Транзакция Wildberries."""
@@ -251,49 +264,8 @@ class WBFinanceAdapter:
         date_from: date,
         date_to: date
     ) -> List[WBTransaction]:
-        """Получение транзакций за период."""
-        
-        transactions = []
-        rrdid = 0
-        
-        while True:
-            batch = await self._fetch_batch(date_from, date_to, rrdid)
-            
-            if not batch:
-                break
-            
-            transactions.extend(batch)
-            rrdid = max(t.get("rrd_id", 0) for t in batch)
-            
-            if len(batch) < 100000:
-                break
-        
-        return [self._map_transaction(t) for t in transactions]
-    
-    async def _fetch_batch(
-        self,
-        date_from: date,
-        date_to: date,
-        rrdid: int
-    ) -> List[dict]:
-        """Получение пакета данных с пагинацией."""
-        
-        url = f"{self.BASE_URL}/api/v1/supplier/reportDetailByPeriod"
-        params = {
-            "dateFrom": date_from.isoformat(),
-            "dateTo": date_to.isoformat(),
-            "limit": 100000
-        }
-        
-        if rrdid > 0:
-            params["rrdid"] = rrdid
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, params=params, headers=self.headers
-            ) as response:
-                response.raise_for_status()
-                return await response.json()
+        """Получение транзакций за период с пагинацией."""
+        ...
     
     def _map_transaction(self, raw: dict) -> WBTransaction:
         """Маппинг сырых данных в транзакцию."""
@@ -302,7 +274,7 @@ class WBFinanceAdapter:
             external_id=raw.get("srid", ""),
             sku=raw.get("sa_name", ""),
             nm_id=raw.get("nm_id", 0),
-            barcode=raw.get("barcode") or None,  # None если пустой
+            barcode=raw.get("barcode") or None,
             category=raw.get("subject_name", ""),
             brand_name=raw.get("brand_name", ""),
             size=raw.get("ts_name", ""),
@@ -412,6 +384,8 @@ class WBFinanceAdapter:
 
 ### 2.4.5 Реализация адаптера
 
+Код реализации OzonFinanceAdapter — см. [CFO Раздел 7: Celery, задача cfo\_import\_ozon](/cfo/adolf_cfo_7_celery). Ниже — интерфейс и маппинг.
+
 ```python
 @dataclass
 class OzonTransaction:
@@ -450,57 +424,8 @@ class OzonFinanceAdapter:
         date_from: date,
         date_to: date
     ) -> List[OzonTransaction]:
-        """Получение транзакций за период."""
-        
-        transactions = []
-        page = 1
-        
-        while True:
-            batch, page_count = await self._fetch_page(
-                date_from, date_to, page
-            )
-            
-            transactions.extend(batch)
-            
-            if page >= page_count:
-                break
-            
-            page += 1
-        
-        return [self._map_transaction(t) for t in transactions]
-    
-    async def _fetch_page(
-        self,
-        date_from: date,
-        date_to: date,
-        page: int
-    ) -> tuple:
-        """Получение страницы данных."""
-        
-        url = f"{self.BASE_URL}/v3/finance/transaction/list"
-        payload = {
-            "filter": {
-                "date": {
-                    "from": f"{date_from}T00:00:00Z",
-                    "to": f"{date_to}T23:59:59Z"
-                },
-                "transaction_type": "all"
-            },
-            "page": page,
-            "page_size": 1000
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url, json=payload, headers=self.headers
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                
-                operations = data.get("result", {}).get("operations", [])
-                page_count = data.get("result", {}).get("page_count", 1)
-                
-                return operations, page_count
+        """Получение транзакций за период с пагинацией."""
+        ...
     
     def _map_transaction(self, raw: dict) -> OzonTransaction:
         """Маппинг сырых данных в транзакцию."""
@@ -508,11 +433,11 @@ class OzonFinanceAdapter:
         items = raw.get("items", [{}])
         first_item = items[0] if items else {}
         
-        # Расчёт хранения из services
-        storage = 0.0
-        for service in raw.get("services", []):
-            if "Storage" in service.get("name", ""):
-                storage += abs(float(service.get("price", 0)))
+        storage = sum(
+            abs(float(s.get("price", 0)))
+            for s in raw.get("services", [])
+            if "Storage" in s.get("name", "")
+        )
         
         return OzonTransaction(
             external_id=str(raw.get("operation_id", "")),
@@ -610,268 +535,94 @@ class WBExcelParser:
 
 ---
 
-## 2.7 Cost Price Parser (1С:КА 2)
+## 2.7 Данные 1С через brain\_\* VIEW
 
-<Warning>
-**Важно:** Файлы себестоимости из 1С:Комплексная автоматизация 2 содержат только Артикул (SKU) в качестве идентификатора товара. Штрихкоды не выгружаются, т.к. не указываются при оптовых продажах. Связывание с транзакциями маркетплейсов производится по полю `sku`.
-</Warning>
+<Info>
+**v2.0:** Данные из 1С:КА 2 поступают в PostgreSQL автоматически через Экстрактор данных 1С (Infostart #1970328). CFO читает их через PostgreSQL VIEW, без промежуточных файлов и парсеров. Полное описание таблиц и запросов — [Приложение А1](/cfo/adolf_cfo_a1_1c_reports).
+</Info>
 
-### 2.7.1 Формат файла себестоимости
+### 2.7.1 Источники данных 1С для CFO
 
-**CSV из 1С:КА 2:**
+| Таблица brain\_\* | Запрос | Данные | Использование в CFO |
+|-------------------|--------|--------|---------------------|
+| `brain_account_turns_90` | Q-01 | Выручка и себестоимость по номенклатуре | P&L, Cost Mapping, ABC-анализ |
+| `brain_account_turns_90_expenses` | Q-02 | Коммерческие и управленческие расходы | P&L (статьи расходов) |
+| `brain_nomenclature` | Q-10 | Справочник номенклатуры | Маппинг SKU → название, бренд |
+| `brain_nomenclature_prices` | Q-11 | Цены номенклатуры | Справочные цены |
 
-```csv
-sku;product_name;cost_price;currency;valid_from;brand_id
-OM-12345;Платье летнее синее;1200.00;RUB;2026-01-13;Охана Маркет
-OM-12346;Блузка офисная;800.00;RUB;2026-01-13;Охана Маркет
-OK-54321;Футболка детская;450.00;RUB;2026-01-13;Охана Кидс
+### 2.7.2 VIEW: cfo\_v\_cost\_prices
+
+VIEW для получения себестоимости по SKU из данных бухучёта (счёт 90.02.1).
+
+```sql
+CREATE OR REPLACE VIEW cfo_v_cost_prices AS
+SELECT
+    t.article                           AS sku,
+    t.nomenclature                      AS product_name,
+    t.organization                      AS organization,
+    -- Себестоимость = оборот по Дт 90.02.1 / количество
+    CASE 
+        WHEN SUM(t.quantity_dt) > 0 
+        THEN ROUND(SUM(t.amount_dt) / SUM(t.quantity_dt), 2)
+        ELSE NULL
+    END                                 AS cost_price,
+    SUM(t.amount_dt)                    AS total_cost,
+    SUM(t.quantity_dt)                  AS total_quantity,
+    t.period                            AS period,
+    MAX(t.loaded_at)                    AS data_freshness
+FROM brain_account_turns_90 t
+WHERE t.account_dt = '90.02.1'
+  AND t.article IS NOT NULL
+  AND t.article != ''
+GROUP BY t.article, t.nomenclature, t.organization, t.period;
+
+COMMENT ON VIEW cfo_v_cost_prices IS 
+    'Себестоимость по SKU из brain_account_turns_90 (Q-01, счёт 90.02.1)';
 ```
 
-**Колонки файла:**
+### 2.7.3 VIEW: cfo\_v\_revenue\_1c
 
-| Колонка 1С | Имя поля | Тип | Обязательно | Описание |
-|------------|----------|-----|:-----------:|----------|
-| Артикул | `sku` | string | Да | Основной идентификатор товара |
-| Номенклатура | `product_name` | string | Да | Наименование товара |
-| Себестоимость | `cost_price` | decimal | Да | Себестоимость единицы |
-| Валюта | `currency` | string | Нет | Валюта (по умолчанию RUB) |
-| Дата расчёта | `valid_from` | date | Да | Дата актуальности себестоимости |
-| Вид номенклатуры | `brand_id` | string | Нет | Бренд (Охана Маркет / Охана Кидс) |
+VIEW для получения выручки по данным бухучёта (счёт 90.01.1) — используется для сверки с данными маркетплейсов.
 
-<Note>
-Поля «Штрихкод» и «Номенклатурная группа» исключены из выгрузки по согласованию с обслуживающей организацией 1С (см. документ «Регламент выгрузок из 1С:КА 2 для системы BRAIN», раздел 9 «Учтённые замечания»).
-</Note>
+```sql
+CREATE OR REPLACE VIEW cfo_v_revenue_1c AS
+SELECT
+    t.article                           AS sku,
+    t.nomenclature                      AS product_name,
+    t.counterparty                      AS counterparty,
+    t.organization                      AS organization,
+    SUM(t.amount_ct)                    AS revenue,
+    SUM(t.quantity_dt)                  AS quantity,
+    t.period                            AS period,
+    MAX(t.loaded_at)                    AS data_freshness
+FROM brain_account_turns_90 t
+WHERE t.account_ct = '90.01.1'
+  AND t.article IS NOT NULL
+  AND t.article != ''
+GROUP BY t.article, t.nomenclature, t.counterparty, t.organization, t.period;
 
-### 2.7.2 Реализация парсера
-
-```python
-from dataclasses import dataclass
-from datetime import date
-from pathlib import Path
-from typing import List, Optional
-import pandas as pd
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class CostPriceRecord:
-    """Запись себестоимости из 1С:КА 2."""
-    sku: str                      # Артикул — основной идентификатор
-    product_name: str             # Наименование товара
-    cost_price: float             # Себестоимость
-    currency: str                 # Валюта
-    valid_from: date              # Дата актуальности
-    brand_id: Optional[str]       # Вид номенклатуры (бренд)
-
-
-class CostPriceParser:
-    """Парсер файлов себестоимости из 1С:КА 2.
-    
-    Идентификация товаров производится только по Артикулу (SKU).
-    Штрихкоды и номенклатурные группы не используются.
-    """
-    
-    # Маппинг колонок CSV (английские названия)
-    CSV_COLUMN_MAPPING = {
-        "sku": "sku",
-        "SKU": "sku",
-        "product_name": "product_name",
-        "ProductName": "product_name",
-        "cost_price": "cost_price",
-        "CostPrice": "cost_price",
-        "currency": "currency",
-        "Currency": "currency",
-        "valid_from": "valid_from",
-        "ValidFrom": "valid_from",
-        "brand_id": "brand_id",
-        "BrandId": "brand_id"
-    }
-    
-    # Маппинг колонок Excel (русские названия из 1С)
-    XLS_COLUMN_MAPPING = {
-        "Артикул": "sku",
-        "Номенклатура": "product_name",
-        "Наименование": "product_name",
-        "Себестоимость": "cost_price",
-        "Валюта": "currency",
-        "Дата расчёта": "valid_from",
-        "Дата": "valid_from",
-        "Вид номенклатуры": "brand_id"
-    }
-    
-    def parse(self, file_path: Path) -> List[CostPriceRecord]:
-        """Парсинг файла себестоимости.
-        
-        Args:
-            file_path: Путь к файлу CSV или Excel
-            
-        Returns:
-            Список записей себестоимости
-            
-        Raises:
-            ValueError: Неподдерживаемый формат файла
-        """
-        
-        suffix = file_path.suffix.lower()
-        
-        if suffix == ".csv":
-            return self._parse_csv(file_path)
-        elif suffix in [".xls", ".xlsx"]:
-            return self._parse_excel(file_path)
-        else:
-            raise ValueError(f"Unsupported file format: {suffix}")
-    
-    def _parse_csv(self, file_path: Path) -> List[CostPriceRecord]:
-        """Парсинг CSV файла."""
-        
-        df = pd.read_csv(
-            file_path, 
-            sep=";", 
-            encoding="utf-8",
-            dtype={"sku": str}  # SKU всегда строка
-        )
-        df = df.rename(columns=self.CSV_COLUMN_MAPPING)
-        
-        return self._convert_to_records(df)
-    
-    def _parse_excel(self, file_path: Path) -> List[CostPriceRecord]:
-        """Парсинг Excel файла."""
-        
-        df = pd.read_excel(
-            file_path,
-            dtype={"Артикул": str}  # SKU всегда строка
-        )
-        df = df.rename(columns=self.XLS_COLUMN_MAPPING)
-        
-        return self._convert_to_records(df)
-    
-    def _convert_to_records(self, df: pd.DataFrame) -> List[CostPriceRecord]:
-        """Конвертация DataFrame в список записей.
-        
-        Args:
-            df: DataFrame с данными себестоимости
-            
-        Returns:
-            Список валидных записей CostPriceRecord
-        """
-        
-        records = []
-        errors = 0
-        
-        for idx, row in df.iterrows():
-            try:
-                # SKU обязателен
-                sku = str(row.get("sku", "")).strip()
-                if not sku:
-                    logger.warning(f"Row {idx}: Empty SKU, skipping")
-                    errors += 1
-                    continue
-                
-                # Себестоимость обязательна и > 0
-                cost_price = float(row.get("cost_price", 0))
-                if cost_price <= 0:
-                    logger.warning(f"Row {idx}: Invalid cost_price={cost_price}, skipping")
-                    errors += 1
-                    continue
-                
-                record = CostPriceRecord(
-                    sku=sku,
-                    product_name=str(row.get("product_name", "")).strip(),
-                    cost_price=cost_price,
-                    currency=str(row.get("currency", "RUB")).strip() or "RUB",
-                    valid_from=pd.to_datetime(row.get("valid_from")).date(),
-                    brand_id=str(row.get("brand_id", "")).strip() or None
-                )
-                records.append(record)
-                
-            except Exception as e:
-                logger.warning(f"Row {idx}: Failed to parse - {e}")
-                errors += 1
-        
-        logger.info(f"Parsed {len(records)} cost records, {errors} errors")
-        return records
-    
-    def get_cost_map(self, records: List[CostPriceRecord]) -> dict:
-        """Создание словаря SKU → себестоимость.
-        
-        При наличии нескольких записей для одного SKU берётся
-        запись с наиболее поздней датой valid_from.
-        
-        Args:
-            records: Список записей себестоимости
-            
-        Returns:
-            Словарь {sku: cost_price}
-        """
-        
-        # Сортируем по дате (новые последние)
-        sorted_records = sorted(records, key=lambda r: r.valid_from)
-        
-        cost_map = {}
-        for record in sorted_records:
-            cost_map[record.sku] = record.cost_price
-        
-        return cost_map
+COMMENT ON VIEW cfo_v_revenue_1c IS 
+    'Выручка по SKU из brain_account_turns_90 (Q-01, счёт 90.01.1)';
 ```
 
-### 2.7.3 Интеграция с Normalizer
+### 2.7.4 Сервис работы с себестоимостью
 
 ```python
 class CostPriceService:
-    """Сервис работы с себестоимостью."""
+    """Сервис работы с себестоимостью.
     
-    def __init__(self, parser: CostPriceParser, db_session):
-        self.parser = parser
+    v2.0: Читает из PostgreSQL VIEW cfo_v_cost_prices
+    (источник — brain_account_turns_90, заполняется Экстрактором 1С).
+    """
+    
+    def __init__(self, db_session):
         self.db = db_session
         self._cost_cache: dict = {}
     
-    async def load_cost_prices(self, file_path: Path) -> int:
-        """Загрузка себестоимости из файла в БД.
-        
-        Returns:
-            Количество загруженных записей
-        """
-        
-        records = self.parser.parse(file_path)
-        
-        if not records:
-            return 0
-        
-        # Upsert в таблицу себестоимости
-        query = """
-            INSERT INTO cfo_cost_prices (sku, product_name, cost_price, 
-                                         currency, valid_from, brand_id, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
-            ON CONFLICT (sku) DO UPDATE SET
-                product_name = EXCLUDED.product_name,
-                cost_price = EXCLUDED.cost_price,
-                currency = EXCLUDED.currency,
-                valid_from = EXCLUDED.valid_from,
-                brand_id = EXCLUDED.brand_id,
-                updated_at = NOW()
-        """
-        
-        for record in records:
-            await self.db.execute(
-                query,
-                record.sku,
-                record.product_name,
-                record.cost_price,
-                record.currency,
-                record.valid_from,
-                record.brand_id
-            )
-        
-        # Обновляем кэш
-        self._cost_cache = self.parser.get_cost_map(records)
-        
-        logger.info(f"Loaded {len(records)} cost prices")
-        return len(records)
-    
     async def get_cost_price(self, sku: str) -> Optional[float]:
         """Получение себестоимости по SKU.
+        
+        Читает из VIEW cfo_v_cost_prices (brain_account_turns_90).
         
         Args:
             sku: Артикул товара
@@ -880,31 +631,81 @@ class CostPriceService:
             Себестоимость или None если не найдена
         """
         
-        # Сначала проверяем кэш
         if sku in self._cost_cache:
             return self._cost_cache[sku]
         
-        # Запрос в БД
         query = """
-            SELECT cost_price FROM cfo_cost_prices 
+            SELECT cost_price 
+            FROM cfo_v_cost_prices
             WHERE sku = $1
-            ORDER BY valid_from DESC
+            ORDER BY period DESC
             LIMIT 1
         """
         
         row = await self.db.fetchrow(query, sku)
         
-        if row:
+        if row and row["cost_price"]:
             cost = float(row["cost_price"])
             self._cost_cache[sku] = cost
             return cost
         
         return None
     
+    async def get_cost_map(self) -> dict:
+        """Получение полного словаря SKU → себестоимость.
+        
+        Берёт последний актуальный период для каждого SKU.
+        
+        Returns:
+            Словарь {sku: cost_price}
+        """
+        
+        query = """
+            SELECT DISTINCT ON (sku) sku, cost_price
+            FROM cfo_v_cost_prices
+            WHERE cost_price IS NOT NULL
+            ORDER BY sku, period DESC
+        """
+        
+        rows = await self.db.fetch(query)
+        self._cost_cache = {
+            row["sku"]: float(row["cost_price"])
+            for row in rows
+        }
+        
+        return self._cost_cache
+    
+    async def check_data_freshness(self) -> dict:
+        """Проверка свежести данных brain_account_turns_90.
+        
+        Returns:
+            Словарь с информацией о свежести данных
+        """
+        
+        query = """
+            SELECT 
+                MAX(data_freshness) AS last_loaded,
+                MAX(period) AS last_period,
+                COUNT(DISTINCT sku) AS sku_count
+            FROM cfo_v_cost_prices
+        """
+        
+        row = await self.db.fetchrow(query)
+        
+        return {
+            "last_loaded": row["last_loaded"],
+            "last_period": row["last_period"],
+            "sku_count": row["sku_count"],
+            "is_stale": (
+                row["last_loaded"] is not None 
+                and (datetime.now() - row["last_loaded"]).days > 10
+            )
+        }
+    
     async def enrich_transactions(
         self, 
-        transactions: List[NormalizedTransaction]
-    ) -> List[NormalizedTransaction]:
+        transactions: List["NormalizedTransaction"]
+    ) -> List["NormalizedTransaction"]:
         """Обогащение транзакций себестоимостью.
         
         Связывание по полю SKU.
@@ -916,9 +717,13 @@ class CostPriceService:
             Транзакции с заполненным cost_price
         """
         
+        # Предзагрузка кэша для batch-обработки
+        if not self._cost_cache:
+            await self.get_cost_map()
+        
         for tx in transactions:
             if tx.sku:
-                tx.cost_price = await self.get_cost_price(tx.sku)
+                tx.cost_price = self._cost_cache.get(tx.sku)
         
         return transactions
 ```
@@ -950,7 +755,7 @@ class NormalizedTransaction:
     
     # Финансы
     revenue: float                # Выручка (цена продажи)
-    cost_price: Optional[float]   # Себестоимость (из 1С, по SKU)
+    cost_price: Optional[float]   # Себестоимость (из brain_*, по SKU)
     commission: float             # Комиссия МП
     logistics: float              # Логистика до покупателя
     return_logistics: float       # Обратная логистика
@@ -976,8 +781,11 @@ class NormalizedTransaction:
         if self.cost_price is not None:
             self.gross_profit = self.revenue - (self.cost_price * self.quantity)
             self.net_profit = self.payout - (self.cost_price * self.quantity)
+```
 
+### 2.8.2 TransactionNormalizer
 
+```python
 class TransactionNormalizer:
     """Нормализация транзакций из разных источников."""
     
@@ -987,7 +795,6 @@ class TransactionNormalizer:
     async def normalize_wb(self, tx: WBTransaction) -> NormalizedTransaction:
         """Нормализация транзакции WB."""
         
-        # Получаем себестоимость по SKU
         cost_price = await self.cost_service.get_cost_price(tx.sku)
         
         normalized = NormalizedTransaction(
@@ -995,7 +802,7 @@ class TransactionNormalizer:
             marketplace="wb",
             source="api",
             sku=tx.sku,
-            barcode=tx.barcode,  # Из API WB, не из 1С
+            barcode=tx.barcode,
             nm_id=tx.nm_id,
             product_name=None,
             category=tx.category,
@@ -1031,7 +838,7 @@ class TransactionNormalizer:
             marketplace="ozon",
             source="api",
             sku=tx.sku,
-            barcode=None,  # Ozon не возвращает barcode в финансовом API
+            barcode=None,
             nm_id=tx.ozon_sku,
             product_name=tx.product_name,
             category=None,
@@ -1067,18 +874,15 @@ class TransactionNormalizer:
 | Правило | Описание | Действие |
 |---------|----------|----------|
 | Required fields | `sku`, `marketplace`, `sale_date` обязательны | Reject |
-| Revenue >= 0 | Выручка не может быть отрицательной | Reject |
+| Revenue &gt;= 0 | Выручка не может быть отрицательной | Reject |
 | Valid marketplace | `marketplace IN (wb, ozon, ym)` | Reject |
 | Valid date | Дата не в будущем | Reject |
 | Duplicate check | Проверка по `external_id + marketplace` | Skip |
-| Cost price warning | Себестоимость не найдена | Warning (не reject) |
+| Cost price warning | Себестоимость не найдена в brain\_\* | Warning (не reject) |
 
 ### 2.9.2 Реализация
 
 ```python
-from dataclasses import dataclass
-from typing import List, Tuple
-
 @dataclass
 class ValidationResult:
     """Результат валидации."""
@@ -1098,31 +902,20 @@ class TransactionValidator:
         errors = []
         warnings = []
         
-        # Required fields
         if not tx.sku:
             errors.append("SKU is required")
-        
         if not tx.marketplace:
             errors.append("Marketplace is required")
-        
         if not tx.sale_date:
             errors.append("Sale date is required")
-        
-        # Valid marketplace
         if tx.marketplace not in self.VALID_MARKETPLACES:
             errors.append(f"Invalid marketplace: {tx.marketplace}")
-        
-        # Revenue check
         if tx.revenue < 0:
             errors.append(f"Revenue cannot be negative: {tx.revenue}")
-        
-        # Date check
         if tx.sale_date and tx.sale_date > date.today():
             errors.append(f"Sale date cannot be in future: {tx.sale_date}")
-        
-        # Cost price warning (не ошибка)
         if tx.cost_price is None:
-            warnings.append(f"Cost price not found for SKU: {tx.sku}")
+            warnings.append(f"Cost price not found in brain_* for SKU: {tx.sku}")
         
         return ValidationResult(
             is_valid=len(errors) == 0,
@@ -1152,7 +945,10 @@ class TransactionValidator:
             else:
                 invalid.append((tx, result.errors))
         
-        logger.info(f"Validated: {len(valid)} valid, {len(invalid)} invalid, {warnings_count} with warnings")
+        logger.info(
+            f"Validated: {len(valid)} valid, {len(invalid)} invalid, "
+            f"{warnings_count} with warnings"
+        )
         return valid, invalid
 ```
 
@@ -1182,18 +978,15 @@ class TransactionDeduplicator:
     ) -> List[NormalizedTransaction]:
         """Удаление дубликатов."""
         
-        # Получение существующих external_id
         existing_ids = await self._get_existing_ids(
             [t.external_id for t in transactions if t.external_id]
         )
         
-        # Фильтрация новых транзакций
         new_transactions = [
             t for t in transactions
             if t.external_id not in existing_ids
         ]
         
-        # Дополнительная дедупликация для Excel (без external_id)
         excel_transactions = [t for t in new_transactions if t.source == "excel"]
         api_transactions = [t for t in new_transactions if t.source == "api"]
         
@@ -1226,9 +1019,7 @@ class TransactionDeduplicator:
         unique = []
         
         for tx in transactions:
-            # Ключ по SKU (не barcode!)
             key = (tx.sku, tx.sale_date, tx.revenue, tx.marketplace)
-            
             if key not in seen:
                 seen.add(key)
                 unique.append(tx)
@@ -1244,14 +1035,18 @@ class TransactionDeduplicator:
 
 ```python
 class DataIngestionService:
-    """Сервис импорта финансовых данных."""
+    """Сервис импорта финансовых данных.
+    
+    v2.0: Себестоимость из 1С читается из brain_* через VIEW.
+    Файловый импорт себестоимости удалён.
+    """
     
     def __init__(
         self,
         wb_adapter: WBFinanceAdapter,
         ozon_adapter: OzonFinanceAdapter,
         ym_adapter: YMFinanceAdapter,
-        excel_parser: ExcelParser,
+        excel_parser: "ExcelParser",
         cost_service: CostPriceService,
         normalizer: TransactionNormalizer,
         validator: TransactionValidator,
@@ -1268,60 +1063,41 @@ class DataIngestionService:
         self.deduplicator = deduplicator
         self.db = db_session
     
-    async def import_all(self, date_from: date, date_to: date) -> ImportResult:
-        """Полный импорт из всех источников."""
+    async def import_all(self, date_from: date, date_to: date) -> "ImportResult":
+        """Полный импорт из всех источников.
+        
+        Себестоимость из 1С уже доступна через VIEW 
+        (brain_account_turns_90 → cfo_v_cost_prices).
+        """
         
         result = ImportResult()
         
-        # Сначала загружаем себестоимость из 1С
-        result.merge(await self.import_cost_prices())
+        # Предзагрузка кэша себестоимости из brain_*
+        await self.cost_service.get_cost_map()
+        
+        # Проверка свежести данных brain_*
+        freshness = await self.cost_service.check_data_freshness()
+        if freshness["is_stale"]:
+            logger.warning(
+                f"brain_account_turns_90 data is stale! "
+                f"Last loaded: {freshness['last_loaded']}"
+            )
         
         # API импорт
         result.merge(await self.import_wb_api(date_from, date_to))
         result.merge(await self.import_ozon_api(date_from, date_to))
         result.merge(await self.import_ym_api(date_from, date_to))
         
-        # Excel импорт
+        # Excel импорт (файлы из ЛК маркетплейсов)
         result.merge(await self.import_excel_files())
         
         return result
-    
-    async def import_cost_prices(self) -> ImportResult:
-        """Импорт себестоимости из 1С:КА 2."""
-        
-        cost_dir = Path("/data/inbox/cfo/costs")
-        
-        try:
-            # Ищем последний файл
-            files = sorted(cost_dir.glob("cost_prices_*.csv"), reverse=True)
-            
-            if not files:
-                logger.warning("No cost price files found")
-                return ImportResult(source="1c_costs", total=0)
-            
-            latest_file = files[0]
-            count = await self.cost_service.load_cost_prices(latest_file)
-            
-            # Архивируем обработанный файл
-            archive_dir = cost_dir / "processed"
-            archive_dir.mkdir(exist_ok=True)
-            latest_file.rename(archive_dir / latest_file.name)
-            
-            return ImportResult(
-                source="1c_costs",
-                total=count,
-                saved=count
-            )
-        
-        except Exception as e:
-            logger.error(f"Cost prices import failed: {e}")
-            return ImportResult(source="1c_costs", error=str(e))
     
     async def import_wb_api(
         self,
         date_from: date,
         date_to: date
-    ) -> ImportResult:
+    ) -> "ImportResult":
         """Импорт из WB API."""
         
         try:
@@ -1369,31 +1145,15 @@ class DataIngestionService:
         for tx in transactions:
             await self.db.execute(
                 query,
-                tx.external_id,
-                tx.marketplace,
-                tx.source,
-                tx.sku,
-                tx.barcode,  # Может быть None
-                tx.nm_id,
-                tx.product_name,
-                tx.category,
-                tx.brand_name,
-                tx.size,
-                tx.revenue,
-                tx.cost_price,  # Может быть None
-                tx.commission,
-                tx.logistics,
-                tx.return_logistics,
-                tx.storage,
-                tx.advertising,
-                tx.payout,
-                tx.gross_profit,  # Может быть None
-                tx.net_profit,    # Может быть None
-                tx.sale_date,
-                tx.operation_type,
-                tx.quantity,
-                tx.source_file,
-                tx.created_at
+                tx.external_id, tx.marketplace, tx.source,
+                tx.sku, tx.barcode, tx.nm_id,
+                tx.product_name, tx.category, tx.brand_name, tx.size,
+                tx.revenue, tx.cost_price, tx.commission,
+                tx.logistics, tx.return_logistics,
+                tx.storage, tx.advertising, tx.payout,
+                tx.gross_profit, tx.net_profit,
+                tx.sale_date, tx.operation_type, tx.quantity,
+                tx.source_file, tx.created_at
             )
 
 
@@ -1419,34 +1179,33 @@ class ImportResult:
 
 ---
 
-## 2.12 Изменения в версии 1.1
+## 2.12 История изменений
 
-### Сводка изменений
+### v2.0 (Февраль 2026)
 
-| Компонент | Было | Стало |
-|-----------|------|-------|
+| Компонент | Было (v1.1) | Стало (v2.0) |
+|-----------|-------------|--------------|
+| Источник себестоимости | CSV/XLSX файлы из 1С → `/data/inbox/cfo/costs/` | PostgreSQL `brain_account_turns_90` (через Экстрактор данных 1С) |
+| CostPriceParser | Парсер CSV/XLS файлов | **Удалён** — заменён на VIEW `cfo_v_cost_prices` |
+| CSVParser | Парсер CSV из 1С | **Удалён** |
+| Директория `/data/inbox/cfo/costs/` | Каталог для файлов себестоимости | **Удалён** |
+| CostPriceService | Читал из файлов → `cfo_cost_prices` | Читает из VIEW `cfo_v_cost_prices` (поверх `brain_*`) |
+| IngestionService.import\_cost\_prices() | Файловый импорт с архивированием | **Удалён** — данные уже в PostgreSQL |
+| Проверка свежести | Отсутствовала | `check_data_freshness()` — алерт при устаревших данных brain\_\* |
+| Мониторинг brain\_\* | Отсутствовал | Celery-задача (см. [Раздел 7](/cfo/adolf_cfo_7_celery)) |
+
+### v1.1 (Январь 2026)
+
+| Компонент | Было (v1.0) | Стало (v1.1) |
+|-----------|-------------|--------------|
 | Идентификатор товара из 1С | Штрихкод (barcode) | Артикул (sku) |
 | Поле barcode в CostPriceRecord | Обязательное | Удалено |
 | Номенклатурная группа | Присутствовала | Удалена (не ведётся в 1С) |
 | Связывание с транзакциями | По barcode | По sku |
 | Конфигурация 1С | Не указана | 1С:Комплексная автоматизация 2 |
 
-### Причины изменений
-
-1. **Штрихкоды не указываются при оптовых продажах** — типовой отчёт 1С:КА 2 «Себестоимость товаров» не выводит колонку «Штрихкод»
-2. **Номенклатурные группы не ведутся** — в базе заказчика не настроены группы аналитического учёта
-3. **Артикул (SKU) — универсальный идентификатор** — используется во всех маркетплейсах и в 1С
-
-### Миграция данных
-
-При обновлении с версии 1.0 необходимо:
-
-1. Обновить формат файлов выгрузки из 1С (без колонки `barcode`)
-2. Перестроить индексы в таблице `cfo_cost_prices` по полю `sku`
-3. Очистить кэш себестоимости
-
 ---
 
-**Документ подготовлен:** Январь 2026  
-**Версия:** 1.1  
-**Статус:** Согласовано
+**Документ подготовлен:** Февраль 2026  
+**Версия:** 2.0  
+**Статус:** Черновик
