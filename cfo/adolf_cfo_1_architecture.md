@@ -1,11 +1,12 @@
 ---
 title: "Раздел 1: Архитектура"
+mode: "wide"
 ---
 
 **Проект:** Финансовый учёт и управленческая аналитика\
 **Модуль:** CFO\
-**Версия:** 1.0\
-**Дата:** Январь 2026
+**Версия:** 2.0\
+**Дата:** Февраль 2026
 
 ---
 
@@ -18,7 +19,7 @@ CFO — модуль автоматизированного управленче
 | Функция         | Описание                                             |
 | --------------- | ---------------------------------------------------- |
 | Data Ingestion  | Ежедневный сбор данных из API маркетплейсов и файлов |
-| Cost Mapping    | Сопоставление продаж с себестоимостью по Barcode/SKU |
+| Cost Mapping    | Сопоставление продаж с себестоимостью по SKU (из brain\_\*) |
 | P&L Calculation | Расчёт маржинальности по всем срезам                 |
 | ABC Analysis    | Классификация SKU по вкладу в прибыль                |
 | AI Insights     | Формирование выводов и рекомендаций                  |
@@ -58,7 +59,7 @@ CFO — модуль автоматизированного управленче
 | Компонент                 | Где реализовано            | Тип взаимодействия     |
 | ------------------------- | -------------------------- | ---------------------- |
 | Авторизация пользователей | ADOLF Core (Middleware)    | Используется готовая   |
-| Обработка файлов 1С       | ADOLF Core (ETL)           | Файлы из `/data/inbox` |
+| Загрузка данных 1С       | Экстрактор данных 1С       | Запись в brain\_\* таблицы |
 | Хранение первички         | ADOLF Knowledge            | Индексация через ETL   |
 | Хранение пользователей    | ADOLF Core (PostgreSQL)    | Чтение таблицы `users` |
 | Система уведомлений       | ADOLF Core (Notifications) | Event Bus              |
@@ -68,7 +69,7 @@ CFO — модуль автоматизированного управленче
 
 | Компонент      | Описание                           |
 | -------------- | ---------------------------------- |
-| 1C Integration | Прямое подключение к 1С через API  |
+| ~~1C Integration~~ | ~~Прямое подключение к 1С через API~~ (реализовано в v2.0 через Экстрактор) |
 | Extended Costs | Учёт ФОТ, упаковки, доставки до МП |
 | Forecasting    | Прогнозирование маржинальности     |
 | Budgeting      | План-факт анализ                   |
@@ -126,8 +127,11 @@ graph TB
 
     subgraph FILES["Файловые источники"]
         MP_EXCEL["Excel из ЛК МП"]
-        C1_FILES["Выгрузки 1С"]
         DOCS["Первичка"]
+    end
+
+    subgraph BRAIN_DB["Данные 1С"]
+        BRAIN["brain_* таблицы<br/>(Экстрактор данных 1С)"]
     end
 
     U1 & U2 & U3 --> OWUI
@@ -137,12 +141,14 @@ graph TB
     API --> INGEST
     INGEST --> WB_API & OZON_API & YM_API
     
-    MP_EXCEL & C1_FILES & DOCS --> ETL
+    MP_EXCEL & DOCS --> ETL
     ETL --> PG
     ETL --> KB
+
+    BRAIN --> PG
     
     INGEST --> MAPPER
-    MAPPER --> CALC
+    MAPPER -->|"cfo_v_cost_prices<br/>(VIEW поверх brain_*)"| CALC
     CALC --> ABC
     ABC --> AI
     AI --> CLAUDE
@@ -162,7 +168,7 @@ flowchart LR
     subgraph INPUT["Входные данные"]
         API_DATA["API маркетплейсов"]
         EXCEL_DATA["Excel-отчёты"]
-        COGS_DATA["Себестоимость (1С)"]
+        COGS_DATA["brain_* таблицы<br/>(себестоимость из 1С)"]
         PRIMARY["Первичка"]
     end
 
@@ -306,8 +312,11 @@ def check_cfo_access(user: User, function: str) -> bool:
 | Тип файла        | Источник                       | Обработка                    |
 | ---------------- | ------------------------------ | ---------------------------- |
 | Excel отчёты МП  | `/data/inbox/cfo/marketplace/` | Парсинг → `cfo_transactions` |
-| Себестоимость 1С | `/data/inbox/cfo/costs/`       | Парсинг → `cfo_cost_prices`  |
 | Первичка         | `/data/inbox/cfo/primary/`     | OCR → Knowledge Base         |
+
+<Note>
+**Изменение v2.0:** Себестоимость из 1С больше не поступает через файлы. Экстрактор данных 1С записывает данные напрямую в `brain_account_turns_90`. CFO читает их через VIEW `cfo_v_cost_prices`.
+</Note>
 
 **Структура папок:**
 
@@ -317,7 +326,6 @@ def check_cfo_access(user: User, function: str) -> bool:
 │   ├── wb/
 │   ├── ozon/
 │   └── ym/
-├── costs/                # Выгрузки себестоимости из 1С
 └── primary/              # Бухгалтерская первичка
 ```
 
@@ -329,7 +337,7 @@ def check_cfo_access(user: User, function: str) -> bool:
 | -------------------- | ----------------------------------------- |
 | `users`              | Роль пользователя, проверка доступа       |
 | `cfo_transactions`   | Финансовые транзакции с маркетплейсов     |
-| `cfo_cost_prices`    | Справочник себестоимости (Barcode → COGS) |
+| `cfo_v_cost_prices`  | VIEW: себестоимость (поверх `brain_account_turns_90`) |
 | `cfo_pnl_daily`      | Ежедневный P&L по SKU                     |
 | `cfo_pnl_aggregated` | Агрегированный P&L по периодам            |
 | `cfo_abc_results`    | Результаты ABC-анализа                    |
@@ -342,15 +350,12 @@ def check_cfo_access(user: User, function: str) -> bool:
 
 **Фоновые задачи:**
 
-| Задача                      | Описание                    | Расписание             |
-| --------------------------- | --------------------------- | ---------------------- |
-| `cfo.import_wb_finance`     | Импорт данных Wildberries   | Ежедневно 06:00        |
-| `cfo.import_ozon_finance`   | Импорт данных Ozon          | Ежедневно 06:10        |
-| `cfo.import_ym_finance`     | Импорт данных Яндекс.Маркет | Ежедневно 06:20        |
-| `cfo.process_excel_reports` | Обработка Excel из ETL      | Ежедневно 06:30        |
-| `cfo.process_cost_prices`   | Обработка себестоимости     | Еженедельно (Пн 07:00) |
-| `cfo.calculate_daily_pnl`   | Расчёт дневного P&L         | Ежедневно 07:00        |
-| `cfo.run_abc_analysis`      | ABC-анализ                  | Еженедельно (Пн 08:00) |
+| Задача                          | Описание                      | Расписание             |
+| ------------------------------- | ----------------------------- | ---------------------- |
+| `cfo.import_marketplace_data`   | Импорт данных с маркетплейсов | Ежедневно 06:00 OMS   |
+| `cfo.monitor_brain_freshness`   | Мониторинг свежести brain\_\* | Каждые 60 мин          |
+| `cfo.calculate_daily_pnl`      | Расчёт дневного P&L           | Ежедневно 07:00        |
+| `cfo.run_abc_analysis`          | ABC-анализ                    | Еженедельно (Пн 08:00) |
 | `cfo.check_alerts`          | Проверка алертов            | Ежедневно 08:00        |
 | `cfo.cleanup_old_data`      | Очистка старых данных       | Ежемесячно             |
 
@@ -470,8 +475,8 @@ classDiagram
     class DataIngestionService {
         +import_from_api(marketplace: str, date_range: DateRange) List~Transaction~
         +import_from_excel(file_path: str) List~Transaction~
-        +import_cost_prices(file_path: str) List~CostPrice~
         +normalize_transactions(raw: List) List~Transaction~
+        +check_brain_freshness() FreshnessResult
     }
 
     class MarketplaceFinanceAdapter {
@@ -506,32 +511,31 @@ classDiagram
 
 ### 1.7.2 Cost Mapper
 
-**Назначение:** Сопоставление продаж с себестоимостью.
+**Назначение:** Сопоставление продаж с себестоимостью из brain\_\*.
 
 **Алгоритм маппинга:**
 
 ```mermaid
 flowchart TD
-    A["Транзакция продажи"] --> B{"Barcode найден<br/>в справочнике?"}
+    A["Транзакция продажи"] --> B{"SKU найден<br/>в cfo_v_cost_prices?"}
     B -->|Да| C["Получить COGS"]
-    B -->|Нет| D{"SKU найден?"}
-    D -->|Да| E["Получить COGS по SKU"]
-    D -->|Нет| F["Пометить как<br/>unmapped"]
+    B -->|Нет| F["Пометить как<br/>unmapped"]
     
     C --> G["Рассчитать маржу"]
-    E --> G
     F --> H["Добавить в отчёт<br/>об ошибках"]
     
     G --> I["Сохранить в<br/>cfo_pnl_daily"]
 ```
 
-**Приоритет маппинга:**
+<Note>
+**Изменение v2.0:** Маппинг выполняется только по SKU (артикул) через VIEW `cfo_v_cost_prices`, построенный поверх `brain_account_turns_90`. Barcode и nm\_id не используются для связи с себестоимостью.
+</Note>
 
-| Приоритет | Ключ          | Описание                      |
+**Источник себестоимости:**
+
+| Приоритет | Ключ          | Источник                      |
 | :-------: | ------------- | ----------------------------- |
-| 1         | Barcode       | Точное соответствие штрихкода |
-| 2         | SKU (артикул) | Артикул продавца              |
-| 3         | nm_id + size  | Номенклатура МП + размер      |
+| 1         | SKU (артикул) | VIEW `cfo_v_cost_prices` (brain\_\*) |
 
 ### 1.7.3 P&L Calculator
 
@@ -722,6 +726,24 @@ flowchart TD
 
 ---
 
-**Документ подготовлен:** Январь 2026\
-**Версия:** 1.0\
+---
+
+## 1.11 История изменений
+
+### v2.0 (Февраль 2026)
+
+| Компонент | Изменение |
+|-----------|-----------|
+| Общая схема (1.3.1) | Убран блок «Выгрузки 1С», добавлен «brain\_\* таблицы (Экстрактор)» |
+| Поток данных (1.3.2) | Себестоимость: из файлов → из brain\_\* |
+| ETL (1.4.2) | Удалён каталог `/data/inbox/cfo/costs/` |
+| PostgreSQL (1.4.3) | `cfo_cost_prices` → VIEW `cfo_v_cost_prices` |
+| Celery (1.4.4) | Удалены файловые задачи; добавлен `monitor_brain_freshness` |
+| Cost Mapper (1.7.2) | Маппинг только по SKU через VIEW |
+| Data Ingestion (1.7.1) | Удалён `import_cost_prices`; добавлен `check_brain_freshness` |
+
+---
+
+**Документ подготовлен:** Февраль 2026\
+**Версия:** 2.0\
 **Статус:** Черновик
