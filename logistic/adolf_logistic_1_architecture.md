@@ -21,7 +21,7 @@ mode: "wide"
 | **Отказоустойчивость** | Graceful degradation при недоступности Ozon API или файла 1С |
 | **Кэширование** | Минимизация запросов к API через Redis |
 | **Асинхронность** | Фоновая синхронизация через Celery |
-| **Dual-source** | Два независимых источника данных: Ozon API + PostgreSQL `brain_*` таблицы (из 1С) |
+| **Dual-source** | Два независимых источника данных: Ozon API + PostgreSQL `1C_*` таблицы (из 1С) |
 | **Расширяемость** | Подготовка к Wildberries / Yandex.Market в v2.0 |
 
 ### Архитектурная диаграмма
@@ -30,13 +30,13 @@ mode: "wide"
 graph TB
     subgraph EXTERNAL["Внешние системы"]
         OZON_API["Ozon Seller API<br/>api-seller.ozon.ru"]
-        BRAIN_DB["PostgreSQL brain_*<br/>(Экстрактор данных 1С)"]
+        ONEC_DB["PostgreSQL 1C_*<br/>(Экстрактор данных 1С)"]
     end
     
     subgraph LOGISTIC["Модуль Logistic"]
         subgraph ADAPTERS["Слой адаптеров"]
             OZON_ADAPTER["OzonLogisticAdapter"]
-            BRAIN_READER["BrainDataReader<br/>(brain_* таблицы)"]
+            ONEC_READER["OneCDataReader<br/>(1C_* таблицы)"]
             RATE_LIMITER["RateLimiter"]
             RETRY["RetryHandler"]
         end
@@ -75,7 +75,7 @@ graph TB
     OZON_ADAPTER --> RETRY
     RETRY --> STOCK_SVC & ANALYTICS_SVC & WAREHOUSE_SVC
     
-    BRAIN_DB --> BRAIN_READER --> IMPORT_SVC
+    ONEC_DB --> ONEC_READER --> IMPORT_SVC
     
     STOCK_SVC --> STOCK_MON
     ANALYTICS_SVC --> DEMAND_FORECAST
@@ -108,7 +108,7 @@ graph TB
 | Компонент | Назначение | Технология |
 |-----------|------------|------------|
 | **OzonLogisticAdapter** | Единая точка интеграции с Ozon Seller API | aiohttp |
-| **BrainDataReader** | Чтение данных из brain_* таблиц PostgreSQL | SQL |
+| **OneCDataReader** | Чтение данных из 1C_* таблиц PostgreSQL | SQL |
 | **RateLimiter** | Контроль частоты запросов к Ozon API | Redis + asyncio |
 | **RetryHandler** | Повторные попытки при ошибках | tenacity |
 
@@ -121,7 +121,7 @@ graph TB
 | **WarehouseService** | Управление списком кластеров/складов | Ozon API | Warehouse[] |
 | **SupplyTaskService** | CRUD наряд-заданий, workflow статусов | Domain models | SupplyTask[] |
 | **AlertService** | Генерация и отправка алертов | Domain events | Alert[] |
-| **HistoryService** | Синхронизация и история остатков из brain_* | BrainDataReader | WarehouseStock[] |
+| **HistoryService** | Синхронизация и история остатков из 1C_* | OneCDataReader | WarehouseStock[] |
 
 ### Доменный слой
 
@@ -169,25 +169,25 @@ sequenceDiagram
     end
 ```
 
-### Поток 2: Синхронизация остатков из brain_*
+### Поток 2: Синхронизация остатков из 1C_*
 
 ```mermaid
 sequenceDiagram
     participant CELERY as Celery Beat
     participant HISTORY as HistoryService
-    participant READER as BrainDataReader
+    participant READER as OneCDataReader
     participant VALIDATOR as ImportValidator
     participant PG as PostgreSQL
     participant ALERT as AlertService
     
-    CELERY->>HISTORY: sync_brain_stocks (06:30)
+    CELERY->>HISTORY: sync_1c_stocks (06:30)
     HISTORY->>READER: read_stock_balance()
-    READER->>PG: SELECT * FROM brain_stock_balance
+    READER->>PG: SELECT * FROM 1C_stock_balance
     PG-->>READER: rows[]
     READER->>READER: check_freshness(loaded_at)
     
     alt Данные свежие
-        READER-->>HISTORY: BrainReadResult(is_fresh=true)
+        READER-->>HISTORY: OneCReadResult(is_fresh=true)
         HISTORY->>VALIDATOR: validate_stocks(result)
         VALIDATOR->>VALIDATOR: map articles → ozon_sku
         VALIDATOR-->>HISTORY: validated[], unmapped[]
@@ -195,7 +195,7 @@ sequenceDiagram
         HISTORY->>VALIDATOR: detect_anomalies(validated)
         HISTORY->>PG: upsert warehouse_stocks
     else Данные устарели (loaded_at > 26ч)
-        READER-->>HISTORY: BrainReadResult(is_fresh=false)
+        READER-->>HISTORY: OneCReadResult(is_fresh=false)
         HISTORY->>ALERT: DATA_STALE alert
     end
 ```
@@ -347,7 +347,7 @@ adolf/
 │       ├── adapters/                 # Слой адаптеров
 │       │   ├── __init__.py
 │       │   ├── ozon_adapter.py       # OzonLogisticAdapter
-│       │   ├── brain_data_reader.py    # BrainDataReader (brain_* таблицы)
+│       │   ├── 1c_data_reader.py    # OneCDataReader (1C_* таблицы)
 │       │   ├── rate_limiter.py       # RateLimiter
 │       │   └── retry_handler.py      # RetryHandler
 │       │
@@ -382,7 +382,7 @@ adolf/
 │       │   ├── __init__.py
 │       │   ├── sync_ozon_stocks.py   # Синхронизация остатков Ozon
 │       │   ├── sync_ozon_analytics.py # Синхронизация аналитики
-│       │   ├── sync_brain_stocks.py    # Синхронизация brain_*
+│       │   ├── sync_1c_stocks.py    # Синхронизация 1C_*
 │       │   ├── generate_supply_tasks.py # Генерация наряд-заданий
 │       │   └── generate_alerts.py    # Генерация алертов
 │       │
@@ -416,9 +416,9 @@ class LogisticSettings(BaseSettings):
     ozon_api_key: str
     ozon_api_url: str = "https://api-seller.ozon.ru"
     
-    # brain_* синхронизация
-    brain_freshness_threshold_hours: int = 26
-    brain_sync_schedule_cron: str = "30 6 * * *"  # 06:30
+    # 1C_* синхронизация
+    1c_freshness_threshold_hours: int = 26
+    1c_sync_schedule_cron: str = "30 6 * * *"  # 06:30
     
     # Rate limits (requests per second)
     ozon_rps: int = 5  # Ozon default
@@ -520,7 +520,7 @@ LOGISTIC_FORECAST_SAFETY_FACTOR=1.2
 {
     "import_id": "imp_20260206_0800",
     "imported_at": "2026-02-06T08:00:00Z",
-    "source": "brain_stock_balance",
+    "source": "1C_stock_balance",
     "items": [
         {
             "article": "51005/54",
@@ -561,8 +561,8 @@ flowchart TD
 | `OzonAPIError` | Ozon API | 500 | Retry с exponential backoff |
 | `OzonRateLimitError` | Ozon API | 429 | Ожидание, затем retry |
 | `OzonAuthError` | Ozon API | 401/403 | Алерт администратору |
-| `BrainDataStaleError` | brain_* таблицы | — | Алерт, повтор через 1 час |
-| `BrainDataEmptyError` | brain_* таблицы | — | Алерт администратору |
+| `OneCDataStaleError` | 1C_* таблицы | — | Алерт, повтор через 1 час |
+| `OneCDataEmptyError` | 1C_* таблицы | — | Алерт администратору |
 | `SKUMappingError` | Маппинг | — | Логирование, пропуск записи |
 | `DataValidationError` | Любой | 422 | Логирование, пропуск записи |
 | `CacheError` | Redis | — | Fallback на прямой запрос |
@@ -597,11 +597,11 @@ stateDiagram-v2
     HalfOpen: Тестовые запросы
 ```
 
-### Обработка ошибок синхронизации brain_*
+### Обработка ошибок синхронизации 1C_*
 
 ```mermaid
 flowchart TD
-    READ["Чтение brain_stock_balance"]
+    READ["Чтение 1C_stock_balance"]
     FRESH{"Данные свежие?<br/>(loaded_at < 26ч)"}
     VALIDATE["Валидация + маппинг"]
     ANOMALY{"Аномалии > 50%?"}
@@ -629,8 +629,8 @@ flowchart TD
 | `logistic_ozon_api_errors_total` | Counter | Ошибки Ozon API |
 | `logistic_ozon_api_latency_seconds` | Histogram | Латентность запросов |
 | `logistic_stocks_sync_duration_seconds` | Histogram | Время синхронизации остатков |
-| `logistic_brain_sync_total` | Counter | Количество синхронизаций brain_* |
-| `logistic_brain_stale_total` | Counter | Устаревшие данные brain_* |
+| `logistic_1c_sync_total` | Counter | Количество синхронизаций 1C_* |
+| `logistic_1c_stale_total` | Counter | Устаревшие данные 1C_* |
 | `logistic_supply_tasks_generated_total` | Counter | Сгенерированные наряд-задания |
 | `logistic_supply_tasks_completed_total` | Counter | Выполненные наряд-задания |
 | `logistic_alerts_generated_total` | Counter | Сгенерированные алерты |
@@ -652,10 +652,10 @@ logger.info(
     cache_updated=True
 )
 
-# Пример: синхронизация brain_*
+# Пример: синхронизация 1C_*
 logger.info(
-    "brain_sync_completed",
-    source="brain_stock_balance",
+    "1c_sync_completed",
+    source="1C_stock_balance",
     records_validated=2380,
     records_unmapped=20,
     anomalies=3,
@@ -688,7 +688,7 @@ logger.info(
 | Ротация | Поддержка hot-reload конфигурации |
 | Аудит | Логирование всех API-вызовов |
 
-### Безопасность синхронизации brain_*
+### Безопасность синхронизации 1C_*
 
 | Аспект | Реализация |
 |--------|------------|
@@ -728,7 +728,7 @@ graph TD
 | Celery Workers | Увеличение числа воркеров |
 | Redis | Cluster mode (при необходимости) |
 | PostgreSQL | Read replicas (v2.0) |
-| brain_* синхронизация | Один обработчик, последовательное чтение |
+| 1C_* синхронизация | Один обработчик, последовательное чтение |
 
 ### Ограничения Ozon API
 
@@ -759,14 +759,14 @@ graph TB
         end
         
         subgraph FILES["File Storage"]
-            PG_DB["PostgreSQL<br/>(brain_* таблицы)"]
+            PG_DB["PostgreSQL<br/>(1C_* таблицы)"]
             ARCHIVE_DIR["/data/imports/1c/archive<br/>(processed)"]
         end
     end
     
     subgraph EXTERNAL["External"]
         OZON["Ozon Seller API<br/>api-seller.ozon.ru"]
-        BRAIN["PostgreSQL brain_*<br/>(Экстрактор данных 1С)"]
+        ONEC["PostgreSQL 1C_*<br/>(Экстрактор данных 1С)"]
     end
     
     NGINX --> API
@@ -819,7 +819,7 @@ numpy>=1.26.0         # Demand forecasting
 ├── adapters/
 │   ├── __init__.py
 │   ├── ozon_adapter.py
-│   ├── brain_data_reader.py
+│   ├── 1c_data_reader.py
 │   ├── rate_limiter.py
 │   └── retry_handler.py
 ├── services/
