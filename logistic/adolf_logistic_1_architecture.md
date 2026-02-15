@@ -5,9 +5,9 @@ mode: "wide"
 
 **Проект:** Интеллектуальная система управления логистикой маркетплейсов  
 **Модуль:** Logistic / Architecture  
-**Версия:** 2.0  
+**Версия:** 2.1  
 **Дата:** Февраль 2026  
-**Заменяет:** adolf_logistic_1_architecture_v1_0.md
+**Заменяет:** Раздел 1 v2.0
 
 ---
 
@@ -21,7 +21,7 @@ mode: "wide"
 | **Отказоустойчивость** | Graceful degradation при недоступности Ozon API или файла 1С |
 | **Кэширование** | Минимизация запросов к API через Redis |
 | **Асинхронность** | Фоновая синхронизация через Celery |
-| **Dual-source** | Два независимых источника данных: Ozon API + файловый импорт 1С |
+| **Dual-source** | Два независимых источника данных: Ozon API + PostgreSQL `brain_*` таблицы (из 1С) |
 | **Расширяемость** | Подготовка к Wildberries / Yandex.Market в v2.0 |
 
 ### Архитектурная диаграмма
@@ -30,13 +30,13 @@ mode: "wide"
 graph TB
     subgraph EXTERNAL["Внешние системы"]
         OZON_API["Ozon Seller API<br/>api-seller.ozon.ru"]
-        ONE_C["1С:Предприятие<br/>Файловый экспорт"]
+        BRAIN_DB["PostgreSQL brain_*<br/>(Экстрактор данных 1С)"]
     end
     
     subgraph LOGISTIC["Модуль Logistic"]
         subgraph ADAPTERS["Слой адаптеров"]
             OZON_ADAPTER["OzonLogisticAdapter"]
-            FILE_ADAPTER["FileImportAdapter<br/>(XLSX/XML)"]
+            BRAIN_READER["BrainDataReader<br/>(brain_* таблицы)"]
             RATE_LIMITER["RateLimiter"]
             RETRY["RetryHandler"]
         end
@@ -47,7 +47,7 @@ graph TB
             WAREHOUSE_SVC["WarehouseService"]
             SUPPLY_TASK_SVC["SupplyTaskService"]
             ALERT_SVC["AlertService"]
-            IMPORT_SVC["ImportService"]
+            IMPORT_SVC["HistoryService"]
         end
         
         subgraph DOMAIN["Доменный слой"]
@@ -75,7 +75,7 @@ graph TB
     OZON_ADAPTER --> RETRY
     RETRY --> STOCK_SVC & ANALYTICS_SVC & WAREHOUSE_SVC
     
-    ONE_C --> FILE_ADAPTER --> IMPORT_SVC
+    BRAIN_DB --> BRAIN_READER --> IMPORT_SVC
     
     STOCK_SVC --> STOCK_MON
     ANALYTICS_SVC --> DEMAND_FORECAST
@@ -108,7 +108,7 @@ graph TB
 | Компонент | Назначение | Технология |
 |-----------|------------|------------|
 | **OzonLogisticAdapter** | Единая точка интеграции с Ozon Seller API | aiohttp |
-| **FileImportAdapter** | Парсинг XLSX/XML файлов из 1С | openpyxl / lxml |
+| **BrainDataReader** | Чтение данных из brain_* таблиц PostgreSQL | SQL |
 | **RateLimiter** | Контроль частоты запросов к Ozon API | Redis + asyncio |
 | **RetryHandler** | Повторные попытки при ошибках | tenacity |
 
@@ -121,7 +121,7 @@ graph TB
 | **WarehouseService** | Управление списком кластеров/складов | Ozon API | Warehouse[] |
 | **SupplyTaskService** | CRUD наряд-заданий, workflow статусов | Domain models | SupplyTask[] |
 | **AlertService** | Генерация и отправка алертов | Domain events | Alert[] |
-| **ImportService** | Импорт и валидация файлов 1С | FileImportAdapter | WarehouseStock[] |
+| **HistoryService** | Синхронизация и история остатков из brain_* | BrainDataReader | WarehouseStock[] |
 
 ### Доменный слой
 
@@ -169,36 +169,34 @@ sequenceDiagram
     end
 ```
 
-### Поток 2: Импорт остатков 1С
+### Поток 2: Синхронизация остатков из brain_*
 
 ```mermaid
 sequenceDiagram
     participant CELERY as Celery Beat
-    participant IMPORT as ImportService
-    participant FILE as FileImportAdapter
+    participant HISTORY as HistoryService
+    participant READER as BrainDataReader
+    participant VALIDATOR as ImportValidator
     participant PG as PostgreSQL
-    participant LOG as Logger
+    participant ALERT as AlertService
     
-    CELERY->>IMPORT: import_1c_stocks (по расписанию)
-    IMPORT->>IMPORT: scan import directory
+    CELERY->>HISTORY: sync_brain_stocks (06:30)
+    HISTORY->>READER: read_stock_balance()
+    READER->>PG: SELECT * FROM brain_stock_balance
+    PG-->>READER: rows[]
+    READER->>READER: check_freshness(loaded_at)
     
-    alt Новый файл обнаружен
-        IMPORT->>FILE: parse(file_path)
-        FILE->>FILE: detect format (XLSX/XML)
-        FILE->>FILE: validate structure
-        FILE-->>IMPORT: parsed_stocks[]
-        
-        IMPORT->>IMPORT: validate_sku_mapping()
-        IMPORT->>IMPORT: detect_anomalies()
-        
-        alt Валидация пройдена
-            IMPORT->>PG: upsert warehouse_stocks
-            IMPORT->>PG: save import_log (success)
-            IMPORT->>IMPORT: archive file
-        else Ошибки валидации
-            IMPORT->>PG: save import_log (errors)
-            IMPORT->>LOG: log validation errors
-        end
+    alt Данные свежие
+        READER-->>HISTORY: BrainReadResult(is_fresh=true)
+        HISTORY->>VALIDATOR: validate_stocks(result)
+        VALIDATOR->>VALIDATOR: map articles → ozon_sku
+        VALIDATOR-->>HISTORY: validated[], unmapped[]
+        HISTORY->>PG: INSERT INTO logistic_stock_history
+        HISTORY->>VALIDATOR: detect_anomalies(validated)
+        HISTORY->>PG: upsert warehouse_stocks
+    else Данные устарели (loaded_at > 26ч)
+        READER-->>HISTORY: BrainReadResult(is_fresh=false)
+        HISTORY->>ALERT: DATA_STALE alert
     end
 ```
 
@@ -349,7 +347,7 @@ adolf/
 │       ├── adapters/                 # Слой адаптеров
 │       │   ├── __init__.py
 │       │   ├── ozon_adapter.py       # OzonLogisticAdapter
-│       │   ├── file_import_adapter.py # FileImportAdapter (XLSX/XML)
+│       │   ├── brain_data_reader.py    # BrainDataReader (brain_* таблицы)
 │       │   ├── rate_limiter.py       # RateLimiter
 │       │   └── retry_handler.py      # RetryHandler
 │       │
@@ -384,7 +382,7 @@ adolf/
 │       │   ├── __init__.py
 │       │   ├── sync_ozon_stocks.py   # Синхронизация остатков Ozon
 │       │   ├── sync_ozon_analytics.py # Синхронизация аналитики
-│       │   ├── import_1c_stocks.py   # Импорт файлов 1С
+│       │   ├── sync_brain_stocks.py    # Синхронизация brain_*
 │       │   ├── generate_supply_tasks.py # Генерация наряд-заданий
 │       │   └── generate_alerts.py    # Генерация алертов
 │       │
@@ -418,11 +416,9 @@ class LogisticSettings(BaseSettings):
     ozon_api_key: str
     ozon_api_url: str = "https://api-seller.ozon.ru"
     
-    # 1С File Import
-    import_1c_path: Path = Path("/data/imports/1c")
-    import_1c_archive_path: Path = Path("/data/imports/1c/archive")
-    import_1c_formats: list[str] = ["xlsx", "xml"]
-    import_1c_schedule_cron: str = "0 8,14 * * *"  # 08:00 и 14:00
+    # brain_* синхронизация
+    brain_freshness_threshold_hours: int = 26
+    brain_sync_schedule_cron: str = "30 6 * * *"  # 06:30
     
     # Rate limits (requests per second)
     ozon_rps: int = 5  # Ozon default
@@ -488,7 +484,7 @@ LOGISTIC_FORECAST_SAFETY_FACTOR=1.2
 | Аналитика продаж | Redis | 1 час | `logistic:ozon:analytics:{date}` |
 | Оборачиваемость | Redis | 1 час | `logistic:ozon:turnover:{date}` |
 | Список кластеров | Redis | 7 дней | `logistic:ozon:warehouses` |
-| Остатки 1С | Redis | до след. импорта | `logistic:1c:stocks:{import_id}` |
+| Остатки 1С | Redis | до след. sync | `logistic:brain:stocks:latest` |
 
 ### Структура кэша остатков по кластерам
 
@@ -524,7 +520,7 @@ LOGISTIC_FORECAST_SAFETY_FACTOR=1.2
 {
     "import_id": "imp_20260206_0800",
     "imported_at": "2026-02-06T08:00:00Z",
-    "source_file": "stocks_20260206.xlsx",
+    "source": "brain_stock_balance",
     "items": [
         {
             "article": "51005/54",
@@ -565,8 +561,8 @@ flowchart TD
 | `OzonAPIError` | Ozon API | 500 | Retry с exponential backoff |
 | `OzonRateLimitError` | Ozon API | 429 | Ожидание, затем retry |
 | `OzonAuthError` | Ozon API | 401/403 | Алерт администратору |
-| `FileImportError` | 1С файл | — | Логирование, алерт, пропуск файла |
-| `FileFormatError` | 1С файл | — | Логирование, уведомление |
+| `BrainDataStaleError` | brain_* таблицы | — | Алерт, повтор через 1 час |
+| `BrainDataEmptyError` | brain_* таблицы | — | Алерт администратору |
 | `SKUMappingError` | Маппинг | — | Логирование, пропуск записи |
 | `DataValidationError` | Любой | 422 | Логирование, пропуск записи |
 | `CacheError` | Redis | — | Fallback на прямой запрос |
@@ -601,27 +597,24 @@ stateDiagram-v2
     HalfOpen: Тестовые запросы
 ```
 
-### Обработка ошибок файлового импорта 1С
+### Обработка ошибок синхронизации brain_*
 
 ```mermaid
 flowchart TD
-    FILE["Файл 1С обнаружен"]
-    FORMAT{"Формат<br/>корректен?"}
-    PARSE["Парсинг файла"]
-    VALIDATE{"Валидация<br/>данных"}
+    READ["Чтение brain_stock_balance"]
+    FRESH{"Данные свежие?<br/>(loaded_at < 26ч)"}
+    VALIDATE["Валидация + маппинг"]
+    ANOMALY{"Аномалии > 50%?"}
     
-    IMPORT["Импорт в БД"]
-    ARCHIVE["Архивирование файла"]
+    SYNC["Upsert warehouse_stocks<br/>+ снимок в history"]
+    STALE_ALERT["Алерт: DATA_STALE"]
+    ANOMALY_ALERT["Алерт: STOCK_ANOMALY<br/>+ продолжить sync"]
     
-    FORMAT_ERR["Алерт: некорректный формат"]
-    PARTIAL["Частичный импорт<br/>+ лог ошибок"]
-    
-    FILE --> FORMAT
-    FORMAT -->|Да| PARSE --> VALIDATE
-    FORMAT -->|Нет| FORMAT_ERR
-    VALIDATE -->|100% OK| IMPORT --> ARCHIVE
-    VALIDATE -->|Частично| PARTIAL --> ARCHIVE
-    VALIDATE -->|Критические ошибки| FORMAT_ERR
+    READ --> FRESH
+    FRESH -->|Да| VALIDATE --> ANOMALY
+    FRESH -->|Нет| STALE_ALERT
+    ANOMALY -->|Да| ANOMALY_ALERT --> SYNC
+    ANOMALY -->|Нет| SYNC
 ```
 
 ---
@@ -636,8 +629,8 @@ flowchart TD
 | `logistic_ozon_api_errors_total` | Counter | Ошибки Ozon API |
 | `logistic_ozon_api_latency_seconds` | Histogram | Латентность запросов |
 | `logistic_stocks_sync_duration_seconds` | Histogram | Время синхронизации остатков |
-| `logistic_1c_imports_total` | Counter | Количество импортов 1С |
-| `logistic_1c_import_errors_total` | Counter | Ошибки импорта 1С |
+| `logistic_brain_sync_total` | Counter | Количество синхронизаций brain_* |
+| `logistic_brain_stale_total` | Counter | Устаревшие данные brain_* |
 | `logistic_supply_tasks_generated_total` | Counter | Сгенерированные наряд-задания |
 | `logistic_supply_tasks_completed_total` | Counter | Выполненные наряд-задания |
 | `logistic_alerts_generated_total` | Counter | Сгенерированные алерты |
@@ -659,14 +652,14 @@ logger.info(
     cache_updated=True
 )
 
-# Пример: импорт 1С
+# Пример: синхронизация brain_*
 logger.info(
-    "1c_import_completed",
-    file="stocks_20260206.xlsx",
-    records_total=2400,
-    records_imported=2380,
-    records_skipped=20,
-    duration_ms=1200
+    "brain_sync_completed",
+    source="brain_stock_balance",
+    records_validated=2380,
+    records_unmapped=20,
+    anomalies=3,
+    duration_ms=800
 )
 
 # Пример: наряд-задание
@@ -695,12 +688,12 @@ logger.info(
 | Ротация | Поддержка hot-reload конфигурации |
 | Аудит | Логирование всех API-вызовов |
 
-### Безопасность файлового импорта
+### Безопасность синхронизации brain_*
 
 | Аспект | Реализация |
 |--------|------------|
 | Директория импорта | Ограниченные права доступа (0750) |
-| Валидация файлов | Проверка расширения, размера, структуры |
+| Валидация данных | Проверка свежести loaded_at, маппинг артикулов |
 | Максимальный размер | 50 МБ |
 | Карантин | Некорректные файлы перемещаются в `/quarantine` |
 | Архивирование | Обработанные файлы → `/archive` с timestamp |
@@ -735,7 +728,7 @@ graph TD
 | Celery Workers | Увеличение числа воркеров |
 | Redis | Cluster mode (при необходимости) |
 | PostgreSQL | Read replicas (v2.0) |
-| Файловый импорт | Один обработчик, очередь файлов |
+| brain_* синхронизация | Один обработчик, последовательное чтение |
 
 ### Ограничения Ozon API
 
@@ -766,14 +759,14 @@ graph TB
         end
         
         subgraph FILES["File Storage"]
-            IMPORT_DIR["/data/imports/1c<br/>(incoming files)"]
+            PG_DB["PostgreSQL<br/>(brain_* таблицы)"]
             ARCHIVE_DIR["/data/imports/1c/archive<br/>(processed)"]
         end
     end
     
     subgraph EXTERNAL["External"]
         OZON["Ozon Seller API<br/>api-seller.ozon.ru"]
-        ONE_C["1С:Предприятие<br/>(файловая выгрузка)"]
+        BRAIN["PostgreSQL brain_*<br/>(Экстрактор данных 1С)"]
     end
     
     NGINX --> API
@@ -785,7 +778,7 @@ graph TB
     CELERY_W -->|processed| ARCHIVE_DIR
     
     CELERY_W <-->|REST API| OZON
-    ONE_C -->|SFTP / shared folder| IMPORT_DIR
+    BRAIN -->|"Прямая запись<br/>psycopg2"| PG_DB
 ```
 
 ---
@@ -803,8 +796,7 @@ celery>=5.3.0
 structlog>=24.1.0
 pydantic>=2.5.0
 sqlalchemy>=2.0.0
-openpyxl>=3.1.0      # XLSX parsing (1С)
-lxml>=5.0.0           # XML parsing (1С)
+# openpyxl, lxml — больше не требуются (файловый импорт удалён)
 numpy>=1.26.0         # Demand forecasting
 ```
 
@@ -827,7 +819,7 @@ numpy>=1.26.0         # Demand forecasting
 ├── adapters/
 │   ├── __init__.py
 │   ├── ozon_adapter.py
-│   ├── file_import_adapter.py
+│   ├── brain_data_reader.py
 │   ├── rate_limiter.py
 │   └── retry_handler.py
 ├── services/
@@ -877,3 +869,4 @@ numpy>=1.26.0         # Demand forecasting
 **Версия:** 2.0  
 **Статус:** Черновик  
 **Заменяет:** adolf_logistic_1_architecture_v1_0.md
+
