@@ -24,11 +24,11 @@ mode: "wide"
 | Ozon Excel | Файл | Еженедельно | Отчёт о реализации |
 | Яндекс.Маркет API | API | Ежедневно | Финансовый отчёт |
 | Яндекс.Маркет Excel | Файл | Еженедельно | Детализация из ЛК |
-| 1С:КА 2 → PostgreSQL | brain\_\* таблицы | Еженедельно (авто) | Выручка, себестоимость, расходы |
+| 1С:КА 2 → PostgreSQL | 1C\_\* таблицы | Еженедельно (авто) | Выручка, себестоимость, расходы |
 | Бухгалтерская первичка | Файл | По мере поступления | Накладные, акты |
 
 <Note>
-**Изменение v2.0:** Файловый обмен с 1С (CSV/XLSX → сетевая папка → парсер) полностью заменён прямой записью из 1С:КА 2 в PostgreSQL через Экстрактор данных 1С. Данные поступают в таблицы с префиксом `brain_*` и доступны CFO через PostgreSQL VIEW. Подробности — [Приложение А1: Реестр запросов 1С → PostgreSQL](/cfo/adolf_cfo_a1_1c_reports).
+**Изменение v2.0:** Файловый обмен с 1С (CSV/XLSX → сетевая папка → парсер) полностью заменён прямой записью из 1С:КА 2 в PostgreSQL через Экстрактор данных 1С. Данные поступают в таблицы с префиксом `1C_*` и доступны CFO через PostgreSQL VIEW. Подробности — [1Cexport: Реестр запросов](/1cexport/adolf_1cexport_2_query_registry).
 </Note>
 
 <Note>
@@ -50,8 +50,8 @@ graph TB
         EXCEL["Excel файлы<br/>(из ЛК маркетплейсов)"]
     end
 
-    subgraph BRAIN_DB["PostgreSQL (brain_*)"]
-        BRAIN["brain_account_turns_90<br/>brain_account_turns_90_expenses<br/>brain_nomenclature<br/>brain_nomenclature_prices"]
+    subgraph ONEC_DB["PostgreSQL (1C_*)"]
+        ONEC["1C_account_turns_90<br/>1C_account_turns_90_expenses<br/>1C_nomenclature<br/>1C_nomenclature_prices"]
     end
 
     subgraph ADAPTERS["Адаптеры"]
@@ -75,7 +75,7 @@ graph TB
         PG["PostgreSQL<br/>(cfo_* таблицы)"]
     end
 
-    ONE_C["1С:КА 2<br/>Экстрактор данных"] -->|"SQL INSERT<br/>psycopg2"| BRAIN_DB
+    ONE_C["1С:КА 2<br/>Экстрактор данных"] -->|"SQL INSERT<br/>psycopg2"| ONEC_DB
 
     WB_API --> WB_ADAPTER
     OZON_API --> OZON_ADAPTER
@@ -111,7 +111,7 @@ graph TB
 ```
 
 <Warning>
-Директория `/data/inbox/cfo/costs/` удалена в v2.0. Себестоимость больше не поступает через файловый обмен — данные записываются Экстрактором напрямую в таблицу `brain_account_turns_90`.
+Директория `/data/inbox/cfo/costs/` удалена в v2.0. Себестоимость больше не поступает через файловый обмен — данные записываются Экстрактором напрямую в таблицу `1C_account_turns_90`.
 </Warning>
 
 ---
@@ -535,20 +535,20 @@ class WBExcelParser:
 
 ---
 
-## 2.7 Данные 1С через brain\_\* VIEW
+## 2.7 Данные 1С через 1C\_\* VIEW
 
 <Info>
-**v2.0:** Данные из 1С:КА 2 поступают в PostgreSQL автоматически через Экстрактор данных 1С (Infostart #1970328). CFO читает их через PostgreSQL VIEW, без промежуточных файлов и парсеров. Полное описание таблиц и запросов — [Приложение А1](/cfo/adolf_cfo_a1_1c_reports).
+**v2.0:** Данные из 1С:КА 2 поступают в PostgreSQL автоматически через Экстрактор данных 1С (Infostart #1970328). CFO читает их через PostgreSQL VIEW, без промежуточных файлов и парсеров. Полное описание таблиц и запросов — [Приложение А1](/1cexport/adolf_1cexport_2_query_registry).
 </Info>
 
 ### 2.7.1 Источники данных 1С для CFO
 
-| Таблица brain\_\* | Запрос | Данные | Использование в CFO |
+| Таблица 1C\_\* | Запрос | Данные | Использование в CFO |
 |-------------------|--------|--------|---------------------|
-| `brain_account_turns_90` | Q-01 | Выручка и себестоимость по номенклатуре | P&L, Cost Mapping, ABC-анализ |
-| `brain_account_turns_90_expenses` | Q-02 | Коммерческие и управленческие расходы | P&L (статьи расходов) |
-| `brain_nomenclature` | Q-10 | Справочник номенклатуры | Маппинг SKU → название, бренд |
-| `brain_nomenclature_prices` | Q-11 | Цены номенклатуры | Справочные цены |
+| `1C_account_turns_90` | Q-01 | Выручка и себестоимость по номенклатуре | P&L, Cost Mapping, ABC-анализ |
+| `1C_account_turns_90_expenses` | Q-02 | Коммерческие и управленческие расходы | P&L (статьи расходов) |
+| `1C_nomenclature` | Q-10 | Справочник номенклатуры | Маппинг SKU → название, бренд |
+| `1C_nomenclature_prices` | Q-11 | Цены номенклатуры | Справочные цены |
 
 ### 2.7.2 VIEW: cfo\_v\_cost\_prices
 
@@ -570,14 +570,14 @@ SELECT
     SUM(t.quantity_dt)                  AS total_quantity,
     t.period                            AS period,
     MAX(t.loaded_at)                    AS data_freshness
-FROM brain_account_turns_90 t
+FROM 1C_account_turns_90 t
 WHERE t.account_dt = '90.02.1'
   AND t.article IS NOT NULL
   AND t.article != ''
 GROUP BY t.article, t.nomenclature, t.organization, t.period;
 
 COMMENT ON VIEW cfo_v_cost_prices IS 
-    'Себестоимость по SKU из brain_account_turns_90 (Q-01, счёт 90.02.1)';
+    'Себестоимость по SKU из 1C_account_turns_90 (Q-01, счёт 90.02.1)';
 ```
 
 ### 2.7.3 VIEW: cfo\_v\_revenue\_1c
@@ -595,14 +595,14 @@ SELECT
     SUM(t.quantity_dt)                  AS quantity,
     t.period                            AS period,
     MAX(t.loaded_at)                    AS data_freshness
-FROM brain_account_turns_90 t
+FROM 1C_account_turns_90 t
 WHERE t.account_ct = '90.01.1'
   AND t.article IS NOT NULL
   AND t.article != ''
 GROUP BY t.article, t.nomenclature, t.counterparty, t.organization, t.period;
 
 COMMENT ON VIEW cfo_v_revenue_1c IS 
-    'Выручка по SKU из brain_account_turns_90 (Q-01, счёт 90.01.1)';
+    'Выручка по SKU из 1C_account_turns_90 (Q-01, счёт 90.01.1)';
 ```
 
 ### 2.7.4 Сервис работы с себестоимостью
@@ -612,7 +612,7 @@ class CostPriceService:
     """Сервис работы с себестоимостью.
     
     v2.0: Читает из PostgreSQL VIEW cfo_v_cost_prices
-    (источник — brain_account_turns_90, заполняется Экстрактором 1С).
+    (источник — 1C_account_turns_90, заполняется Экстрактором 1С).
     """
     
     def __init__(self, db_session):
@@ -622,7 +622,7 @@ class CostPriceService:
     async def get_cost_price(self, sku: str) -> Optional[float]:
         """Получение себестоимости по SKU.
         
-        Читает из VIEW cfo_v_cost_prices (brain_account_turns_90).
+        Читает из VIEW cfo_v_cost_prices (1C_account_turns_90).
         
         Args:
             sku: Артикул товара
@@ -676,7 +676,7 @@ class CostPriceService:
         return self._cost_cache
     
     async def check_data_freshness(self) -> dict:
-        """Проверка свежести данных brain_account_turns_90.
+        """Проверка свежести данных 1C_account_turns_90.
         
         Returns:
             Словарь с информацией о свежести данных
@@ -755,7 +755,7 @@ class NormalizedTransaction:
     
     # Финансы
     revenue: float                # Выручка (цена продажи)
-    cost_price: Optional[float]   # Себестоимость (из brain_*, по SKU)
+    cost_price: Optional[float]   # Себестоимость (из 1C_*, по SKU)
     commission: float             # Комиссия МП
     logistics: float              # Логистика до покупателя
     return_logistics: float       # Обратная логистика
@@ -878,7 +878,7 @@ class TransactionNormalizer:
 | Valid marketplace | `marketplace IN (wb, ozon, ym)` | Reject |
 | Valid date | Дата не в будущем | Reject |
 | Duplicate check | Проверка по `external_id + marketplace` | Skip |
-| Cost price warning | Себестоимость не найдена в brain\_\* | Warning (не reject) |
+| Cost price warning | Себестоимость не найдена в 1C\_\* | Warning (не reject) |
 
 ### 2.9.2 Реализация
 
@@ -915,7 +915,7 @@ class TransactionValidator:
         if tx.sale_date and tx.sale_date > date.today():
             errors.append(f"Sale date cannot be in future: {tx.sale_date}")
         if tx.cost_price is None:
-            warnings.append(f"Cost price not found in brain_* for SKU: {tx.sku}")
+            warnings.append(f"Cost price not found in 1C_* for SKU: {tx.sku}")
         
         return ValidationResult(
             is_valid=len(errors) == 0,
@@ -1037,7 +1037,7 @@ class TransactionDeduplicator:
 class DataIngestionService:
     """Сервис импорта финансовых данных.
     
-    v2.0: Себестоимость из 1С читается из brain_* через VIEW.
+    v2.0: Себестоимость из 1С читается из 1C_* через VIEW.
     Файловый импорт себестоимости удалён.
     """
     
@@ -1067,19 +1067,19 @@ class DataIngestionService:
         """Полный импорт из всех источников.
         
         Себестоимость из 1С уже доступна через VIEW 
-        (brain_account_turns_90 → cfo_v_cost_prices).
+        (1C_account_turns_90 → cfo_v_cost_prices).
         """
         
         result = ImportResult()
         
-        # Предзагрузка кэша себестоимости из brain_*
+        # Предзагрузка кэша себестоимости из 1C_*
         await self.cost_service.get_cost_map()
         
-        # Проверка свежести данных brain_*
+        # Проверка свежести данных 1C_*
         freshness = await self.cost_service.check_data_freshness()
         if freshness["is_stale"]:
             logger.warning(
-                f"brain_account_turns_90 data is stale! "
+                f"1C_account_turns_90 data is stale! "
                 f"Last loaded: {freshness['last_loaded']}"
             )
         
@@ -1185,14 +1185,14 @@ class ImportResult:
 
 | Компонент | Было (v1.1) | Стало (v2.0) |
 |-----------|-------------|--------------|
-| Источник себестоимости | CSV/XLSX файлы из 1С → `/data/inbox/cfo/costs/` | PostgreSQL `brain_account_turns_90` (через Экстрактор данных 1С) |
+| Источник себестоимости | CSV/XLSX файлы из 1С → `/data/inbox/cfo/costs/` | PostgreSQL `1C_account_turns_90` (через Экстрактор данных 1С) |
 | CostPriceParser | Парсер CSV/XLS файлов | **Удалён** — заменён на VIEW `cfo_v_cost_prices` |
 | CSVParser | Парсер CSV из 1С | **Удалён** |
 | Директория `/data/inbox/cfo/costs/` | Каталог для файлов себестоимости | **Удалён** |
-| CostPriceService | Читал из файлов → `cfo_cost_prices` | Читает из VIEW `cfo_v_cost_prices` (поверх `brain_*`) |
+| CostPriceService | Читал из файлов → `cfo_cost_prices` | Читает из VIEW `cfo_v_cost_prices` (поверх `1C_*`) |
 | IngestionService.import\_cost\_prices() | Файловый импорт с архивированием | **Удалён** — данные уже в PostgreSQL |
-| Проверка свежести | Отсутствовала | `check_data_freshness()` — алерт при устаревших данных brain\_\* |
-| Мониторинг brain\_\* | Отсутствовал | Celery-задача (см. [Раздел 7](/cfo/adolf_cfo_7_celery)) |
+| Проверка свежести | Отсутствовала | `check_data_freshness()` — алерт при устаревших данных 1C\_\* |
+| Мониторинг 1C\_\* | Отсутствовал | Celery-задача (см. [Раздел 7](/cfo/adolf_cfo_7_celery)) |
 
 ### v1.1 (Январь 2026)
 
