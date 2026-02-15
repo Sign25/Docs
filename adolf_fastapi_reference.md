@@ -7,10 +7,16 @@ mode: "wide"
 
 **Проект:** Корпоративная AI-система автоматизации E-commerce  
 **Компонент:** Единый API Gateway  
-**Версия:** 1.1  
-**Дата:** Январь 2026
+**Версия:** 1.2  
+**Дата:** Февраль 2026
 
 ---
+
+## Изменения версии 1.2
+
+| Раздел | Изменение |
+|--------|-----------|
+| **Watcher** | Полностью переработан раздел 6 — добавлены 25+ endpoints из репозитория Sign25/watcher |
 
 ## Изменения версии 1.1
 
@@ -358,77 +364,746 @@ API ключ наследует роль и `brand_id` пользователя,
 
 ---
 
-## 6. Watcher — Мониторинг цен
+## 6. Watcher — Мониторинг продавцов
 
-### 6.1 Конкуренты
+> **Версия:** 2.0  
+> **Архитектура:** Node.js REST API + CDP Pool + Telegram Bot  
+> **Репозиторий:** [Sign25/watcher](https://github.com/Sign25/watcher)  
+> **Base URL:** `https://agent.adolf.su/api/v1`
 
-#### GET /watcher/competitors
+Система мониторинга продавцов на маркетплейсах (Wildberries, Ozon, Яндекс.Маркет). Собирает данные каталогов через реальные браузеры на домашних ПК, подключённых по FRP-туннелям.
 
-Список отслеживаемых конкурентов.
+### 6.1 Продавцы (Sellers)
+
+#### GET /sellers
+
+Список отслеживаемых продавцов.
 
 **Доступ:** Manager+
 
+**Query параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| marketplace | string | Фильтр по маркетплейсу (wb, ozon, ymarket) |
+| status | string | Фильтр по статусу (active, paused, removed) |
+
+**Пример ответа:**
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "marketplace": "wb",
+      "seller_id": "125487",
+      "name": "Конкурент А",
+      "slug": "konkurent-a",
+      "status": "active",
+      "priority": 1,
+      "schedule_hours": 72,
+      "enrich_schedule_hours": 24,
+      "last_scan_at": "2026-01-31T03:15:00Z",
+      "next_scan_at": "2026-02-03T03:15:00Z",
+      "last_enriched_at": "2026-01-31T06:00:00Z",
+      "next_enrich_at": "2026-02-01T06:00:00Z",
+      "products_count": 450
+    }
+  ],
+  "total": 25
+}
+```
+
 ---
 
-#### POST /watcher/competitors
+#### GET /sellers/\{id\}
 
-Добавление конкурента.
+Детали продавца + информация о последнем скане.
+
+**Доступ:** Manager+
+
+**Пример ответа:**
+
+```json
+{
+  "id": 1,
+  "marketplace": "wb",
+  "seller_id": "125487",
+  "name": "Конкурент А",
+  "slug": "konkurent-a",
+  "url": "https://www.wildberries.ru/seller/125487",
+  "status": "active",
+  "priority": 1,
+  "schedule_hours": 72,
+  "enrich_schedule_hours": 24,
+  "last_scan": {
+    "id": 156,
+    "status": "completed",
+    "products_found": 450,
+    "new_products": 12,
+    "removed_products": 3,
+    "price_changes": 28,
+    "duration_sec": 245,
+    "completed_at": "2026-01-31T03:19:05Z"
+  },
+  "stats": {
+    "total_scans": 45,
+    "successful_scans": 43,
+    "avg_products": 445,
+    "avg_duration_sec": 230
+  }
+}
+```
+
+---
+
+#### POST /sellers
+
+Добавление нового продавца для мониторинга.
+
+**Доступ:** Senior+
+
+**Тело запроса:**
+
+```json
+{
+  "marketplace": "wb",
+  "seller_id": "125487",
+  "name": "Конкурент А",
+  "url": "https://www.wildberries.ru/seller/125487",
+  "slug": "konkurent-a"
+}
+```
+
+**Пример ответа:**
+
+```json
+{
+  "id": 26,
+  "marketplace": "wb",
+  "seller_id": "125487",
+  "name": "Конкурент А",
+  "status": "active",
+  "created_at": "2026-01-31T10:00:00Z"
+}
+```
+
+---
+
+#### PUT /sellers/\{id\}
+
+Обновление настроек продавца.
+
+**Доступ:** Senior+
+
+**Тело запроса:**
+
+```json
+{
+  "name": "Конкурент А (обновлено)",
+  "priority": 2,
+  "schedule_hours": 48,
+  "status": "active",
+  "enrich_schedule_hours": 12
+}
+```
+
+---
+
+#### DELETE /sellers/\{id\}
+
+Удаление продавца (мягкое — status=removed).
 
 **Доступ:** Senior+
 
 ---
 
-### 6.2 Цены
+#### GET /sellers/\{id\}/products
 
-#### GET /watcher/prices
+Товары из последнего скана продавца.
 
-История цен с фильтрами.
+**Доступ:** Manager+
+
+**Пример ответа:**
+
+```json
+{
+  "seller_id": 1,
+  "scan_id": 156,
+  "scanned_at": "2026-01-31T03:19:05Z",
+  "items": [
+    {
+      "sku": "12345678",
+      "name": "Платье летнее",
+      "price": 2990,
+      "old_price": 4500,
+      "discount": 34,
+      "rating": 4.8,
+      "reviews_count": 156,
+      "badges": ["bestseller", "sale"]
+    }
+  ],
+  "total": 450
+}
+```
+
+---
+
+#### GET /sellers/\{id\}/enriched
+
+Обогащённые данные товаров продавца.
+
+**Доступ:** Manager+
+
+**Пример ответа:**
+
+```json
+{
+  "seller_id": 1,
+  "enriched_at": "2026-01-31T06:00:00Z",
+  "items": [
+    {
+      "sku": "12345678",
+      "name": "Платье летнее",
+      "brand": "NoName",
+      "category": "Женская одежда / Платья",
+      "composition": "95% хлопок, 5% эластан",
+      "sizes": ["42", "44", "46", "48", "50"],
+      "colors": ["красный", "синий", "чёрный"],
+      "seller_rating": 4.9,
+      "delivery_days": 2,
+      "warehouse": "Коледино"
+    }
+  ],
+  "total": 450
+}
+```
+
+---
+
+#### GET /sellers/\{id\}/diff
+
+Сравнение двух последних сканов (новые, удалённые, изменения цен).
+
+**Доступ:** Manager+
+
+**Пример ответа:**
+
+```json
+{
+  "seller_id": 1,
+  "current_scan_id": 156,
+  "previous_scan_id": 155,
+  "diff": {
+    "new_products": [
+      {"sku": "99999999", "name": "Новый товар", "price": 1990}
+    ],
+    "removed_products": [
+      {"sku": "11111111", "name": "Удалённый товар"}
+    ],
+    "price_changes": [
+      {
+        "sku": "12345678",
+        "name": "Платье летнее",
+        "old_price": 3490,
+        "new_price": 2990,
+        "change_percent": -14.3
+      }
+    ]
+  },
+  "summary": {
+    "new_count": 12,
+    "removed_count": 3,
+    "price_up_count": 5,
+    "price_down_count": 23
+  }
+}
+```
+
+---
+
+### 6.2 Сканирование (Scans)
+
+#### GET /scans
+
+История сканирований.
+
+**Доступ:** Manager+
+
+**Query параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| seller_id | int | Фильтр по продавцу |
+| status | string | completed, failed, running, queued |
+| limit | int | Количество записей (по умолчанию 50) |
+
+**Пример ответа:**
+
+```json
+{
+  "items": [
+    {
+      "id": 156,
+      "seller_id": 1,
+      "seller_name": "Конкурент А",
+      "marketplace": "wb",
+      "task_type": "scan",
+      "status": "completed",
+      "source": "schedule",
+      "products_found": 450,
+      "new_products": 12,
+      "removed_products": 3,
+      "price_changes": 28,
+      "pc_port": 9312,
+      "duration_sec": 245,
+      "started_at": "2026-01-31T03:15:00Z",
+      "completed_at": "2026-01-31T03:19:05Z"
+    }
+  ],
+  "total": 1250
+}
+```
+
+---
+
+#### GET /scans/\{id\}
+
+Детали скана + список товаров.
 
 **Доступ:** Manager+
 
 ---
 
-#### GET /watcher/prices/comparison
+#### POST /scans
 
-Сравнение с конкурентами.
+Создание задачи сканирования вручную.
+
+**Доступ:** Senior+
+
+**Тело запроса:**
+
+```json
+{
+  "seller_id": 1
+}
+```
+
+**Пример ответа:**
+
+```json
+{
+  "id": 157,
+  "seller_id": 1,
+  "status": "queued",
+  "source": "manual",
+  "created_at": "2026-01-31T10:00:00Z"
+}
+```
+
+---
+
+#### POST /enrichments
+
+Создание задачи обогащения вручную.
+
+**Доступ:** Senior+
+
+**Тело запроса:**
+
+```json
+{
+  "seller_id": 1
+}
+```
+
+---
+
+### 6.3 Товары и история цен (Products)
+
+#### GET /products/\{sku\}
+
+Данные товара по SKU.
+
+**Доступ:** Manager+
+
+**Query параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| marketplace | string | wb, ozon, ymarket |
+
+**Пример ответа:**
+
+```json
+{
+  "sku": "12345678",
+  "marketplace": "wb",
+  "name": "Платье летнее",
+  "current_price": 2990,
+  "old_price": 4500,
+  "discount": 34,
+  "rating": 4.8,
+  "reviews_count": 156,
+  "seller_id": 1,
+  "seller_name": "Конкурент А",
+  "last_seen_at": "2026-01-31T03:19:05Z"
+}
+```
+
+---
+
+#### GET /products/\{sku\}/enriched
+
+Обогащённые данные товара.
 
 **Доступ:** Manager+
 
 ---
 
-### 6.3 Алерты
+#### GET /products/\{sku\}/history
 
-#### GET /watcher/alerts
+История цен товара.
 
-Алерты о изменениях цен.
+**Доступ:** Manager+
+
+**Query параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| limit | int | Количество записей (по умолчанию 100) |
+
+**Пример ответа:**
+
+```json
+{
+  "sku": "12345678",
+  "history": [
+    {
+      "price": 2990,
+      "old_price": 4500,
+      "discount": 34,
+      "recorded_at": "2026-01-31T03:19:05Z"
+    },
+    {
+      "price": 3490,
+      "old_price": 4500,
+      "discount": 22,
+      "recorded_at": "2026-01-28T03:15:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 6.4 Файлы результатов
+
+#### GET /files/catalog
+
+Список файлов каталога (архив сканов).
 
 **Доступ:** Manager+
 
 ---
 
-### 6.4 Agent API
+#### GET /files/enriched
 
-#### GET /watcher/tasks/next
+Список файлов обогащения.
 
-Получение задачи агентом.
-
-**Доступ:** Agent API Key
+**Доступ:** Manager+
 
 ---
 
-#### POST /watcher/tasks/\{task_id\}/report
+#### GET /files/\{type\}/\{filename\}
 
-Отправка результата задачи.
+Скачивание файла результата.
 
-**Доступ:** Agent API Key
+**Доступ:** Manager+
+
+**Параметры пути:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| type | string | catalog или enriched |
+| filename | string | Имя файла (например, wb_seller_1_2026-01-31.json) |
 
 ---
 
-#### POST /watcher/agents/heartbeat
+### 6.5 CDP Pool API
 
-Проверка состояния агента.
+#### GET /pool/status
 
-**Доступ:** Agent API Key
+Статус всех ПК в пуле (проксирует CDP Pool /status).
+
+**Доступ:** Administrator
+
+**Пример ответа:**
+
+```json
+{
+  "pcs": [
+    {
+      "port": 9312,
+      "name": "office-pc-1",
+      "status": "stable",
+      "busy": false,
+      "current_task": null,
+      "online_since": "2026-01-31T08:00:00Z",
+      "chrome_version": "121.0.6167.85"
+    },
+    {
+      "port": 9315,
+      "name": "home-pc-2",
+      "status": "busy",
+      "busy": true,
+      "current_task": "scan_156",
+      "online_since": "2026-01-31T07:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /pool/summary
+
+Сводка по пулу ПК.
+
+**Доступ:** Administrator
+
+**Пример ответа:**
+
+```json
+{
+  "total": 8,
+  "online": 6,
+  "stable": 5,
+  "busy": 2,
+  "free": 3
+}
+```
+
+---
+
+### 6.6 Задачи и статистика
+
+#### GET /tasks
+
+Текущие running + queued задачи.
+
+**Доступ:** Manager+
+
+**Пример ответа:**
+
+```json
+{
+  "running": [
+    {
+      "id": 157,
+      "seller_name": "Конкурент А",
+      "task_type": "scan",
+      "pc_port": 9312,
+      "started_at": "2026-01-31T10:05:00Z",
+      "progress": "scrolling catalog"
+    }
+  ],
+  "queued": [
+    {
+      "id": 158,
+      "seller_name": "Конкурент Б",
+      "task_type": "enrich",
+      "queued_at": "2026-01-31T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /stats
+
+Общая статистика системы.
+
+**Доступ:** Manager+
+
+**Пример ответа:**
+
+```json
+{
+  "sellers": {
+    "total": 25,
+    "active": 22,
+    "paused": 2,
+    "removed": 1
+  },
+  "scans": {
+    "total": 1250,
+    "today": 15,
+    "success_rate": 95.6
+  },
+  "products": {
+    "total_tracked": 11250,
+    "price_changes_today": 156
+  },
+  "pool": {
+    "total_pcs": 8,
+    "online": 6,
+    "busy": 2
+  }
+}
+```
+
+---
+
+### 6.7 Monitor Web UI API
+
+> **Base URL:** `https://agent.adolf.su/api`  
+> **Назначение:** Веб-интерфейс мониторинга и настройки
+
+#### GET /api/agents
+
+Статус ПК с логами.
+
+**Доступ:** Administrator (Web Auth)
+
+---
+
+#### GET /api/summary
+
+Сводка пула.
+
+**Доступ:** Administrator
+
+---
+
+#### GET /api/config
+
+Конфигурация системы + схема валидации.
+
+**Доступ:** Administrator
+
+---
+
+#### PUT /api/config
+
+Обновление параметра конфигурации.
+
+**Доступ:** Administrator
+
+**Тело запроса:**
+
+```json
+{
+  "key": "scheduler.defaultScanScheduleHours",
+  "value": 48
+}
+```
+
+---
+
+#### GET /api/sellers
+
+Список продавцов с очередями и статистикой.
+
+**Доступ:** Manager+
+
+---
+
+#### POST /api/sellers
+
+Добавление продавца через Web UI.
+
+**Доступ:** Senior+
+
+---
+
+#### PUT /api/sellers/\{id\}/status
+
+Обновление статуса продавца.
+
+**Доступ:** Senior+
+
+**Тело запроса:**
+
+```json
+{
+  "status": "paused"
+}
+```
+
+---
+
+#### GET /api/frp
+
+Карта FRP-портов (статус, прокси, трафик).
+
+**Доступ:** Administrator
+
+---
+
+#### GET /api/sftp/config
+
+SFTP-конфигурация (пароль маскирован).
+
+**Доступ:** Administrator
+
+---
+
+#### PUT /api/sftp/config
+
+Обновление SFTP-настроек.
+
+**Доступ:** Administrator
+
+---
+
+#### POST /api/sftp/test
+
+Тест SFTP-подключения.
+
+**Доступ:** Administrator
+
+---
+
+#### GET /api/sftp/transfers
+
+История SFTP-выгрузок + статистика.
+
+**Доступ:** Administrator
+
+---
+
+#### GET /api/frp-client
+
+Скачать ZIP с FRP-клиентом для домашнего ПК.
+
+**Доступ:** Administrator
+
+---
+
+### 6.8 Telegram Bot команды
+
+> **Точка входа:** `node bot.js`  
+> **Управление:** Через Telegram-чат с ботом
+
+| Команда | Описание |
+|---------|----------|
+| `WB125487` / `OZ465656` / `YM213246` | Быстрый скан (префикс определяет маркетплейс) |
+| `/add <mp> <id> <имя>` | Добавить продавца |
+| `/scan <id>` | Запустить скан вручную |
+| `/enrich <id>` | Обогатить данные продавца |
+| `/autoenrich <id> [часы]` | Автообогащение (0 = выкл, по умолчанию 24ч) |
+| `/list` | Список продавцов |
+| `/queue` | Текущая очередь |
+| `/running` | Активные задачи |
+| `/history [N]` | История сканов |
+| `/status` | Общий статус системы |
+| `/pc` | Статус ПК в пуле |
+| `/screenshot` | Скриншот браузера |
+| `/result <id>` / `/diff <id>` / `/file <id>` | Результаты |
+| `/retry` | Повторить упавшие задачи |
+| `/summary` | Сводка |
 
 ---
 
@@ -1626,7 +2301,7 @@ User → Open WebUI → Claude + MCP Tools → WooCommerce MCP Server → ohana.
 | Auth | 4 | Session, API Keys |
 | Knowledge | 4 | Search, Product, Documents |
 | Reputation | 9 | Items, Bulk, Analytics |
-| Watcher | 10 | Competitors, Prices, Alerts, Agent API |
+| **Watcher** | **28** | Sellers, Scans, Products, Files, Pool, Tasks, Stats, Monitor API |
 | Content Factory | 7 | Generate, Drafts, Publish |
 | Marketing | 12 | Campaigns, Keywords, Bids, Stats |
 | Scout | 3 | Analyze, Analyses |
@@ -1639,7 +2314,7 @@ User → Open WebUI → Claude + MCP Tools → WooCommerce MCP Server → ohana.
 | **Office** | **5** | Agents, History, Heartbeat |
 | **Logistic** | **10** | Stocks, Cross-docking, Recommendations, Alerts, Warehouses, Settings |
 | **Shop** | **0** | Работает через MCP |
-| **Итого** | **89** | |
+| **Итого** | **107** | |
 
 ---
 
