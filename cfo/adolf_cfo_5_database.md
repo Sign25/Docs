@@ -27,14 +27,14 @@ mode: "wide"
 | `cfo_alerts` | Таблица | История алертов |
 | `cfo_reports` | Таблица | Сохранённые отчёты |
 | `cfo_settings` | Таблица | Настройки модуля |
-| `cfo_v_cost_prices` | VIEW | Себестоимость по SKU (поверх `brain_account_turns_90`) |
+| `cfo_v_cost_prices` | VIEW | Себестоимость по SKU (поверх `1C_account_turns_90`) |
 | `cfo_v_revenue_1c` | VIEW | Выручка по данным 1С (для сверки) |
 | `vw_cfo_pnl_summary` | VIEW | Сводка P&L по дням |
 | `vw_cfo_loss_makers` | VIEW | Убыточные SKU |
 | `vw_cfo_unmapped_costs` | VIEW | SKU без себестоимости |
 
 <Note>
-**Изменение v2.0:** Таблица `cfo_cost_prices` удалена. Себестоимость теперь читается из VIEW `cfo_v_cost_prices`, построенного поверх `brain_account_turns_90` (заполняется Экстрактором данных 1С). Подробности — [Приложение А1](/cfo/adolf_cfo_a1_1c_reports).
+**Изменение v2.0:** Таблица `cfo_cost_prices` удалена. Себестоимость теперь читается из VIEW `cfo_v_cost_prices`, построенного поверх `1C_account_turns_90` (заполняется Экстрактором данных 1С). Подробности — [Приложение А1](/1cexport/adolf_1cexport_2_query_registry).
 </Note>
 
 <Note>
@@ -47,8 +47,8 @@ mode: "wide"
 
 ```mermaid
 erDiagram
-    brain_account_turns_90 ||--o| cfo_v_cost_prices : "VIEW"
-    brain_account_turns_90 ||--o| cfo_v_revenue_1c : "VIEW"
+    1C_account_turns_90 ||--o| cfo_v_cost_prices : "VIEW"
+    1C_account_turns_90 ||--o| cfo_v_revenue_1c : "VIEW"
     cfo_transactions ||--o{ cfo_pnl_daily : "aggregates"
     cfo_v_cost_prices ||--o{ cfo_pnl_daily : "provides COGS"
     cfo_pnl_daily ||--o{ cfo_pnl_aggregated : "rolls up"
@@ -57,7 +57,7 @@ erDiagram
     cfo_pnl_daily ||--o{ cfo_anomalies : "detects"
     cfo_anomalies ||--o{ cfo_alerts : "triggers"
 
-    brain_account_turns_90 {
+    1C_account_turns_90 {
         date period
         varchar nomenclature
         varchar article "SKU"
@@ -111,11 +111,11 @@ erDiagram
 
 ---
 
-## 5.3 Связь CFO с brain\_\* таблицами
+## 5.3 Связь CFO с 1C\_\* таблицами
 
 ### 5.3.1 Архитектура доступа
 
-CFO использует подход **VIEW поверх brain\_\*** — без дублирования данных, с real-time доступом.
+CFO использует подход **VIEW поверх 1C\_\*** — без дублирования данных, с real-time доступом.
 
 ```mermaid
 flowchart LR
@@ -124,10 +124,10 @@ flowchart LR
     end
 
     subgraph PG["PostgreSQL"]
-        subgraph BRAIN["brain_* (запись Экстрактором)"]
-            B90["brain_account_turns_90"]
-            B90E["brain_account_turns_90_expenses"]
-            BNOM["brain_nomenclature"]
+        subgraph ONEC["1C_* (запись Экстрактором)"]
+            O90["1C_account_turns_90"]
+            O90E["1C_account_turns_90_expenses"]
+            ONOM["1C_nomenclature"]
         end
         subgraph VIEWS["VIEW (чтение CFO)"]
             VCP["cfo_v_cost_prices"]
@@ -146,17 +146,17 @@ flowchart LR
     TRX -->|"агрегация"| PNL
 ```
 
-### 5.3.2 Таблицы brain\_\*, используемые CFO
+### 5.3.2 Таблицы 1C\_\*, используемые CFO
 
-| Таблица brain\_\* | Запрос | Данные | VIEW CFO |
+| Таблица 1C\_\* | Запрос | Данные | VIEW CFO |
 |-------------------|--------|--------|----------|
-| `brain_account_turns_90` | Q-01 | Выручка и себестоимость по номенклатуре | `cfo_v_cost_prices`, `cfo_v_revenue_1c` |
-| `brain_account_turns_90_expenses` | Q-02 | Коммерческие и управленческие расходы | — (прямые запросы) |
-| `brain_nomenclature` | Q-10 | Справочник номенклатуры | — (прямые запросы) |
-| `brain_nomenclature_prices` | Q-11 | Цены номенклатуры | — (прямые запросы) |
+| `1C_account_turns_90` | Q-01 | Выручка и себестоимость по номенклатуре | `cfo_v_cost_prices`, `cfo_v_revenue_1c` |
+| `1C_account_turns_90_expenses` | Q-02 | Коммерческие и управленческие расходы | — (прямые запросы) |
+| `1C_nomenclature` | Q-10 | Справочник номенклатуры | — (прямые запросы) |
+| `1C_nomenclature_prices` | Q-11 | Цены номенклатуры | — (прямые запросы) |
 
 <Info>
-Полная структура `brain_*` таблиц описана в [Приложении А1: Реестр запросов 1С → PostgreSQL](/cfo/adolf_cfo_a1_1c_reports). Таблицы `brain_*` принадлежат пользователю `brain_writer` и доступны CFO на чтение.
+Полная структура `1C_*` таблиц описана в [Приложении А1: Реестр запросов 1С → PostgreSQL](/1cexport/adolf_1cexport_2_query_registry). Таблицы `1C_*` принадлежат пользователю `1c_writer` и доступны CFO на чтение.
 </Info>
 
 ### 5.3.3 VIEW: cfo\_v\_cost\_prices
@@ -178,14 +178,14 @@ SELECT
     SUM(t.quantity_dt)                  AS total_quantity,
     t.period                            AS period,
     MAX(t.loaded_at)                    AS data_freshness
-FROM brain_account_turns_90 t
+FROM 1C_account_turns_90 t
 WHERE t.account_dt = '90.02.1'
   AND t.article IS NOT NULL
   AND t.article != ''
 GROUP BY t.article, t.nomenclature, t.organization, t.period;
 
 COMMENT ON VIEW cfo_v_cost_prices IS 
-    'Себестоимость по SKU из brain_account_turns_90 (Q-01, счёт 90.02.1). Заменяет таблицу cfo_cost_prices.';
+    'Себестоимость по SKU из 1C_account_turns_90 (Q-01, счёт 90.02.1). Заменяет таблицу cfo_cost_prices.';
 ```
 
 ### 5.3.4 VIEW: cfo\_v\_revenue\_1c
@@ -203,14 +203,14 @@ SELECT
     SUM(t.quantity_dt)                  AS quantity,
     t.period                            AS period,
     MAX(t.loaded_at)                    AS data_freshness
-FROM brain_account_turns_90 t
+FROM 1C_account_turns_90 t
 WHERE t.account_ct = '90.01.1'
   AND t.article IS NOT NULL
   AND t.article != ''
 GROUP BY t.article, t.nomenclature, t.counterparty, t.organization, t.period;
 
 COMMENT ON VIEW cfo_v_revenue_1c IS 
-    'Выручка по SKU из brain_account_turns_90 (Q-01, счёт 90.01.1). Для сверки с данными МП.';
+    'Выручка по SKU из 1C_account_turns_90 (Q-01, счёт 90.01.1). Для сверки с данными МП.';
 ```
 
 ---
@@ -278,7 +278,7 @@ COMMENT ON TABLE cfo_transactions IS 'Финансовые транзакции 
 COMMENT ON COLUMN cfo_transactions.external_id IS 'Уникальный ID из источника (srid для WB, operation_id для Ozon)';
 COMMENT ON COLUMN cfo_transactions.marketplace IS 'Маркетплейс: wb, ozon, ym';
 COMMENT ON COLUMN cfo_transactions.source IS 'Источник данных: api или excel';
-COMMENT ON COLUMN cfo_transactions.sku IS 'Артикул продавца — основной идентификатор для связи с brain_*';
+COMMENT ON COLUMN cfo_transactions.sku IS 'Артикул продавца — основной идентификатор для связи с 1C_*';
 COMMENT ON COLUMN cfo_transactions.barcode IS 'Штрихкод из API/Excel МП (опционально, не из 1С)';
 COMMENT ON COLUMN cfo_transactions.revenue IS 'Выручка (цена продажи с учётом скидок)';
 COMMENT ON COLUMN cfo_transactions.payout IS 'Сумма к выплате продавцу';
@@ -366,8 +366,8 @@ CREATE INDEX idx_cfo_pnl_daily_unmapped ON cfo_pnl_daily(sku) WHERE cogs_mapped 
 
 -- Комментарии
 COMMENT ON TABLE cfo_pnl_daily IS 'Ежедневный P&L по SKU';
-COMMENT ON COLUMN cfo_pnl_daily.cogs IS 'Себестоимость из cfo_v_cost_prices (brain_account_turns_90)';
-COMMENT ON COLUMN cfo_pnl_daily.cogs_mapped IS 'Флаг наличия себестоимости в brain_*';
+COMMENT ON COLUMN cfo_pnl_daily.cogs IS 'Себестоимость из cfo_v_cost_prices (1C_account_turns_90)';
+COMMENT ON COLUMN cfo_pnl_daily.cogs_mapped IS 'Флаг наличия себестоимости в 1C_*';
 COMMENT ON COLUMN cfo_pnl_daily.net_margin_pct IS 'Чистая маржа в процентах';
 ```
 
@@ -378,7 +378,7 @@ COMMENT ON COLUMN cfo_pnl_daily.net_margin_pct IS 'Чистая маржа в п
 Структура таблиц `cfo_pnl_aggregated`, `cfo_abc_snapshots`, `cfo_abc_results`, `cfo_anomalies`, `cfo_alerts`, `cfo_reports`, `cfo_settings` не изменилась в v2.0.
 
 <Info>
-Полный DDL остальных таблиц см. в файле миграции `001_create_cfo_schema.sql`. В версии 2.0 изменения затрагивают только удаление `cfo_cost_prices` и добавление VIEW поверх `brain_*`.
+Полный DDL остальных таблиц см. в файле миграции `001_create_cfo_schema.sql`. В версии 2.0 изменения затрагивают только удаление `cfo_cost_prices` и добавление VIEW поверх `1C_*`.
 </Info>
 
 ---
@@ -448,7 +448,7 @@ WHERE cogs_mapped = FALSE
 GROUP BY sku, marketplace
 ORDER BY total_revenue DESC;
 
-COMMENT ON VIEW vw_cfo_unmapped_costs IS 'SKU без себестоимости в brain_*';
+COMMENT ON VIEW vw_cfo_unmapped_costs IS 'SKU без себестоимости в 1C_*';
 ```
 
 ---
@@ -458,14 +458,14 @@ COMMENT ON VIEW vw_cfo_unmapped_costs IS 'SKU без себестоимости 
 ### 5.14.1 Скрипт миграции
 
 ```sql
--- Migration: 003_cfo_brain_views.sql
+-- Migration: 003_cfo_1c_views.sql
 -- Version: 2.0
 -- Date: 2026-02
--- Description: Переход на brain_* VIEW, удаление cfo_cost_prices
+-- Description: Переход на 1C_* VIEW, удаление cfo_cost_prices
 
 BEGIN;
 
--- 1. Создание VIEW для себестоимости поверх brain_*
+-- 1. Создание VIEW для себестоимости поверх 1C_*
 CREATE OR REPLACE VIEW cfo_v_cost_prices AS
 SELECT
     t.article                           AS sku,
@@ -480,14 +480,14 @@ SELECT
     SUM(t.quantity_dt)                  AS total_quantity,
     t.period                            AS period,
     MAX(t.loaded_at)                    AS data_freshness
-FROM brain_account_turns_90 t
+FROM 1C_account_turns_90 t
 WHERE t.account_dt = '90.02.1'
   AND t.article IS NOT NULL
   AND t.article != ''
 GROUP BY t.article, t.nomenclature, t.organization, t.period;
 
 COMMENT ON VIEW cfo_v_cost_prices IS 
-    'Себестоимость по SKU из brain_account_turns_90 (Q-01, счёт 90.02.1)';
+    'Себестоимость по SKU из 1C_account_turns_90 (Q-01, счёт 90.02.1)';
 
 -- 2. Создание VIEW для выручки (сверка)
 CREATE OR REPLACE VIEW cfo_v_revenue_1c AS
@@ -500,14 +500,14 @@ SELECT
     SUM(t.quantity_dt)                  AS quantity,
     t.period                            AS period,
     MAX(t.loaded_at)                    AS data_freshness
-FROM brain_account_turns_90 t
+FROM 1C_account_turns_90 t
 WHERE t.account_ct = '90.01.1'
   AND t.article IS NOT NULL
   AND t.article != ''
 GROUP BY t.article, t.nomenclature, t.counterparty, t.organization, t.period;
 
 COMMENT ON VIEW cfo_v_revenue_1c IS 
-    'Выручка по SKU из brain_account_turns_90 (Q-01, счёт 90.01.1)';
+    'Выручка по SKU из 1C_account_turns_90 (Q-01, счёт 90.01.1)';
 
 -- 3. Удаление устаревшей таблицы cfo_cost_prices
 -- Сначала бэкап на случай отката
@@ -518,20 +518,20 @@ DROP TABLE IF EXISTS cfo_cost_prices CASCADE;
 
 -- 4. Обновление комментариев зависимых таблиц
 COMMENT ON COLUMN cfo_pnl_daily.cogs IS 
-    'Себестоимость из cfo_v_cost_prices (brain_account_turns_90)';
+    'Себестоимость из cfo_v_cost_prices (1C_account_turns_90)';
 COMMENT ON COLUMN cfo_pnl_daily.cogs_mapped IS 
-    'Флаг наличия себестоимости в brain_*';
+    'Флаг наличия себестоимости в 1C_*';
 
 -- 5. Удаление настройки cost_identifier (больше не нужна)
 DELETE FROM cfo_settings WHERE key = 'cost_identifier';
 
--- 6. Добавление настройки brain_freshness_threshold
+-- 6. Добавление настройки 1c_freshness_threshold
 INSERT INTO cfo_settings (key, value, value_type, description)
 VALUES (
-    'brain_freshness_threshold_hours', 
+    '1c_freshness_threshold_hours', 
     '240', 
     'integer', 
-    'Порог устаревания brain_* данных в часах (10 дней)'
+    'Порог устаревания 1C_* данных в часах (10 дней)'
 )
 ON CONFLICT (key) DO NOTHING;
 
@@ -541,7 +541,7 @@ COMMIT;
 ### 5.14.2 Откат миграции
 
 ```sql
--- Rollback: 003_cfo_brain_views.sql
+-- Rollback: 003_cfo_1c_views.sql
 
 BEGIN;
 
@@ -563,7 +563,7 @@ INSERT INTO cfo_settings (key, value, value_type, description)
 VALUES ('cost_identifier', '"sku"', 'string', 'Идентификатор для связи с себестоимостью')
 ON CONFLICT (key) DO NOTHING;
 
-DELETE FROM cfo_settings WHERE key = 'brain_freshness_threshold_hours';
+DELETE FROM cfo_settings WHERE key = '1c_freshness_threshold_hours';
 
 -- 5. Удаление бэкапа
 DROP TABLE IF EXISTS cfo_cost_prices_backup_v11;
@@ -614,12 +614,12 @@ COMMIT;
 
 | Объект | Изменение | Описание |
 |--------|-----------|----------|
-| `cfo_cost_prices` | **Удалена** | Заменена VIEW `cfo_v_cost_prices` поверх `brain_account_turns_90` |
+| `cfo_cost_prices` | **Удалена** | Заменена VIEW `cfo_v_cost_prices` поверх `1C_account_turns_90` |
 | `cfo_v_cost_prices` | **Создан VIEW** | Себестоимость из бухучёта (счёт 90.02.1) |
 | `cfo_v_revenue_1c` | **Создан VIEW** | Выручка из бухучёта (счёт 90.01.1), для сверки |
-| ER-диаграмма | Обновлена | Добавлен блок `brain_*` как источник данных |
-| Раздел 5.3 | **Новый** | Описание связи CFO ↔ brain\_\* |
-| `cfo_settings` | Добавлена настройка | `brain_freshness_threshold_hours = 240` |
+| ER-диаграмма | Обновлена | Добавлен блок `1C_*` как источник данных |
+| Раздел 5.3 | **Новый** | Описание связи CFO ↔ 1C\_\* |
+| `cfo_settings` | Добавлена настройка | `1c_freshness_threshold_hours = 240` |
 
 ### v1.1 (Январь 2026)
 
