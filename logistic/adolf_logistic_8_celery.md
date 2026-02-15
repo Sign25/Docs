@@ -856,7 +856,7 @@ celery -A logistic.celery_config worker \
     -Q logistic.sync -c 2 \
     --loglevel=INFO -n sync@%h
 
-# Brain worker (1C_* sync)
+# 1C worker (1C_* sync)
 celery -A logistic.celery_config worker \
     -Q logistic.1c -c 1 \
     --loglevel=INFO -n brain@%h
