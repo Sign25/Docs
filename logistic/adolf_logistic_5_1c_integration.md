@@ -17,7 +17,7 @@ mode: "wide"
 
 1С Integration — компонент модуля Logistic, отвечающий за:
 
-- Чтение данных из PostgreSQL-таблиц `brain_*`, наполняемых Экстрактором данных 1С
+- Чтение данных из PostgreSQL-таблиц `1C_*`, наполняемых Экстрактором данных 1С
 - Маппинг артикулов 1С → offer_id Ozon → ozon_sku
 - Валидацию и обнаружение аномалий в остатках
 - Ведение истории остатков (`logistic_stock_history`) для трендов и аналитики
@@ -29,14 +29,14 @@ mode: "wide"
 flowchart LR
     subgraph EXTRACTOR["Экстрактор данных 1С"]
         direction TB
-        E1["Q-06: brain_stock_balance"]
-        E2["Q-07: brain_customer_orders"]
-        E3["Q-08: brain_supplier_orders"]
-        E4["Q-09: brain_goods_receipts"]
+        E1["Q-06: 1C_stock_balance"]
+        E2["Q-07: 1C_customer_orders"]
+        E3["Q-08: 1C_supplier_orders"]
+        E4["Q-09: 1C_goods_receipts"]
     end
 
     subgraph INTEGRATION["1С Integration"]
-        READER["BrainDataReader<br/>чтение brain_* таблиц"]
+        READER["OneCDataReader<br/>чтение 1C_* таблиц"]
         VALIDATOR["ImportValidator<br/>маппинг + валидация"]
         HISTORY["HistoryService<br/>снимки + аномалии"]
     end
@@ -55,38 +55,38 @@ flowchart LR
 
 | Параметр | v2.0 (файловый обмен) | v3.0 (PostgreSQL) |
 |----------|----------------------|-------------------|
-| Источник | XLSX/XML файлы через SFTP | Таблицы `brain_*` в PostgreSQL |
+| Источник | XLSX/XML файлы через SFTP | Таблицы `1C_*` в PostgreSQL |
 | Доставка данных | FileScanner → FileImportAdapter | Прямое чтение SQL |
-| Компоненты | FileScanner, FileImportAdapter, ImportService | BrainDataReader, ImportValidator, HistoryService |
+| Компоненты | FileScanner, FileImportAdapter, ImportService | OneCDataReader, ImportValidator, HistoryService |
 | Парсинг | openpyxl, lxml | Не требуется |
-| Мониторинг | Сканирование директории | Проверка `loaded_at` в `brain_*` |
+| Мониторинг | Сканирование директории | Проверка `loaded_at` в `1C_*` |
 | Архивирование | Перемещение файлов в YYYY-MM/ | Не требуется |
 | История остатков | warehouse_stocks_history | logistic_stock_history |
 
 <Warning>
-Компоненты `FileScanner`, `FileImportAdapter`, SFTP/сетевая папка и форматы XLSX/XML удалены. Данные поступают через Экстрактор данных 1С напрямую в PostgreSQL. Подробнее — [Приложение А1: Реестр запросов 1С → PostgreSQL](/cfo/adolf_cfo_a1_1c_reports).
+Компоненты `FileScanner`, `FileImportAdapter`, SFTP/сетевая папка и форматы XLSX/XML удалены. Данные поступают через Экстрактор данных 1С напрямую в PostgreSQL. Подробнее — [1Cexport: Реестр запросов](/1cexport/adolf_1cexport_2_query_registry).
 </Warning>
 
 ---
 
-## 5.2 Источники данных (brain_* таблицы)
+## 5.2 Источники данных (1C_* таблицы)
 
-Все таблицы наполняются Экстрактором данных 1С ежедневно. Подробные спецификации — в [Приложении А1](/cfo/adolf_cfo_a1_1c_reports).
+Все таблицы наполняются Экстрактором данных 1С ежедневно. Подробные спецификации — в [Реестре запросов 1Cexport](/1cexport/adolf_1cexport_2_query_registry).
 
 | Таблица | Запрос | Расписание | Назначение в Logistic |
 |---------|:------:|:----------:|----------------------|
-| `brain_stock_balance` | Q-06 | 06:00 ежедневно | Остатки на внутреннем складе (основной источник для Stock Monitor) |
-| `brain_customer_orders` | Q-07 | 06:15 ежедневно | Незакрытые заказы клиентов → прогноз спроса |
-| `brain_supplier_orders` | Q-08 | 06:30 ежедневно | Открытые заказы поставщикам → товар в пути |
-| `brain_goods_receipts` | Q-09 | 06:45 ежедневно | Поступления за 7 дней → скорость пополнения |
+| `1C_stock_balance` | Q-06 | 06:00 ежедневно | Остатки на внутреннем складе (основной источник для Stock Monitor) |
+| `1C_customer_orders` | Q-07 | 06:15 ежедневно | Незакрытые заказы клиентов → прогноз спроса |
+| `1C_supplier_orders` | Q-08 | 06:30 ежедневно | Открытые заказы поставщикам → товар в пути |
+| `1C_goods_receipts` | Q-09 | 06:45 ежедневно | Поступления за 7 дней → скорость пополнения |
 
 ### Ключевые поля для маппинга
 
-Поле `article` во всех таблицах `brain_*` соответствует `offer_id` в Ozon. Маппинг `article → ozon_sku` выполняется через таблицу `sku_mapping`.
+Поле `article` во всех таблицах `1C_*` соответствует `offer_id` в Ozon. Маппинг `article → ozon_sku` выполняется через таблицу `sku_mapping`.
 
 ```mermaid
 flowchart LR
-    BRAIN["brain_stock_balance<br/>article: '51005/54'"]
+    ONEC["1C_stock_balance<br/>article: '51005/54'"]
     SKU["sku_mapping<br/>article → ozon_sku"]
     OZON["Ozon API<br/>ozon_sku: 1234567"]
 
@@ -95,9 +95,9 @@ flowchart LR
 
 ---
 
-## 5.3 BrainDataReader
+## 5.3 OneCDataReader
 
-Компонент чтения данных из `brain_*` таблиц. Заменяет `FileScanner` + `FileImportAdapter`.
+Компонент чтения данных из `1C_*` таблиц. Заменяет `FileScanner` + `FileImportAdapter`.
 
 ```python
 from dataclasses import dataclass
@@ -105,12 +105,12 @@ from datetime import datetime, timedelta
 from typing import Optional
 import structlog
 
-logger = structlog.get_logger("logistic.brain_reader")
+logger = structlog.get_logger("logistic.1c_reader")
 
 
 @dataclass
 class BrainStockRow:
-    """Строка остатка из brain_stock_balance."""
+    """Строка остатка из 1C_stock_balance."""
     article: str
     nomenclature: str
     warehouse: str
@@ -120,8 +120,8 @@ class BrainStockRow:
 
 
 @dataclass
-class BrainReadResult:
-    """Результат чтения brain_* таблицы."""
+class OneCReadResult:
+    """Результат чтения 1C_* таблицы."""
     rows: list
     table_name: str
     loaded_at: datetime | None
@@ -129,8 +129,8 @@ class BrainReadResult:
     is_fresh: bool           # loaded_at < порога свежести
 
 
-class BrainDataReader:
-    """Чтение данных из brain_* таблиц PostgreSQL."""
+class OneCDataReader:
+    """Чтение данных из 1C_* таблиц PostgreSQL."""
 
     # Порог свежести: если loaded_at старше — алерт
     FRESHNESS_THRESHOLD_HOURS = 26
@@ -140,19 +140,19 @@ class BrainDataReader:
 
     async def read_stock_balance(
         self, warehouse: str | None = None
-    ) -> BrainReadResult:
+    ) -> OneCReadResult:
         """
-        Чтение остатков из brain_stock_balance.
+        Чтение остатков из 1C_stock_balance.
         Основной источник для Stock Monitor (dual-source).
         """
-        query = "SELECT * FROM brain_stock_balance"
+        query = "SELECT * FROM 1C_stock_balance"
         params = {}
         if warehouse:
             query += " WHERE warehouse = :warehouse"
             params["warehouse"] = warehouse
 
         rows = await self.db.fetch_all(query, params)
-        loaded_at = await self._get_loaded_at("brain_stock_balance")
+        loaded_at = await self._get_loaded_at("1C_stock_balance")
 
         stock_rows = [
             BrainStockRow(
@@ -169,43 +169,43 @@ class BrainDataReader:
         is_fresh = self._check_freshness(loaded_at)
         if not is_fresh:
             logger.warning(
-                "brain_data_stale",
-                table="brain_stock_balance",
+                "1c_data_stale",
+                table="1C_stock_balance",
                 loaded_at=str(loaded_at),
                 threshold_hours=self.FRESHNESS_THRESHOLD_HOURS
             )
 
-        return BrainReadResult(
+        return OneCReadResult(
             rows=stock_rows,
-            table_name="brain_stock_balance",
+            table_name="1C_stock_balance",
             loaded_at=loaded_at,
             row_count=len(stock_rows),
             is_fresh=is_fresh
         )
 
-    async def read_customer_orders(self) -> BrainReadResult:
+    async def read_customer_orders(self) -> OneCReadResult:
         """Чтение незакрытых заказов клиентов (Q-07)."""
         rows = await self.db.fetch_all(
-            "SELECT * FROM brain_customer_orders"
+            "SELECT * FROM 1C_customer_orders"
         )
-        loaded_at = await self._get_loaded_at("brain_customer_orders")
-        return BrainReadResult(
+        loaded_at = await self._get_loaded_at("1C_customer_orders")
+        return OneCReadResult(
             rows=rows,
-            table_name="brain_customer_orders",
+            table_name="1C_customer_orders",
             loaded_at=loaded_at,
             row_count=len(rows),
             is_fresh=self._check_freshness(loaded_at)
         )
 
-    async def read_supplier_orders(self) -> BrainReadResult:
+    async def read_supplier_orders(self) -> OneCReadResult:
         """Чтение открытых заказов поставщикам (Q-08)."""
         rows = await self.db.fetch_all(
-            "SELECT * FROM brain_supplier_orders"
+            "SELECT * FROM 1C_supplier_orders"
         )
-        loaded_at = await self._get_loaded_at("brain_supplier_orders")
-        return BrainReadResult(
+        loaded_at = await self._get_loaded_at("1C_supplier_orders")
+        return OneCReadResult(
             rows=rows,
-            table_name="brain_supplier_orders",
+            table_name="1C_supplier_orders",
             loaded_at=loaded_at,
             row_count=len(rows),
             is_fresh=self._check_freshness(loaded_at)
@@ -213,24 +213,24 @@ class BrainDataReader:
 
     async def read_goods_receipts(
         self, days_back: int = 7
-    ) -> BrainReadResult:
+    ) -> OneCReadResult:
         """Чтение поступлений товаров за период (Q-09)."""
         rows = await self.db.fetch_all(
-            "SELECT * FROM brain_goods_receipts "
+            "SELECT * FROM 1C_goods_receipts "
             "WHERE document_date >= :since",
             {"since": datetime.now() - timedelta(days=days_back)}
         )
-        loaded_at = await self._get_loaded_at("brain_goods_receipts")
-        return BrainReadResult(
+        loaded_at = await self._get_loaded_at("1C_goods_receipts")
+        return OneCReadResult(
             rows=rows,
-            table_name="brain_goods_receipts",
+            table_name="1C_goods_receipts",
             loaded_at=loaded_at,
             row_count=len(rows),
             is_fresh=self._check_freshness(loaded_at)
         )
 
     async def _get_loaded_at(self, table: str) -> datetime | None:
-        """Получить время последней загрузки из brain_* таблицы."""
+        """Получить время последней загрузки из 1C_* таблицы."""
         row = await self.db.fetch_one(
             f"SELECT MAX(loaded_at) as last FROM {table}"
         )
@@ -247,7 +247,7 @@ class BrainDataReader:
 
 ## 5.4 ImportValidator
 
-Валидация и маппинг артикулов. Сохранён из v2.0, адаптирован для чтения из `brain_*`.
+Валидация и маппинг артикулов. Сохранён из v2.0, адаптирован для чтения из `1C_*`.
 
 ```python
 @dataclass
@@ -262,7 +262,7 @@ class ValidatedStock:
 
 
 class ImportValidator:
-    """Валидация данных из brain_* и маппинг артикулов."""
+    """Валидация данных из 1C_* и маппинг артикулов."""
 
     ANOMALY_THRESHOLD_PCT = 50.0
 
@@ -271,10 +271,10 @@ class ImportValidator:
         self.history = history_repo
 
     async def validate_stocks(
-        self, brain_result: BrainReadResult
+        self, 1c_result: OneCReadResult
     ) -> tuple[list[ValidatedStock], list[str]]:
         """
-        Валидация остатков из brain_stock_balance.
+        Валидация остатков из 1C_stock_balance.
 
         Returns:
             (validated, unmapped_articles)
@@ -284,7 +284,7 @@ class ImportValidator:
         validated = []
         unmapped = []
 
-        for row in brain_result.rows:
+        for row in 1c_result.rows:
             if row.article not in known_articles:
                 unmapped.append(row.article)
                 continue
@@ -349,13 +349,13 @@ class HistoryService:
 
     def __init__(
         self,
-        brain_reader: BrainDataReader,
+        1c_reader: OneCDataReader,
         validator: ImportValidator,
         history_repo,
         stock_repo,
         alert_service
     ):
-        self.reader = brain_reader
+        self.reader = 1c_reader
         self.validator = validator
         self.history_repo = history_repo
         self.stock_repo = stock_repo
@@ -364,7 +364,7 @@ class HistoryService:
     async def sync_stocks(self) -> dict:
         """
         Основной цикл синхронизации:
-        1. Чтение brain_stock_balance
+        1. Чтение 1C_stock_balance
         2. Валидация + маппинг
         3. Снимок в logistic_stock_history
         4. Обнаружение аномалий
@@ -374,23 +374,23 @@ class HistoryService:
         Вызывается Celery-задачей после 06:00 ежедневно.
         """
         # 1. Чтение
-        brain_result = await self.reader.read_stock_balance()
+        1c_result = await self.reader.read_stock_balance()
 
-        if not brain_result.is_fresh:
+        if not 1c_result.is_fresh:
             await self.alerts.create_alert(
                 type="DATA_STALE",
                 severity="HIGH",
                 message=(
-                    f"brain_stock_balance: loaded_at="
-                    f"{brain_result.loaded_at}, "
-                    f"порог={BrainDataReader.FRESHNESS_THRESHOLD_HOURS}ч"
+                    f"1C_stock_balance: loaded_at="
+                    f"{1c_result.loaded_at}, "
+                    f"порог={OneCDataReader.FRESHNESS_THRESHOLD_HOURS}ч"
                 )
             )
-            return {"status": "stale", "loaded_at": str(brain_result.loaded_at)}
+            return {"status": "stale", "loaded_at": str(1c_result.loaded_at)}
 
         # 2. Валидация
         validated, unmapped = await self.validator.validate_stocks(
-            brain_result
+            1c_result
         )
 
         if not validated:
@@ -399,7 +399,7 @@ class HistoryService:
         # 3. Снимок истории (до upsert)
         await self.history_repo.save_snapshot(
             stocks=validated,
-            loaded_at=brain_result.loaded_at
+            loaded_at=1c_result.loaded_at
         )
 
         # 4. Аномалии
@@ -430,7 +430,7 @@ class HistoryService:
             "validated": len(validated),
             "unmapped": len(unmapped),
             "anomalies": len(anomalies),
-            "loaded_at": str(brain_result.loaded_at)
+            "loaded_at": str(1c_result.loaded_at)
         }
 ```
 
@@ -449,7 +449,7 @@ CREATE TABLE logistic_stock_history (
     warehouse_stock INTEGER NOT NULL,
     brand_id VARCHAR(50) NOT NULL,
     balance_date DATE NOT NULL,
-    brain_loaded_at TIMESTAMP WITH TIME ZONE,
+    1c_loaded_at TIMESTAMP WITH TIME ZONE,
     snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -459,7 +459,7 @@ CREATE INDEX idx_lsh_snapshot
     ON logistic_stock_history(snapshot_at);
 
 COMMENT ON TABLE logistic_stock_history
-    IS 'История остатков внутреннего склада (снимки из brain_stock_balance)';
+    IS 'История остатков внутреннего склада (снимки из 1C_stock_balance)';
 ```
 
 ### HistoryRepository
@@ -474,7 +474,7 @@ class StockHistoryRepository:
         """Сохранить снимок текущих остатков."""
         query = """
             INSERT INTO logistic_stock_history
-            (article, warehouse_stock, brand_id, balance_date, brain_loaded_at)
+            (article, warehouse_stock, brand_id, balance_date, 1c_loaded_at)
             VALUES (:article, :stock, :brand, :date, :loaded)
         """
         for s in stocks:
@@ -548,11 +548,11 @@ router = APIRouter(prefix="/logistic/1c", tags=["1C Integration"])
 @router.get("/stocks")
 async def get_warehouse_stocks(
     brand_id: str | None = Query(None),
-    reader: BrainDataReader = Depends(get_brain_reader),
+    reader: OneCDataReader = Depends(get_1c_reader),
     validator: ImportValidator = Depends(get_validator),
     current_user: User = Depends(get_current_user)
 ) -> dict:
-    """Текущие остатки из brain_stock_balance с маппингом."""
+    """Текущие остатки из 1C_stock_balance с маппингом."""
     result = await reader.read_stock_balance()
     validated, unmapped = await validator.validate_stocks(result)
     if brand_id:
@@ -568,11 +568,11 @@ async def get_warehouse_stocks(
 @router.get("/stocks/{article}")
 async def get_article_stock(
     article: str,
-    reader: BrainDataReader = Depends(get_brain_reader)
+    reader: OneCDataReader = Depends(get_1c_reader)
 ) -> dict:
     """Остаток конкретного артикула."""
     row = await reader.db.fetch_one(
-        "SELECT * FROM brain_stock_balance WHERE article = :article",
+        "SELECT * FROM 1C_stock_balance WHERE article = :article",
         {"article": article}
     )
     return {"article": article, "stock": row if row else None}
@@ -590,39 +590,39 @@ async def get_stock_history(
 
 @router.get("/customer-orders")
 async def get_customer_orders(
-    reader: BrainDataReader = Depends(get_brain_reader)
-) -> BrainReadResult:
-    """Незакрытые заказы клиентов из brain_customer_orders."""
+    reader: OneCDataReader = Depends(get_1c_reader)
+) -> OneCReadResult:
+    """Незакрытые заказы клиентов из 1C_customer_orders."""
     return await reader.read_customer_orders()
 
 
 @router.get("/supplier-orders")
 async def get_supplier_orders(
-    reader: BrainDataReader = Depends(get_brain_reader)
-) -> BrainReadResult:
-    """Открытые заказы поставщикам из brain_supplier_orders."""
+    reader: OneCDataReader = Depends(get_1c_reader)
+) -> OneCReadResult:
+    """Открытые заказы поставщикам из 1C_supplier_orders."""
     return await reader.read_supplier_orders()
 
 
 @router.get("/goods-receipts")
 async def get_goods_receipts(
     days: int = Query(7, le=30),
-    reader: BrainDataReader = Depends(get_brain_reader)
-) -> BrainReadResult:
+    reader: OneCDataReader = Depends(get_1c_reader)
+) -> OneCReadResult:
     """Поступления товаров за период."""
     return await reader.read_goods_receipts(days_back=days)
 
 
 @router.get("/freshness")
 async def check_data_freshness(
-    reader: BrainDataReader = Depends(get_brain_reader)
+    reader: OneCDataReader = Depends(get_1c_reader)
 ) -> dict:
-    """Проверка свежести всех brain_* таблиц Logistic."""
+    """Проверка свежести всех 1C_* таблиц Logistic."""
     tables = [
-        "brain_stock_balance",
-        "brain_customer_orders",
-        "brain_supplier_orders",
-        "brain_goods_receipts"
+        "1C_stock_balance",
+        "1C_customer_orders",
+        "1C_supplier_orders",
+        "1C_goods_receipts"
     ]
     result = {}
     for table in tables:
@@ -689,12 +689,12 @@ async def export_supply_tasks(
 CELERY_BEAT_SCHEDULE = {
     # Синхронизация остатков (после загрузки Экстрактором в 06:00)
     "sync-brain-stocks": {
-        "task": "logistic.tasks.sync_brain_stocks",
+        "task": "logistic.tasks.sync_1c_stocks",
         "schedule": crontab(hour=6, minute=30),
     },
-    # Проверка свежести brain_* таблиц
+    # Проверка свежести 1C_* таблиц
     "check-brain-freshness": {
-        "task": "logistic.tasks.check_brain_freshness",
+        "task": "logistic.tasks.check_1c_freshness",
         "schedule": crontab(hour=8, minute=0),
     },
     # Синхронизация маппинга из Ozon (еженедельно)
@@ -714,29 +714,29 @@ CELERY_BEAT_SCHEDULE = {
 
 ```python
 @shared_task(bind=True, max_retries=2, default_retry_delay=300)
-def sync_brain_stocks(self):
-    """Синхронизация остатков из brain_stock_balance."""
+def sync_1c_stocks(self):
+    """Синхронизация остатков из 1C_stock_balance."""
     import asyncio
     service = get_history_service()
     return asyncio.run(service.sync_stocks())
 
 
 @shared_task
-def check_brain_freshness():
+def check_1c_freshness():
     """
-    Проверка свежести данных в brain_* таблицах.
+    Проверка свежести данных в 1C_* таблицах.
     Алерт если loaded_at старше 26 часов.
     """
     import asyncio
 
     async def _check():
-        reader = get_brain_reader()
+        reader = get_1c_reader()
         alerts = get_alert_service()
         tables = [
-            "brain_stock_balance",
-            "brain_customer_orders",
-            "brain_supplier_orders",
-            "brain_goods_receipts"
+            "1C_stock_balance",
+            "1C_customer_orders",
+            "1C_supplier_orders",
+            "1C_goods_receipts"
         ]
         stale = []
         for table in tables:
@@ -785,7 +785,7 @@ def cleanup_stock_history():
 
 | Тип | Severity | Триггер | Описание |
 |-----|----------|---------|----------|
-| `DATA_STALE` | HIGH | `loaded_at` > 26 часов | Экстрактор не обновил brain_* |
+| `DATA_STALE` | HIGH | `loaded_at` > 26 часов | Экстрактор не обновил 1C_* |
 | `STOCK_ANOMALY` | MEDIUM | Изменение остатка > 50% | Аномальное изменение остатков |
 | `UNMAPPED_ARTICLES` | MEDIUM | > 10 артикулов без маппинга | Нужна синхронизация с Ozon |
 | `SYNC_SUCCESS` | LOW | Успешная синхронизация | N строк обработано |
@@ -799,12 +799,12 @@ def cleanup_stock_history():
 adolf_logistic_5_1c_integration.md (v3.0)
 
 Контекст: файловый обмен (XLSX/XML) заменён на чтение из
-PostgreSQL-таблиц brain_*, наполняемых Экстрактором данных 1С.
+PostgreSQL-таблиц 1C_*, наполняемых Экстрактором данных 1С.
 
 Требования:
-1. BrainDataReader: чтение из brain_stock_balance (Q-06),
-   brain_customer_orders (Q-07), brain_supplier_orders (Q-08),
-   brain_goods_receipts (Q-09). Проверка свежести loaded_at
+1. OneCDataReader: чтение из 1C_stock_balance (Q-06),
+   1C_customer_orders (Q-07), 1C_supplier_orders (Q-08),
+   1C_goods_receipts (Q-09). Проверка свежести loaded_at
    (порог 26 часов).
 2. ImportValidator: маппинг article → offer_id → ozon_sku через
    таблицу sku_mapping. Обнаружение аномалий (Δ > 50%).
@@ -817,7 +817,7 @@ PostgreSQL-таблиц brain_*, наполняемых Экстрактором
    /customer-orders, /supplier-orders, /goods-receipts,
    /freshness, /mapping. POST /sync, /mapping/sync-ozon.
    GET /export/supply-tasks.
-6. Celery: sync_brain_stocks 06:30, check_brain_freshness 08:00,
+6. Celery: sync_1c_stocks 06:30, check_1c_freshness 08:00,
    sync_sku_mapping еженедельно (пн), cleanup ежемесячно.
 7. Алерты: DATA_STALE, STOCK_ANOMALY, UNMAPPED_ARTICLES.
 
