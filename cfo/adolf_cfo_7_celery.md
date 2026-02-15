@@ -156,7 +156,7 @@ def import_marketplace_data():
         raise
 ```
 
-### monitor\_brain\_freshness
+### monitor\_1c\_freshness
 
 Контроль актуальности данных в таблицах `1C_*`. Если данные устарели — алерт администратору.
 
@@ -200,7 +200,7 @@ def monitor_1c_freshness():
         }
         
     except Exception as e:
-        reporter.report_error(f"Brain freshness check: {e}")
+        reporter.report_error(f"1C freshness check: {e}")
         raise
 ```
 
@@ -277,8 +277,8 @@ def office_heartbeat():
 | transactions\_saved | Транзакций сохранено при последнем импорте |
 | transactions\_invalid | Невалидных транзакций при последнем импорте |
 | reports\_generated\_today | Отчётов сгенерировано за день |
-| brain\_last\_loaded | Время последней загрузки 1C\_\* |
-| brain\_is\_stale | Флаг устаревания данных 1C\_\* |
+| 1c\_last\_loaded | Время последней загрузки 1C\_\* |
+| 1c\_is\_stale | Флаг устаревания данных 1C\_\* |
 
 ---
 
