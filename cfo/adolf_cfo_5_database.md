@@ -5,32 +5,40 @@ mode: "wide"
 
 **Проект:** Финансовый учёт и управленческая аналитика  
 **Модуль:** CFO  
-**Версия:** 1.1  
-**Дата:** Январь 2026
+**Версия:** 2.0  
+**Дата:** Февраль 2026
 
 ---
 
 ## 5.1 Назначение
 
-Раздел описывает схему базы данных модуля CFO: таблицы, индексы, связи и политики хранения.
+Раздел описывает схему базы данных модуля CFO: таблицы, VIEW, индексы, связи и политики хранения.
 
-### Таблицы модуля
+### Таблицы и VIEW модуля
 
-| Таблица | Описание |
-|---------|----------|
-| `cfo_transactions` | Финансовые транзакции с маркетплейсов |
-| `cfo_cost_prices` | Справочник себестоимости |
-| `cfo_pnl_daily` | Ежедневный P&L по SKU |
-| `cfo_pnl_aggregated` | Агрегированный P&L по периодам |
-| `cfo_abc_results` | Результаты ABC-анализа |
-| `cfo_abc_snapshots` | Снимки ABC-анализа |
-| `cfo_anomalies` | Обнаруженные аномалии |
-| `cfo_alerts` | История алертов |
-| `cfo_reports` | Сохранённые отчёты |
-| `cfo_settings` | Настройки модуля |
+| Объект | Тип | Описание |
+|--------|-----|----------|
+| `cfo_transactions` | Таблица | Финансовые транзакции с маркетплейсов |
+| `cfo_pnl_daily` | Таблица | Ежедневный P&L по SKU |
+| `cfo_pnl_aggregated` | Таблица | Агрегированный P&L по периодам |
+| `cfo_abc_results` | Таблица | Результаты ABC-анализа |
+| `cfo_abc_snapshots` | Таблица | Снимки ABC-анализа |
+| `cfo_anomalies` | Таблица | Обнаруженные аномалии |
+| `cfo_alerts` | Таблица | История алертов |
+| `cfo_reports` | Таблица | Сохранённые отчёты |
+| `cfo_settings` | Таблица | Настройки модуля |
+| `cfo_v_cost_prices` | VIEW | Себестоимость по SKU (поверх `brain_account_turns_90`) |
+| `cfo_v_revenue_1c` | VIEW | Выручка по данным 1С (для сверки) |
+| `vw_cfo_pnl_summary` | VIEW | Сводка P&L по дням |
+| `vw_cfo_loss_makers` | VIEW | Убыточные SKU |
+| `vw_cfo_unmapped_costs` | VIEW | SKU без себестоимости |
 
 <Note>
-**Изменение v1.1:** Связывание транзакций с себестоимостью выполняется по полю SKU (артикул). Поле barcode является опциональным и используется только для данных из API/Excel маркетплейсов, но не из 1С.
+**Изменение v2.0:** Таблица `cfo_cost_prices` удалена. Себестоимость теперь читается из VIEW `cfo_v_cost_prices`, построенного поверх `brain_account_turns_90` (заполняется Экстрактором данных 1С). Подробности — [Приложение А1](/cfo/adolf_cfo_a1_1c_reports).
+</Note>
+
+<Note>
+Связывание транзакций с себестоимостью выполняется по полю SKU (артикул). Поле barcode является опциональным и используется только для данных из API/Excel маркетплейсов, но не из 1С.
 </Note>
 
 ---
@@ -39,13 +47,36 @@ mode: "wide"
 
 ```mermaid
 erDiagram
+    brain_account_turns_90 ||--o| cfo_v_cost_prices : "VIEW"
+    brain_account_turns_90 ||--o| cfo_v_revenue_1c : "VIEW"
     cfo_transactions ||--o{ cfo_pnl_daily : "aggregates"
-    cfo_cost_prices ||--o{ cfo_pnl_daily : "provides COGS"
+    cfo_v_cost_prices ||--o{ cfo_pnl_daily : "provides COGS"
     cfo_pnl_daily ||--o{ cfo_pnl_aggregated : "rolls up"
     cfo_pnl_daily ||--o{ cfo_abc_results : "analyzed"
     cfo_abc_snapshots ||--o{ cfo_abc_results : "contains"
     cfo_pnl_daily ||--o{ cfo_anomalies : "detects"
     cfo_anomalies ||--o{ cfo_alerts : "triggers"
+
+    brain_account_turns_90 {
+        date period
+        varchar nomenclature
+        varchar article "SKU"
+        varchar counterparty
+        varchar account_dt
+        varchar account_ct
+        decimal amount_dt
+        decimal amount_ct
+        decimal quantity_dt
+        timestamp loaded_at
+    }
+
+    cfo_v_cost_prices {
+        varchar sku "PK (from article)"
+        varchar product_name
+        decimal cost_price "calculated"
+        date period
+        timestamp data_freshness
+    }
 
     cfo_transactions {
         bigint id PK
@@ -54,14 +85,6 @@ erDiagram
         varchar sku
         decimal revenue
         date sale_date
-    }
-
-    cfo_cost_prices {
-        bigint id PK
-        varchar sku UK
-        varchar product_name
-        decimal cost_price
-        boolean is_active
     }
 
     cfo_pnl_daily {
@@ -88,13 +111,117 @@ erDiagram
 
 ---
 
-## 5.3 Таблица cfo_transactions
+## 5.3 Связь CFO с brain\_\* таблицами
 
-### 5.3.1 Описание
+### 5.3.1 Архитектура доступа
+
+CFO использует подход **VIEW поверх brain\_\*** — без дублирования данных, с real-time доступом.
+
+```mermaid
+flowchart LR
+    subgraph ONE_C["1С:КА 2"]
+        EXT["Экстрактор данных"]
+    end
+
+    subgraph PG["PostgreSQL"]
+        subgraph BRAIN["brain_* (запись Экстрактором)"]
+            B90["brain_account_turns_90"]
+            B90E["brain_account_turns_90_expenses"]
+            BNOM["brain_nomenclature"]
+        end
+        subgraph VIEWS["VIEW (чтение CFO)"]
+            VCP["cfo_v_cost_prices"]
+            VRV["cfo_v_revenue_1c"]
+        end
+        subgraph CFO_TABLES["cfo_* (собственные)"]
+            TRX["cfo_transactions"]
+            PNL["cfo_pnl_daily"]
+        end
+    end
+
+    EXT -->|"INSERT<br/>psycopg2"| BRAIN
+    B90 --> VCP
+    B90 --> VRV
+    VCP -.->|"COGS"| PNL
+    TRX -->|"агрегация"| PNL
+```
+
+### 5.3.2 Таблицы brain\_\*, используемые CFO
+
+| Таблица brain\_\* | Запрос | Данные | VIEW CFO |
+|-------------------|--------|--------|----------|
+| `brain_account_turns_90` | Q-01 | Выручка и себестоимость по номенклатуре | `cfo_v_cost_prices`, `cfo_v_revenue_1c` |
+| `brain_account_turns_90_expenses` | Q-02 | Коммерческие и управленческие расходы | — (прямые запросы) |
+| `brain_nomenclature` | Q-10 | Справочник номенклатуры | — (прямые запросы) |
+| `brain_nomenclature_prices` | Q-11 | Цены номенклатуры | — (прямые запросы) |
+
+<Info>
+Полная структура `brain_*` таблиц описана в [Приложении А1: Реестр запросов 1С → PostgreSQL](/cfo/adolf_cfo_a1_1c_reports). Таблицы `brain_*` принадлежат пользователю `brain_writer` и доступны CFO на чтение.
+</Info>
+
+### 5.3.3 VIEW: cfo\_v\_cost\_prices
+
+Заменяет таблицу `cfo_cost_prices` (удалена в v2.0). Себестоимость рассчитывается из оборотов по счёту 90.02.1.
+
+```sql
+CREATE OR REPLACE VIEW cfo_v_cost_prices AS
+SELECT
+    t.article                           AS sku,
+    t.nomenclature                      AS product_name,
+    t.organization                      AS organization,
+    CASE 
+        WHEN SUM(t.quantity_dt) > 0 
+        THEN ROUND(SUM(t.amount_dt) / SUM(t.quantity_dt), 2)
+        ELSE NULL
+    END                                 AS cost_price,
+    SUM(t.amount_dt)                    AS total_cost,
+    SUM(t.quantity_dt)                  AS total_quantity,
+    t.period                            AS period,
+    MAX(t.loaded_at)                    AS data_freshness
+FROM brain_account_turns_90 t
+WHERE t.account_dt = '90.02.1'
+  AND t.article IS NOT NULL
+  AND t.article != ''
+GROUP BY t.article, t.nomenclature, t.organization, t.period;
+
+COMMENT ON VIEW cfo_v_cost_prices IS 
+    'Себестоимость по SKU из brain_account_turns_90 (Q-01, счёт 90.02.1). Заменяет таблицу cfo_cost_prices.';
+```
+
+### 5.3.4 VIEW: cfo\_v\_revenue\_1c
+
+Выручка по данным бухучёта — для сверки с данными маркетплейсов.
+
+```sql
+CREATE OR REPLACE VIEW cfo_v_revenue_1c AS
+SELECT
+    t.article                           AS sku,
+    t.nomenclature                      AS product_name,
+    t.counterparty                      AS counterparty,
+    t.organization                      AS organization,
+    SUM(t.amount_ct)                    AS revenue,
+    SUM(t.quantity_dt)                  AS quantity,
+    t.period                            AS period,
+    MAX(t.loaded_at)                    AS data_freshness
+FROM brain_account_turns_90 t
+WHERE t.account_ct = '90.01.1'
+  AND t.article IS NOT NULL
+  AND t.article != ''
+GROUP BY t.article, t.nomenclature, t.counterparty, t.organization, t.period;
+
+COMMENT ON VIEW cfo_v_revenue_1c IS 
+    'Выручка по SKU из brain_account_turns_90 (Q-01, счёт 90.01.1). Для сверки с данными МП.';
+```
+
+---
+
+## 5.4 Таблица cfo\_transactions
+
+### 5.4.1 Описание
 
 Хранение всех финансовых транзакций с маркетплейсов. Основной источник данных для расчёта P&L.
 
-### 5.3.2 DDL
+### 5.4.2 DDL
 
 ```sql
 CREATE TABLE cfo_transactions (
@@ -151,123 +278,27 @@ COMMENT ON TABLE cfo_transactions IS 'Финансовые транзакции 
 COMMENT ON COLUMN cfo_transactions.external_id IS 'Уникальный ID из источника (srid для WB, operation_id для Ozon)';
 COMMENT ON COLUMN cfo_transactions.marketplace IS 'Маркетплейс: wb, ozon, ym';
 COMMENT ON COLUMN cfo_transactions.source IS 'Источник данных: api или excel';
-COMMENT ON COLUMN cfo_transactions.sku IS 'Артикул продавца — основной идентификатор для связи с 1С';
+COMMENT ON COLUMN cfo_transactions.sku IS 'Артикул продавца — основной идентификатор для связи с brain_*';
 COMMENT ON COLUMN cfo_transactions.barcode IS 'Штрихкод из API/Excel МП (опционально, не из 1С)';
 COMMENT ON COLUMN cfo_transactions.revenue IS 'Выручка (цена продажи с учётом скидок)';
 COMMENT ON COLUMN cfo_transactions.payout IS 'Сумма к выплате продавцу';
 ```
 
-### 5.3.3 Примеры данных
+### 5.4.3 Примеры данных
 
-| id | external_id | marketplace | sku | revenue | commission | sale_date |
-|----|-------------|-------------|-----|--------:|------------|-----------|
+| id | external\_id | marketplace | sku | revenue | commission | sale\_date |
+|----|-------------|-------------|-----|--------:|------------|-----------:|
 | 1 | abc123 | wb | OM-12345 | 2975.00 | 461.13 | 2026-01-15 |
 | 2 | def456 | ozon | OM-12345 | 2500.00 | 375.00 | 2026-01-15 |
 | 3 | ghi789 | wb | OK-54321 | 1200.00 | 180.00 | 2026-01-15 |
 
 ---
 
-## 5.4 Таблица cfo_cost_prices
-
-### 5.4.1 Описание
-
-Справочник себестоимости товаров. Загружается из 1С:Комплексная автоматизация 2 еженедельно.
-
-<Warning>
-**Изменение v1.1:** Идентификация товара производится только по полю SKU (артикул). Поле barcode удалено из таблицы, т.к. штрихкоды не выгружаются из 1С при оптовых продажах.
-</Warning>
-
-### 5.4.2 DDL
-
-```sql
-CREATE TABLE cfo_cost_prices (
-    id BIGSERIAL PRIMARY KEY,
-    
-    -- Идентификация товара (только по SKU)
-    sku VARCHAR(100) NOT NULL,
-    product_name VARCHAR(500),
-    
-    -- Себестоимость
-    cost_price DECIMAL(15,2) NOT NULL,
-    currency VARCHAR(3) NOT NULL DEFAULT 'RUB',
-    
-    -- Классификация
-    brand_id VARCHAR(100),            -- Вид номенклатуры (Охана Маркет / Охана Кидс)
-    
-    -- Период действия
-    valid_from DATE NOT NULL,
-    valid_to DATE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    
-    -- Служебные
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Constraints
-    CONSTRAINT chk_cfo_cost_prices_sku_required CHECK (sku IS NOT NULL AND sku != ''),
-    CONSTRAINT chk_cfo_cost_prices_positive CHECK (cost_price > 0)
-);
-
--- Уникальный индекс по SKU для активных записей
-CREATE UNIQUE INDEX idx_cfo_cost_prices_sku_active 
-    ON cfo_cost_prices(sku) WHERE is_active = TRUE;
-
--- Индекс для поиска по дате
-CREATE INDEX idx_cfo_cost_prices_valid_from ON cfo_cost_prices(valid_from);
-
--- Индекс по бренду
-CREATE INDEX idx_cfo_cost_prices_brand ON cfo_cost_prices(brand_id) WHERE brand_id IS NOT NULL;
-
--- Триггер обновления updated_at
-CREATE OR REPLACE FUNCTION update_cfo_cost_prices_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_cfo_cost_prices_updated
-    BEFORE UPDATE ON cfo_cost_prices
-    FOR EACH ROW
-    EXECUTE FUNCTION update_cfo_cost_prices_timestamp();
-
--- Комментарии
-COMMENT ON TABLE cfo_cost_prices IS 'Справочник себестоимости из 1С:КА 2';
-COMMENT ON COLUMN cfo_cost_prices.sku IS 'Артикул товара — единственный идентификатор для связи';
-COMMENT ON COLUMN cfo_cost_prices.brand_id IS 'Вид номенклатуры (бренд): Охана Маркет или Охана Кидс';
-COMMENT ON COLUMN cfo_cost_prices.valid_from IS 'Дата начала действия цены';
-COMMENT ON COLUMN cfo_cost_prices.valid_to IS 'Дата окончания действия (NULL = бессрочно)';
-```
-
-### 5.4.3 Примеры данных
-
-| id | sku | product_name | cost_price | brand_id | valid_from | is_active |
-|----|-----|--------------|------------|----------|------------|-----------|
-| 1 | OM-12345 | Платье летнее синее | 1200.00 | Охана Маркет | 2026-01-01 | TRUE |
-| 2 | OM-12346 | Блузка офисная белая | 800.00 | Охана Маркет | 2026-01-01 | TRUE |
-| 3 | OK-54321 | Футболка детская | 450.00 | Охана Кидс | 2026-01-01 | TRUE |
-
-### 5.4.4 Формат файла импорта
-
-Файл CSV из 1С:КА 2 должен содержать следующие колонки:
-
-| Колонка CSV | Поле таблицы | Обязательно |
-|-------------|--------------|:-----------:|
-| `sku` | `sku` | Да |
-| `product_name` | `product_name` | Да |
-| `cost_price` | `cost_price` | Да |
-| `currency` | `currency` | Нет (RUB) |
-| `valid_from` | `valid_from` | Да |
-| `brand_id` | `brand_id` | Нет |
-
----
-
-## 5.5 Таблица cfo_pnl_daily
+## 5.5 Таблица cfo\_pnl\_daily
 
 ### 5.5.1 Описание
 
-Ежедневный P&L по каждому SKU. Рассчитывается автоматически из транзакций.
+Ежедневный P&L по каждому SKU. Рассчитывается автоматически из транзакций. Себестоимость подтягивается из VIEW `cfo_v_cost_prices`.
 
 ### 5.5.2 DDL
 
@@ -335,7 +366,8 @@ CREATE INDEX idx_cfo_pnl_daily_unmapped ON cfo_pnl_daily(sku) WHERE cogs_mapped 
 
 -- Комментарии
 COMMENT ON TABLE cfo_pnl_daily IS 'Ежедневный P&L по SKU';
-COMMENT ON COLUMN cfo_pnl_daily.cogs_mapped IS 'Флаг наличия себестоимости из 1С';
+COMMENT ON COLUMN cfo_pnl_daily.cogs IS 'Себестоимость из cfo_v_cost_prices (brain_account_turns_90)';
+COMMENT ON COLUMN cfo_pnl_daily.cogs_mapped IS 'Флаг наличия себестоимости в brain_*';
 COMMENT ON COLUMN cfo_pnl_daily.net_margin_pct IS 'Чистая маржа в процентах';
 ```
 
@@ -343,17 +375,17 @@ COMMENT ON COLUMN cfo_pnl_daily.net_margin_pct IS 'Чистая маржа в п
 
 ## 5.6 — 5.12 Остальные таблицы
 
-Структура таблиц `cfo_pnl_aggregated`, `cfo_abc_snapshots`, `cfo_abc_results`, `cfo_anomalies`, `cfo_alerts`, `cfo_reports`, `cfo_settings` не изменилась.
+Структура таблиц `cfo_pnl_aggregated`, `cfo_abc_snapshots`, `cfo_abc_results`, `cfo_anomalies`, `cfo_alerts`, `cfo_reports`, `cfo_settings` не изменилась в v2.0.
 
 <Info>
-Полный DDL остальных таблиц см. в версии 1.0 документа. В версии 1.1 изменены только таблицы `cfo_cost_prices` и `cfo_transactions` (комментарии).
+Полный DDL остальных таблиц см. в файле миграции `001_create_cfo_schema.sql`. В версии 2.0 изменения затрагивают только удаление `cfo_cost_prices` и добавление VIEW поверх `brain_*`.
 </Info>
 
 ---
 
-## 5.13 Представления (Views)
+## 5.13 Аналитические VIEW
 
-### 5.13.1 View: vw_cfo_pnl_summary
+### 5.13.1 View: vw\_cfo\_pnl\_summary
 
 ```sql
 CREATE OR REPLACE VIEW vw_cfo_pnl_summary AS
@@ -374,7 +406,7 @@ GROUP BY sale_date, marketplace, brand_id;
 COMMENT ON VIEW vw_cfo_pnl_summary IS 'Сводка P&L по дням';
 ```
 
-### 5.13.2 View: vw_cfo_loss_makers
+### 5.13.2 View: vw\_cfo\_loss\_makers
 
 ```sql
 CREATE OR REPLACE VIEW vw_cfo_loss_makers AS
@@ -400,7 +432,7 @@ ORDER BY net_profit ASC;
 COMMENT ON VIEW vw_cfo_loss_makers IS 'Убыточные SKU';
 ```
 
-### 5.13.3 View: vw_cfo_unmapped_costs
+### 5.13.3 View: vw\_cfo\_unmapped\_costs
 
 ```sql
 CREATE OR REPLACE VIEW vw_cfo_unmapped_costs AS
@@ -416,14 +448,134 @@ WHERE cogs_mapped = FALSE
 GROUP BY sku, marketplace
 ORDER BY total_revenue DESC;
 
-COMMENT ON VIEW vw_cfo_unmapped_costs IS 'SKU без себестоимости';
+COMMENT ON VIEW vw_cfo_unmapped_costs IS 'SKU без себестоимости в brain_*';
 ```
 
 ---
 
-## 5.14 Миграция v1.0 → v1.1
+## 5.14 Миграция v1.1 → v2.0
 
 ### 5.14.1 Скрипт миграции
+
+```sql
+-- Migration: 003_cfo_brain_views.sql
+-- Version: 2.0
+-- Date: 2026-02
+-- Description: Переход на brain_* VIEW, удаление cfo_cost_prices
+
+BEGIN;
+
+-- 1. Создание VIEW для себестоимости поверх brain_*
+CREATE OR REPLACE VIEW cfo_v_cost_prices AS
+SELECT
+    t.article                           AS sku,
+    t.nomenclature                      AS product_name,
+    t.organization                      AS organization,
+    CASE 
+        WHEN SUM(t.quantity_dt) > 0 
+        THEN ROUND(SUM(t.amount_dt) / SUM(t.quantity_dt), 2)
+        ELSE NULL
+    END                                 AS cost_price,
+    SUM(t.amount_dt)                    AS total_cost,
+    SUM(t.quantity_dt)                  AS total_quantity,
+    t.period                            AS period,
+    MAX(t.loaded_at)                    AS data_freshness
+FROM brain_account_turns_90 t
+WHERE t.account_dt = '90.02.1'
+  AND t.article IS NOT NULL
+  AND t.article != ''
+GROUP BY t.article, t.nomenclature, t.organization, t.period;
+
+COMMENT ON VIEW cfo_v_cost_prices IS 
+    'Себестоимость по SKU из brain_account_turns_90 (Q-01, счёт 90.02.1)';
+
+-- 2. Создание VIEW для выручки (сверка)
+CREATE OR REPLACE VIEW cfo_v_revenue_1c AS
+SELECT
+    t.article                           AS sku,
+    t.nomenclature                      AS product_name,
+    t.counterparty                      AS counterparty,
+    t.organization                      AS organization,
+    SUM(t.amount_ct)                    AS revenue,
+    SUM(t.quantity_dt)                  AS quantity,
+    t.period                            AS period,
+    MAX(t.loaded_at)                    AS data_freshness
+FROM brain_account_turns_90 t
+WHERE t.account_ct = '90.01.1'
+  AND t.article IS NOT NULL
+  AND t.article != ''
+GROUP BY t.article, t.nomenclature, t.counterparty, t.organization, t.period;
+
+COMMENT ON VIEW cfo_v_revenue_1c IS 
+    'Выручка по SKU из brain_account_turns_90 (Q-01, счёт 90.01.1)';
+
+-- 3. Удаление устаревшей таблицы cfo_cost_prices
+-- Сначала бэкап на случай отката
+CREATE TABLE IF NOT EXISTS cfo_cost_prices_backup_v11 AS 
+    SELECT * FROM cfo_cost_prices;
+
+DROP TABLE IF EXISTS cfo_cost_prices CASCADE;
+
+-- 4. Обновление комментариев зависимых таблиц
+COMMENT ON COLUMN cfo_pnl_daily.cogs IS 
+    'Себестоимость из cfo_v_cost_prices (brain_account_turns_90)';
+COMMENT ON COLUMN cfo_pnl_daily.cogs_mapped IS 
+    'Флаг наличия себестоимости в brain_*';
+
+-- 5. Удаление настройки cost_identifier (больше не нужна)
+DELETE FROM cfo_settings WHERE key = 'cost_identifier';
+
+-- 6. Добавление настройки brain_freshness_threshold
+INSERT INTO cfo_settings (key, value, value_type, description)
+VALUES (
+    'brain_freshness_threshold_hours', 
+    '240', 
+    'integer', 
+    'Порог устаревания brain_* данных в часах (10 дней)'
+)
+ON CONFLICT (key) DO NOTHING;
+
+COMMIT;
+```
+
+### 5.14.2 Откат миграции
+
+```sql
+-- Rollback: 003_cfo_brain_views.sql
+
+BEGIN;
+
+-- 1. Восстановление таблицы из бэкапа
+CREATE TABLE cfo_cost_prices AS 
+    SELECT * FROM cfo_cost_prices_backup_v11;
+
+-- 2. Восстановление индексов и constraints
+ALTER TABLE cfo_cost_prices ADD PRIMARY KEY (id);
+CREATE UNIQUE INDEX idx_cfo_cost_prices_sku_active 
+    ON cfo_cost_prices(sku) WHERE is_active = TRUE;
+
+-- 3. Удаление VIEW
+DROP VIEW IF EXISTS cfo_v_cost_prices;
+DROP VIEW IF EXISTS cfo_v_revenue_1c;
+
+-- 4. Восстановление настройки
+INSERT INTO cfo_settings (key, value, value_type, description)
+VALUES ('cost_identifier', '"sku"', 'string', 'Идентификатор для связи с себестоимостью')
+ON CONFLICT (key) DO NOTHING;
+
+DELETE FROM cfo_settings WHERE key = 'brain_freshness_threshold_hours';
+
+-- 5. Удаление бэкапа
+DROP TABLE IF EXISTS cfo_cost_prices_backup_v11;
+
+COMMIT;
+```
+
+---
+
+## 5.15 Предыдущие миграции
+
+### Миграция v1.0 → v1.1
 
 ```sql
 -- Migration: 002_cfo_remove_barcode_from_costs.sql
@@ -433,27 +585,20 @@ COMMENT ON VIEW vw_cfo_unmapped_costs IS 'SKU без себестоимости'
 
 BEGIN;
 
--- 1. Удаление индекса по barcode
 DROP INDEX IF EXISTS idx_cfo_cost_prices_barcode_active;
-
--- 2. Удаление колонки barcode
 ALTER TABLE cfo_cost_prices DROP COLUMN IF EXISTS barcode;
 
--- 3. Изменение constraint на обязательность SKU
 ALTER TABLE cfo_cost_prices DROP CONSTRAINT IF EXISTS chk_cfo_cost_prices_identifier;
 ALTER TABLE cfo_cost_prices ADD CONSTRAINT chk_cfo_cost_prices_sku_required 
     CHECK (sku IS NOT NULL AND sku != '');
 
--- 4. Добавление колонки brand_id если отсутствует
 ALTER TABLE cfo_cost_prices 
     ADD COLUMN IF NOT EXISTS brand_id VARCHAR(100);
 
--- 5. Добавление настройки cost_identifier
 INSERT INTO cfo_settings (key, value, value_type, description)
 VALUES ('cost_identifier', '"sku"', 'string', 'Идентификатор для связи с себестоимостью')
 ON CONFLICT (key) DO NOTHING;
 
--- 6. Обновление timezone в расписании импорта
 UPDATE cfo_settings 
 SET value = '{"time": "06:00", "timezone": "Asia/Omsk"}'
 WHERE key = 'import_schedule';
@@ -461,52 +606,31 @@ WHERE key = 'import_schedule';
 COMMIT;
 ```
 
-### 5.14.2 Откат миграции
-
-```sql
--- Rollback: 002_cfo_remove_barcode_from_costs.sql
-
-BEGIN;
-
--- Восстановление колонки barcode
-ALTER TABLE cfo_cost_prices ADD COLUMN IF NOT EXISTS barcode VARCHAR(50);
-
--- Восстановление constraint
-ALTER TABLE cfo_cost_prices DROP CONSTRAINT IF EXISTS chk_cfo_cost_prices_sku_required;
-ALTER TABLE cfo_cost_prices ADD CONSTRAINT chk_cfo_cost_prices_identifier 
-    CHECK (barcode IS NOT NULL OR sku IS NOT NULL);
-
--- Восстановление индекса
-CREATE UNIQUE INDEX IF NOT EXISTS idx_cfo_cost_prices_barcode_active 
-    ON cfo_cost_prices(barcode) WHERE is_active = TRUE AND barcode IS NOT NULL;
-
-COMMIT;
-```
-
 ---
 
-## 5.15 Изменения в версии 1.1
+## 5.16 История изменений
 
-### Сводка изменений схемы БД
+### v2.0 (Февраль 2026)
 
-| Таблица | Изменение | Описание |
-|---------|-----------|----------|
+| Объект | Изменение | Описание |
+|--------|-----------|----------|
+| `cfo_cost_prices` | **Удалена** | Заменена VIEW `cfo_v_cost_prices` поверх `brain_account_turns_90` |
+| `cfo_v_cost_prices` | **Создан VIEW** | Себестоимость из бухучёта (счёт 90.02.1) |
+| `cfo_v_revenue_1c` | **Создан VIEW** | Выручка из бухучёта (счёт 90.01.1), для сверки |
+| ER-диаграмма | Обновлена | Добавлен блок `brain_*` как источник данных |
+| Раздел 5.3 | **Новый** | Описание связи CFO ↔ brain\_\* |
+| `cfo_settings` | Добавлена настройка | `brain_freshness_threshold_hours = 240` |
+
+### v1.1 (Январь 2026)
+
+| Объект | Изменение | Описание |
+|--------|-----------|----------|
 | `cfo_cost_prices` | Удалена колонка `barcode` | Идентификация только по SKU |
 | `cfo_cost_prices` | Добавлена колонка `brand_id` | Вид номенклатуры (бренд) |
-| `cfo_cost_prices` | Изменён constraint | SKU теперь обязательное поле |
-| `cfo_settings` | Добавлена настройка | `cost_identifier = 'sku'` |
 | `cfo_settings` | Изменён timezone | `Asia/Omsk` вместо `Europe/Moscow` |
-| ER-диаграмма | Обновлена | `cfo_cost_prices.sku` как UK |
-
-### Причины изменений
-
-1. **Штрихкоды не выгружаются из 1С** — типовой отчёт «Себестоимость товаров» в 1С:КА 2 не содержит колонку «Штрихкод»
-2. **Штрихкоды не указываются при оптовых продажах** — в документах реализации на маркетплейсы штрихкоды отсутствуют
-3. **Артикул (SKU) — универсальный идентификатор** — используется во всех маркетплейсах и в 1С одинаково
-4. **Часовой пояс OMS** — заказчик находится в Омске (UTC+6)
 
 ---
 
-**Документ подготовлен:** Январь 2026  
-**Версия:** 1.1  
-**Статус:** Согласовано
+**Документ подготовлен:** Февраль 2026  
+**Версия:** 2.0  
+**Статус:** Черновик
