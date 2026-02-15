@@ -16,8 +16,8 @@ mode: "wide"
 Celery обеспечивает выполнение фоновых задач модуля Logistic:
 
 - Периодическая синхронизация остатков FBO с Ozon Seller API
-- Синхронизация остатков внутреннего склада из `brain_stock_balance`
-- Проверка свежести данных в `brain_*` таблицах
+- Синхронизация остатков внутреннего склада из `1C_stock_balance`
+- Проверка свежести данных в `1C_*` таблицах
 - Ежедневная генерация наряд-заданий на отгрузку
 - Автоотмена просроченных заданий
 - Генерация алертов и очистка устаревших данных
@@ -34,8 +34,8 @@ Celery обеспечивает выполнение фоновых задач �
 | `cleanup_old_data` | `cleanup_old_data` (обновлённые таблицы) |
 | — | `sync_ozon_analytics` (продажи Ozon) |
 | — | `sync_ozon_warehouses` (кластеры) |
-| — | `sync_brain_stocks` (чтение brain_stock_balance) |
-| — | `check_brain_freshness` (мониторинг loaded_at) |
+| — | `sync_1c_stocks` (чтение 1C_stock_balance) |
+| — | `check_1c_freshness` (мониторинг loaded_at) |
 | — | `auto_cancel_expired` (автоотмена заданий) |
 | — | `generate_alerts` (алерты по остаткам) |
 | — | `cleanup_stock_history` (очистка истории остатков) |
@@ -57,7 +57,7 @@ graph TB
     
     subgraph WORKERS["Workers"]
         W_SYNC["Worker: sync<br/>(Ozon API tasks)"]
-        W_BRAIN["Worker: brain<br/>(brain_* sync tasks)"]
+        W_ONEC["Worker: 1c<br/>(1C_* sync tasks)"]
         W_LOGIC["Worker: logic<br/>(supply tasks, alerts)"]
     end
     
@@ -67,9 +67,9 @@ graph TB
         SYNC_WH["sync_ozon_warehouses<br/>⏱ еженедельно"]
     end
     
-    subgraph TASKS_BRAIN["Синхронизация 1С"]
-        SYNC_BRAIN["sync_brain_stocks<br/>⏱ ежедневно 06:30"]
-        CHECK_FRESH["check_brain_freshness<br/>⏱ ежедневно 08:00"]
+    subgraph TASKS_ONEC["Синхронизация 1С"]
+        SYNC_ONEC["sync_1c_stocks<br/>⏱ ежедневно 06:30"]
+        CHECK_FRESH["check_1c_freshness<br/>⏱ ежедневно 08:00"]
     end
     
     subgraph TASKS_LOGIC["Бизнес-логика"]
@@ -81,9 +81,9 @@ graph TB
     
     BEAT --> REDIS
     API --> REDIS
-    REDIS --> W_SYNC & W_BRAIN & W_LOGIC
+    REDIS --> W_SYNC & W_ONEC & W_LOGIC
     W_SYNC --> TASKS_SYNC
-    W_BRAIN --> TASKS_BRAIN
+    W_ONEC --> TASKS_BRAIN
     W_LOGIC --> TASKS_LOGIC
 ```
 
@@ -124,9 +124,9 @@ app.conf.update(
             "exchange": "logistic",
             "routing_key": "logistic.sync",
         },
-        "logistic.brain": {
+        "logistic.1c": {
             "exchange": "logistic",
-            "routing_key": "logistic.brain",
+            "routing_key": "logistic.1c",
         },
         "logistic.logic": {
             "exchange": "logistic",
@@ -137,9 +137,9 @@ app.conf.update(
     # Маршрутизация
     task_routes={
         "logistic.tasks.sync_ozon_*": {"queue": "logistic.sync"},
-        "logistic.tasks.sync_brain_*": {"queue": "logistic.brain"},
-        "logistic.tasks.check_brain_*": {"queue": "logistic.brain"},
-        "logistic.tasks.cleanup_stock_*": {"queue": "logistic.brain"},
+        "logistic.tasks.sync_1C_*": {"queue": "logistic.1c"},
+        "logistic.tasks.check_1C_*": {"queue": "logistic.1c"},
+        "logistic.tasks.cleanup_stock_*": {"queue": "logistic.1c"},
         "logistic.tasks.generate_*": {"queue": "logistic.logic"},
         "logistic.tasks.auto_cancel_*": {"queue": "logistic.logic"},
         "logistic.tasks.cleanup_old_*": {"queue": "logistic.logic"},
@@ -161,13 +161,13 @@ app.conf.update(
             "schedule": crontab(hour=2, minute=0, day_of_week=1),
         },
         
-        # === Синхронизация 1С (brain_* таблицы) ===
+        # === Синхронизация 1С (1C_* таблицы) ===
         "sync-brain-stocks": {
-            "task": "logistic.tasks.sync_brain_stocks",
+            "task": "logistic.tasks.sync_1c_stocks",
             "schedule": crontab(hour=6, minute=30),
         },
         "check-brain-freshness": {
-            "task": "logistic.tasks.check_brain_freshness",
+            "task": "logistic.tasks.check_1c_freshness",
             "schedule": crontab(hour=8, minute=0),
         },
         "cleanup-stock-history": {
@@ -357,22 +357,22 @@ def sync_ozon_warehouses(self):
     return {"status": "success", "results": result}
 ```
 
-### 8.4.4 sync_brain_stocks
+### 8.4.4 sync_1c_stocks
 
 ```python
-# tasks/sync_brain_stocks.py
+# tasks/sync_1c_stocks.py
 @shared_task(
-    name="logistic.tasks.sync_brain_stocks",
+    name="logistic.tasks.sync_1c_stocks",
     bind=True,
     max_retries=2,
     default_retry_delay=300,
 )
-def sync_brain_stocks(self):
+def sync_1c_stocks(self):
     """
-    Синхронизация остатков из brain_stock_balance.
+    Синхронизация остатков из 1C_stock_balance.
     
     Расписание: 06:30 (после загрузки Экстрактором в 06:00)
-    Источник: PostgreSQL brain_stock_balance (Q-06)
+    Источник: PostgreSQL 1C_stock_balance (Q-06)
     Результат: warehouse_stocks + logistic_stock_history
     
     Подробности: adolf_logistic_5_1c_integration.md (v3.0)
@@ -386,7 +386,7 @@ def sync_brain_stocks(self):
     result = asyncio.run(_sync())
     
     logger.info(
-        "sync_brain_stocks_completed",
+        "sync_1c_stocks_completed",
         status=result["status"],
         validated=result.get("validated", 0),
         anomalies=result.get("anomalies", 0)
@@ -395,14 +395,14 @@ def sync_brain_stocks(self):
     return result
 ```
 
-### 8.4.4a check_brain_freshness
+### 8.4.4a check_1c_freshness
 
 ```python
-# tasks/check_brain_freshness.py
-@shared_task(name="logistic.tasks.check_brain_freshness")
-def check_brain_freshness():
+# tasks/check_1c_freshness.py
+@shared_task(name="logistic.tasks.check_1c_freshness")
+def check_1c_freshness():
     """
-    Проверка свежести данных в brain_* таблицах.
+    Проверка свежести данных в 1C_* таблицах.
     Алерт если loaded_at старше 26 часов.
     
     Расписание: 08:00 ежедневно
@@ -410,13 +410,13 @@ def check_brain_freshness():
     import asyncio
     
     async def _check():
-        reader = get_brain_reader()
+        reader = get_1c_reader()
         alerts = get_alert_service()
         tables = [
-            "brain_stock_balance",
-            "brain_customer_orders",
-            "brain_supplier_orders",
-            "brain_goods_receipts"
+            "1C_stock_balance",
+            "1C_customer_orders",
+            "1C_supplier_orders",
+            "1C_goods_receipts"
         ]
         stale = []
         for table in tables:
@@ -433,7 +433,7 @@ def check_brain_freshness():
         return {"stale": stale, "all_fresh": len(stale) == 0}
     
     result = asyncio.run(_check())
-    logger.info("check_brain_freshness_completed", **result)
+    logger.info("check_1c_freshness_completed", **result)
     return result
 ```
 
@@ -710,9 +710,9 @@ gantt
     sync_ozon_analytics        :milestone, 05:00, 0d
     sync_ozon_stocks           :crit, 00:00, 24h
     
-    section 1С (brain_*)
-    sync_brain_stocks          :milestone, 06:30, 0d
-    check_brain_freshness      :milestone, 08:00, 0d
+    section 1С (1C_*)
+    sync_1c_stocks          :milestone, 06:30, 0d
+    check_1c_freshness      :milestone, 08:00, 0d
     
     section Business Logic
     generate_supply_tasks      :milestone, 07:00, 0d
@@ -730,8 +730,8 @@ gantt
 | `sync_ozon_stocks` | `*/30 * * * *` | sync | 3 × 120с | Остатки FBO по кластерам |
 | `sync_ozon_analytics` | `0 5 * * *` | sync | 2 × 600с | Продажи за 28 дней |
 | `sync_ozon_warehouses` | `0 2 * * 1` | sync | 2 | Список кластеров |
-| `sync_brain_stocks` | `30 6 * * *` | brain | 2 × 300с | Синхронизация из brain_stock_balance |
-| `check_brain_freshness` | `0 8 * * *` | brain | — | Проверка свежести brain_* |
+| `sync_1c_stocks` | `30 6 * * *` | brain | 2 × 300с | Синхронизация из 1C_stock_balance |
+| `check_1c_freshness` | `0 8 * * *` | brain | — | Проверка свежести 1C_* |
 | `cleanup_stock_history` | `0 3 1 * *` | brain | — | Очистка истории > 90 дней |
 | `generate_supply_tasks` | `0 7 * * *` | logic | 1 | Наряд-задания |
 | `auto_cancel_expired` | `0 */6 * * *` | logic | — | Автоотмена NEW > 48ч |
@@ -745,10 +745,10 @@ gantt
 03:00  cleanup_stock_history (1-е число месяца)
 04:00  cleanup_old_data (воскресенье)
 05:00  sync_ozon_analytics
-06:00  ← Экстрактор данных 1С загружает brain_stock_balance
-06:30  sync_brain_stocks ← чтение brain_* → валидация → history → upsert
-07:00  generate_supply_tasks ← зависит от свежих данных stocks + brain_*
-08:00  check_brain_freshness ← алерт если loaded_at > 26ч
+06:00  ← Экстрактор данных 1С загружает 1C_stock_balance
+06:30  sync_1c_stocks ← чтение 1C_* → валидация → history → upsert
+07:00  generate_supply_tasks ← зависит от свежих данных stocks + 1C_*
+08:00  check_1c_freshness ← алерт если loaded_at > 26ч
 */30   sync_ozon_stocks → generate_alerts (цепочка)
 */6h   auto_cancel_expired
 ```
@@ -761,7 +761,7 @@ gantt
 flowchart LR
     SYNC_STOCKS["sync_ozon_stocks<br/>*/30 мин"]
     SYNC_ANALYTICS["sync_ozon_analytics<br/>05:00"]
-    SYNC_BRAIN["sync_brain_stocks<br/>06:30"]
+    SYNC_ONEC["sync_1c_stocks<br/>06:30"]
     
     GEN_ALERTS["generate_alerts<br/>*/30 мин"]
     GEN_TASKS["generate_supply_tasks<br/>07:00"]
@@ -770,7 +770,7 @@ flowchart LR
     SYNC_STOCKS --> GEN_ALERTS
     SYNC_STOCKS --> GEN_TASKS
     SYNC_ANALYTICS --> GEN_TASKS
-    SYNC_BRAIN --> GEN_TASKS
+    SYNC_ONEC --> GEN_TASKS
     GEN_TASKS --> AUTO_CANCEL
     
     style GEN_TASKS fill:#f96,stroke:#333
@@ -779,7 +779,7 @@ flowchart LR
 Критическая цепочка для `generate_supply_tasks` (07:00):
 1. `sync_ozon_stocks` — свежие остатки FBO (последний за 06:30)
 2. `sync_ozon_analytics` — velocity из Ozon (05:00)
-3. `sync_brain_stocks` — остатки внутреннего склада из brain_stock_balance (06:30)
+3. `sync_1c_stocks` — остатки внутреннего склада из 1C_stock_balance (06:30)
 
 ---
 
@@ -825,15 +825,15 @@ ozon_api_calls = Counter(
     ["endpoint", "status"]
 )
 
-brain_sync_records = Counter(
-    "logistic_brain_sync_records_total",
-    "brain_stock_balance sync records",
+1c_sync_records = Counter(
+    "logistic_1c_sync_records_total",
+    "1C_stock_balance sync records",
     ["status"]  # validated / unmapped / anomaly
 )
 
-brain_freshness = Gauge(
-    "logistic_brain_freshness_hours",
-    "Hours since last brain_* table update",
+1c_freshness = Gauge(
+    "logistic_1c_freshness_hours",
+    "Hours since last 1C_* table update",
     ["table"]
 )
 ```
@@ -856,9 +856,9 @@ celery -A logistic.celery_config worker \
     -Q logistic.sync -c 2 \
     --loglevel=INFO -n sync@%h
 
-# Brain worker (brain_* sync)
+# Brain worker (1C_* sync)
 celery -A logistic.celery_config worker \
-    -Q logistic.brain -c 1 \
+    -Q logistic.1c -c 1 \
     --loglevel=INFO -n brain@%h
 
 # Logic worker (supply tasks, alerts)
@@ -894,7 +894,7 @@ services:
     build: .
     command: >
       celery -A logistic.celery_config worker 
-      -Q logistic.brain -c 1 -n brain@%h
+      -Q logistic.1c -c 1 -n brain@%h
     depends_on:
       - redis
       - postgres
@@ -934,8 +934,8 @@ ALLOWED_TASKS = {
     "sync_ozon_stocks": sync_ozon_stocks,
     "sync_ozon_analytics": sync_ozon_analytics,
     "sync_ozon_warehouses": sync_ozon_warehouses,
-    "sync_brain_stocks": sync_brain_stocks,
-    "check_brain_freshness": check_brain_freshness,
+    "sync_1c_stocks": sync_1c_stocks,
+    "check_1c_freshness": check_1c_freshness,
     "generate_supply_tasks": generate_supply_tasks,
     "auto_cancel_expired": auto_cancel_expired,
     "generate_alerts": generate_alerts,
@@ -982,8 +982,8 @@ adolf_logistic_8_celery.md
    - sync_ozon_stocks (*/30 мин, retry 3×120с)
    - sync_ozon_analytics (05:00, retry 2×600с)
    - sync_ozon_warehouses (пн 02:00)
-   - sync_brain_stocks (06:30, retry 2×300с)
-   - check_brain_freshness (08:00, алерт если loaded_at > 26ч)
+   - sync_1c_stocks (06:30, retry 2×300с)
+   - check_1c_freshness (08:00, алерт если loaded_at > 26ч)
    - generate_supply_tasks (07:00)
    - auto_cancel_expired (*/6ч, отмена NEW > 48ч)
    - generate_alerts (*/30 мин, после sync_stocks)
@@ -994,7 +994,7 @@ adolf_logistic_8_celery.md
 5. Метрики: Prometheus counters/histograms
 
 Зависимости: celery, redis, structlog, prometheus_client,
-HistoryService + BrainDataReader (из раздела 5 v3.0)
+HistoryService + OneCDataReader (из раздела 5 v3.0)
 ```
 
 ---
@@ -1007,7 +1007,7 @@ HistoryService + BrainDataReader (из раздела 5 v3.0)
 | [2. Ozon Integration](adolf_logistic_2_ozon_integration_v2_0.md) | Ozon API endpoints |
 | [3. Stock Monitor](adolf_logistic_3_stock_monitor_v2_0.md) | Алерты по остаткам |
 | [4. Supply Task Engine](adolf_logistic_4_supply_task_engine_v2_0.md) | Генерация заданий |
-| [5. 1С Integration](/logistic/adolf_logistic_5_1c_integration) | brain_* синхронизация |
+| [5. 1С Integration](/logistic/adolf_logistic_5_1c_integration) | 1C_* синхронизация |
 | [6. Database](/logistic/adolf_logistic_6_database) | Таблицы, функция cleanup |
 
 ---
