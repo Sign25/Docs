@@ -7,6 +7,10 @@ mode: "wide"
 **Проект:** ADOLF — AI-Driven Operations Layer Framework\
 **Обновлено:** 16 февраля 2026
 
+**Репозитории:**
+- [Sign25/Docs](https://github.com/Sign25/Docs) — документация всех модулей
+- [Sign25/watcher](https://github.com/Sign25/watcher) — исходный код Watcher Collector (Node.js)
+
 ---
 
 ## 16 февраля 2026
@@ -18,6 +22,10 @@ mode: "wide"
 ## 15 февраля 2026
 
 - **Watcher** / Database API — добавлена детальная документация REST API из Sign25/watcher [(108de87)](https://github.com/Sign25/Docs/commit/108de87)
+- **Watcher Collector** — SFTP-модуль автоматической доставки отчётов [(3497e7b)](https://github.com/Sign25/watcher/commit/3497e7b)
+- **Watcher Collector** — исправлены 5 багов: spawn error handling, утечки stream, зависший браузер auto-release [(16aeb5e)](https://github.com/Sign25/watcher/commit/16aeb5e)
+- **Watcher Collector** — исправлен infinite cooldown loop при одном ПК [(c2a52ea)](https://github.com/Sign25/watcher/commit/c2a52ea)
+- **Watcher Collector** — отображение деталей задачи на карточке агента [(8833d60)](https://github.com/Sign25/watcher/commit/8833d60)
 - **Logistic** — каскадное обновление: переименование `brain_*` → `1C_*`, ссылки на 1CExport (разделы 1, 3, 5, 8) [(8c7b725)](https://github.com/Sign25/Docs/commit/8c7b725)
 - **CFO** — каскадное обновление v2.0: удалён файловый обмен 1С, переход на `brain_*` VIEW (разделы 1, 2, 5, 7), удалено Приложение А1 [(96a90c2)](https://github.com/Sign25/Docs/commit/96a90c2)
 - **1CExport** — новый модуль v1.0: введение, настройка, реестр 18 SQL-запросов, расписание [(d0e54db)](https://github.com/Sign25/Docs/commit/d0e54db)
@@ -27,6 +35,11 @@ mode: "wide"
 ## 14 февраля 2026
 
 - **Watcher** — полная переработка v4.0–4.3: разделы 0–8 переписаны на основе реального кода Collector (Node.js + Puppeteer), двухсерверная архитектура VPS + ADOLF [(f0eefd3)](https://github.com/Sign25/Docs/commit/f0eefd3)
+- **Watcher Collector** — рабочие часы и дневной лимит задач на ПК, часовой пояс Omsk UTC+6 [(703e2cd)](https://github.com/Sign25/watcher/commit/703e2cd)
+- **Watcher Collector** — централизация конфигурации: все hardcoded значения → `config.get()` [(dce894f)](https://github.com/Sign25/watcher/commit/dce894f)
+- **Watcher Collector** — исправлены 7 багов: infinite retry loop, unhandled exceptions, dead code [(7c21b0f)](https://github.com/Sign25/watcher/commit/7c21b0f)
+- **Watcher Collector** — улучшена таблица статистики: реальные имена продавцов, контролы pause/remove [(c7c42a6)](https://github.com/Sign25/watcher/commit/c7c42a6)
+- **Watcher Collector** — cleanup репозитория: удалены дубликаты, runtime data из-под контроля версий [(63c8948)](https://github.com/Sign25/watcher/commit/63c8948)
 - **Watcher** / Раздел 6 → v4.3 — dashboard-first с баннерами, единый чат ADOLF вместо `@Adolf_Watcher` [(033d26b)](https://github.com/Sign25/Docs/commit/033d26b)
 - **CFO** / Open WebUI → v1.2 — dashboard-first, 12 KPI, 11 категорий баннеров, стратегическая аналитика из Qdrant, shadcn/ui компоненты [(197981b)](https://github.com/Sign25/Docs/commit/197981b)
 - **CFO** / Open WebUI — единый чат `@Adolf` вместо отдельного `@Adolf_CFO` [(b8c6305)](https://github.com/Sign25/Docs/commit/b8c6305)
@@ -38,13 +51,51 @@ mode: "wide"
 
 ---
 
+## 13 февраля 2026
+
+- **Watcher Collector** — редизайн Monitor UI: shadcn/ui стиль, Tailwind CSS, Lucide-иконки [(4715ea2)](https://github.com/Sign25/watcher/commit/4715ea2)
+- **Watcher Collector** — панель настроек: централизованный `config.js` с live UI [(163f602)](https://github.com/Sign25/watcher/commit/163f602)
+- **Watcher Collector** — аутентификация Monitor: форма логина с session cookies [(47a77d6)](https://github.com/Sign25/watcher/commit/47a77d6)
+- **Watcher Collector** — страница FRP-портов: API endpoint + вкладка в Monitor, persist маппинга name→port [(15ab4ff)](https://github.com/Sign25/watcher/commit/15ab4ff)
+- **Watcher Collector** — вкладка статистики расписания продавцов в Monitor UI [(51573f1)](https://github.com/Sign25/watcher/commit/51573f1)
+- **Watcher Collector** — создание продавцов через Monitor UI с автопарсингом URL [(298ab1b)](https://github.com/Sign25/watcher/commit/298ab1b)
+- **Watcher Collector** — добавлено имя товара в enrichment для всех 3 маркетплейсов [(37aa261)](https://github.com/Sign25/watcher/commit/37aa261)
+- **Watcher Collector** — удалён legacy CDP порт 9222, все ПК на пуле 9300–9399 [(035d6cb)](https://github.com/Sign25/watcher/commit/035d6cb)
+- **Watcher Collector** — исправлены 6 багов: YM в bot commands, path traversal, rating regex [(28d46d9)](https://github.com/Sign25/watcher/commit/28d46d9)
+
+---
+
+## 12 февраля 2026
+
+- **Watcher Collector** — Data flows, storage и REST API: 6-фазная реализация [(946f76a)](https://github.com/Sign25/watcher/commit/946f76a)
+- **Watcher Collector** — обновлены README.md и SKILL.md: REST API, auto-enrichment, price history [(c0792d6)](https://github.com/Sign25/watcher/commit/c0792d6)
+- **Watcher Collector** — исправлены migration order, YM seller lookup, diff filtering [(a335f41)](https://github.com/Sign25/watcher/commit/a335f41)
+
+---
+
 ## 11 февраля 2026
 
 - **CFO** → v1.1 — SKU вместо штрихкода как идентификатор, 1С:Комплексная Автоматизация 2 [(d44b9dd)](https://github.com/Sign25/Docs/commit/d44b9dd)
+- **Watcher Collector** — orchestrator для умного назначения ПК [(fbe74d3)](https://github.com/Sign25/watcher/commit/fbe74d3)
+- **Watcher Collector** — enrich\_skus для Wildberries через HTTP API (без браузера) [(212a04b)](https://github.com/Sign25/watcher/commit/212a04b)
+- **Watcher Collector** — Ozon enricher через CDP + entrypoint API [(a825785)](https://github.com/Sign25/watcher/commit/a825785)
+- **Watcher Collector** — Yandex.Market enricher: CDP-based, навигация по страницам + DOM parsing [(3c84f91)](https://github.com/Sign25/watcher/commit/3c84f91)
+- **Watcher Collector** — переписан YM scanner: infinite scroll по паттерну Ozon/WB [(0efd71c)](https://github.com/Sign25/watcher/commit/0efd71c)
+- **Watcher Collector** — YM enricher: human-like browsing, извлечение old\_price/discount/stock [(e3f5629)](https://github.com/Sign25/watcher/commit/e3f5629)
+- **Watcher Collector** — fallback на scan data при PoW-защите detail API [(18bc2ca)](https://github.com/Sign25/watcher/commit/18bc2ca)
 - **UI** — удалены модульные цвета, унификация на `--primary` (v1.1); замена lab-иконок на стандартные lucide (v1.2) [(586e7e7)](https://github.com/Sign25/Docs/commit/586e7e7)
 - **UI** — удалены HTML-макеты `ui_reference/`, ссылки обновлены во всех модулях [(e4012ac)](https://github.com/Sign25/Docs/commit/e4012ac)
 - **UI** / Appendix A — каталог иконок для Open WebUI v1.2 [(b32427a)](https://github.com/Sign25/Docs/commit/b32427a)
 - **UI** / Appendix B — shadcn MCP Server v1.0 [(46571c9)](https://github.com/Sign25/Docs/commit/46571c9)
+
+---
+
+## 10 февраля 2026
+
+- **Watcher Collector** — Initial commit: MVP системы мониторинга продавцов [(2dab06a)](https://github.com/Sign25/watcher/commit/2dab06a)
+- **Watcher Collector** — CDP Pool Service для управления браузерами на нескольких ПК [(9fda423)](https://github.com/Sign25/watcher/commit/9fda423)
+- **Watcher Collector** — мультимаркетплейс: сканеры Ozon и Yandex.Market + UX Telegram-бота [(caf0dd6)](https://github.com/Sign25/watcher/commit/caf0dd6)
+- **Watcher Collector** — мониторинг каждого ПК индивидуально, алерты connect/disconnect [(3999128)](https://github.com/Sign25/watcher/commit/3999128)
 
 ---
 
