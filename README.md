@@ -14,6 +14,7 @@ mode: "wide"
 docs/
 ├── ADOLF_OVERVIEW.md                # Общий обзор платформы
 ├── adolf_fastapi_reference.md       # Справочник FastAPI
+├── changelog.md                     # История изменений по всем модулям
 │
 ├── core/                            # Базовая инфраструктура (9 файлов)
 ├── knowledge/                       # База знаний (9 файлов)
