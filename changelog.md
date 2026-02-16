@@ -179,3 +179,9 @@ mode: "wide"
 - **Lex** — 7 разделов (v1.0)
 - **Office** — 8 разделов (v1.0)
 - **ADOLF Overview** v4.2, **FastAPI Reference** v1.0
+
+---
+
+## 15 января 2026
+
+- **Репозиторий** — создан Sign25/Docs, первичный README.md [(335b2ae)](https://github.com/Sign25/Docs/commit/335b2ae)
