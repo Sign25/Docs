@@ -5,7 +5,7 @@ mode: "wide"
 ---
 
 **Проект:** ADOLF — AI-Driven Operations Layer Framework\
-**Обновлено:** 16 февраля 2026
+**Обновлено:** 17 февраля 2026
 
 **Репозитории:**
 - [Sign25/Docs](https://github.com/Sign25/Docs) — документация всех модулей
@@ -16,6 +16,8 @@ mode: "wide"
 ## 16 февраля 2026
 
 - **Core / Launcher** → v1.1 — кастомные SVG-иконки, единая тема shadcn/ui, 11 модулей [(c75a086)](https://github.com/Sign25/Docs/commit/c75a086)
+- **Watcher Collector** — исправлен scheduler: преждевременное создание scan из-за несовпадения формата даты [(d8c5e2f)](https://github.com/Sign25/watcher/commit/d8c5e2f)
+- **Watcher Collector** — исправлена ошибка Telegram Markdown parse для подчёркиваний yandex\_market [(4ec8e92)](https://github.com/Sign25/watcher/commit/4ec8e92)
 
 ---
 
