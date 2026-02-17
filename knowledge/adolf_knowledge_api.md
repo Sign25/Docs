@@ -1,49 +1,58 @@
-# Adolf Knowledge Base — Справочник API
+---
+title: "REST API"
+mode: "wide"
+---
 
-## Базовый URL
-
-```
-http://<host>:8000
-```
-
-- Swagger UI: `/api/docs`
-- ReDoc: `/api/redoc`
-- OpenAPI JSON: `/api/openapi.json`
-- Префикс API: `/api/v1/knowledge`
-- Префикс роутера документов: `/api/v1/knowledge/documents`
-- CORS: разрешены все источники
+**Проект:** ADOLF — AI-Driven Operations Layer Framework
+**Модуль:** Knowledge Base / REST API
+**Версия:** 1.0
+**Дата:** Февраль 2026
 
 ---
 
-## Эндпоинты
+## 1. Обзор
+
+Knowledge Base API предоставляет HTTP-доступ к базе знаний документов: загрузка файлов, просмотр статусов обработки, поиск и статистика. Работает как часть Doc Converter Service.
+
+| Компонент | Файл | Процесс | Порт |
+|-----------|------|---------|:----:|
+| REST API | `src/api/` | `src.main serve` | 8000 |
+| Database | `src/database.py` | внутри API | — |
+
+```mermaid
+flowchart LR
+    CLIENT["Клиент<br/>(UI / интеграция)"] -->|"HTTP :8000"| API["FastAPI<br/>Knowledge API"]
+    API --> DB[("history.db<br/>SQLite")]
+    WATCHER["Watcher<br/>(фоновый процесс)"] --> DB
+    WATCHER --> QDRANT[("Qdrant<br/>Vector Store")]
+```
+
+---
+
+## 2. Общие характеристики
+
+| Параметр | Значение |
+|----------|----------|
+| Фреймворк | FastAPI (Python) |
+| Формат | JSON |
+| Базовый путь | `/api/v1/knowledge` |
+| CORS | `Access-Control-Allow-Origin: *` |
+| Макс. размер файла | 50 МБ (настраивается, 1–100 МБ) |
+| Аутентификация | Нет |
+| Документация | Swagger UI `/api/docs`, ReDoc `/api/redoc`, OpenAPI `/api/openapi.json` |
+
+---
+
+## 3. Эндпоинты
 
 ### Системные
 
-| Метод | Путь | Описание | Модель ответа | Статус |
-|-------|------|----------|---------------|--------|
-| GET | `/health` | Проверка состояния сервиса и БД | `HealthResponse` | 200 |
-| GET | `/api/v1/knowledge/stats` | Агрегированная статистика базы знаний | `StatsResponse` | 200 |
+| Метод | Путь | Query params | Описание |
+|:-----:|------|:------------:|----------|
+| GET | `/health` | — | Проверка состояния сервиса и БД |
+| GET | `/api/v1/knowledge/stats` | — | Агрегированная статистика базы знаний |
 
-### Документы
-
-| Метод | Путь | Описание | Модель ответа | Статус |
-|-------|------|----------|---------------|--------|
-| GET | `/api/v1/knowledge/documents` | Список документов с фильтрацией | `DocumentListResponse` | 200 |
-| GET | `/api/v1/knowledge/documents/search` | Поиск документов по имени файла | `DocumentListResponse` | 200 |
-| GET | `/api/v1/knowledge/documents/category-counts` | Количество документов по категориям | `CategoryCountsResponse` | 200 |
-| POST | `/api/v1/knowledge/documents/upload` | Загрузка одного файла | `FileUploadResponse` | 202 |
-| POST | `/api/v1/knowledge/documents/upload-batch` | Пакетная загрузка файлов (макс. 20) | `BatchUploadResponse` | 202 |
-| GET | `/api/v1/knowledge/documents/{doc_id}` | Получение документа по ID | `DocumentResponse` | 200 |
-
----
-
-## Описание эндпоинтов
-
-### GET /health
-
-Проверка состояния сервиса. Возвращает статус работы и доступность базы данных.
-
-**Ответ:**
+#### Формат ответа /health
 
 ```json
 {
@@ -53,13 +62,7 @@ http://<host>:8000
 }
 ```
 
----
-
-### GET /api/v1/knowledge/stats
-
-Агрегированная статистика по всей базе знаний.
-
-**Ответ:**
+#### Формат ответа /stats
 
 ```json
 {
@@ -80,78 +83,32 @@ http://<host>:8000
 }
 ```
 
----
+### Документы
 
-### GET /api/v1/knowledge/documents
+| Метод | Путь | Query params | Описание |
+|:-----:|------|:------------:|----------|
+| GET | `/api/v1/knowledge/documents` | `status`, `category` | Список документов с фильтрацией |
+| GET | `/api/v1/knowledge/documents/search` | `q` (**обяз.**), `status`, `category` | Поиск документов по имени файла |
+| GET | `/api/v1/knowledge/documents/category-counts` | — | Количество документов по категориям |
+| POST | `/api/v1/knowledge/documents/upload` | — | Загрузка одного файла (202) |
+| POST | `/api/v1/knowledge/documents/upload-batch` | — | Пакетная загрузка файлов, макс. 20 (202) |
+| GET | `/api/v1/knowledge/documents/{doc_id}` | — | Получение документа по ID |
 
-Список всех документов. Поддерживает опциональную фильтрацию.
+#### Query-параметры фильтрации
 
-**Query-параметры:**
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `status` | string | `success`, `indexed`, `failed`, `skipped` |
+| `category` | string | Одна из категорий (см. [Перечисления](#5-перечисления-enums)) |
+| `q` | string | Поисковый запрос — подстрока имени файла (SQLite LIKE) |
 
-| Параметр | Тип | Обязательный | Значения |
-|----------|-----|--------------|----------|
-| `status` | string | Нет | `success`, `indexed`, `failed`, `skipped` |
-| `category` | string | Нет | `product`, `regulation`, `contract`, `finance`, `analytics`, `hr`, `logistics`, `marketing`, `technical`, `correspondence`, `legal`, `other` |
-
-**Ответ:**
-
-```json
-{
-  "items": [{ "...DocumentResponse" }],
-  "total": 142
-}
-```
-
----
-
-### GET /api/v1/knowledge/documents/search
-
-Поиск документов по имени файла (SQLite LIKE).
-
-**Query-параметры:**
-
-| Параметр | Тип | Обязательный | Описание |
-|----------|-----|--------------|----------|
-| `q` | string | **Да** | Поисковый запрос (подстрока имени файла) |
-| `status` | string | Нет | Фильтр по статусу |
-| `category` | string | Нет | Фильтр по категории |
-
-**Ответ:** Аналогичен списку документов (`DocumentListResponse`).
-
----
-
-### GET /api/v1/knowledge/documents/category-counts
-
-Возвращает количество документов в разбивке по категориям.
-
-**Ответ:**
-
-```json
-{
-  "categories": {
-    "product": 45,
-    "regulation": 12,
-    "contract": 8,
-    "legal": 5
-  }
-}
-```
-
----
-
-### POST /api/v1/knowledge/documents/upload
-
-Загрузка одного файла для обработки. Файл сохраняется в `input_dir` и обрабатывается асинхронно watcher-сервисом.
-
-**Запрос:** `multipart/form-data`
+#### POST /upload — `multipart/form-data`
 
 | Поле | Тип | Обязательный | Описание |
-|------|-----|--------------|----------|
+|------|-----|:------------:|----------|
 | `file` | file | **Да** | Загружаемый файл |
 
-**Поддерживаемые расширения:** `.csv`, `.xlsx`, `.xls`, `.docx`, `.doc`, `.pdf`, `.html`, `.htm`, `.rtf`, `.odt`, `.txt`, `.md`, `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`, `.gif`, `.webp`
-
-**Ответ (202 Accepted):**
+Поддерживаемые расширения: `.csv`, `.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.docx`, `.pdf`, `.html`, `.htm`, `.rtf`, `.odt`, `.txt`, `.md`, `.xml`, `.png`, `.jpg`, `.jpeg`
 
 ```json
 {
@@ -163,21 +120,11 @@ http://<host>:8000
 }
 ```
 
-**Ошибки (400):** Файл слишком большой, неподдерживаемое расширение, пустой файл, отсутствует имя файла.
-
----
-
-### POST /api/v1/knowledge/documents/upload-batch
-
-Пакетная загрузка файлов. Максимум **20 файлов** за один запрос. Валидные файлы сохраняются даже при ошибке в других.
-
-**Запрос:** `multipart/form-data`
+#### POST /upload-batch — `multipart/form-data`
 
 | Поле | Тип | Обязательный | Описание |
-|------|-----|--------------|----------|
-| `files` | file[] | **Да** | Список файлов для загрузки |
-
-**Ответ (202 Accepted):**
+|------|-----|:------------:|----------|
+| `files` | file[] | **Да** | Список файлов (макс. 20) |
 
 ```json
 {
@@ -201,21 +148,7 @@ http://<host>:8000
 }
 ```
 
-**Ошибки (400):** Более 20 файлов в одном запросе.
-
----
-
-### GET /api/v1/knowledge/documents/{doc_id}
-
-Получение полной информации о документе по его ID.
-
-**Path-параметры:**
-
-| Параметр | Тип | Обязательный | Описание |
-|----------|-----|--------------|----------|
-| `doc_id` | string | **Да** | ID документа |
-
-**Ответ:**
+#### Формат ответа /documents/{doc_id}
 
 ```json
 {
@@ -243,47 +176,11 @@ http://<host>:8000
 }
 ```
 
-**Ошибки (404):** Документ не найден.
+### Модели ответов
 
----
+#### DocumentResponse
 
-## Модели ответов
-
-### HealthResponse
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `status` | string | `"healthy"` |
-| `version` | string | Версия API |
-| `database` | string | Путь к БД или `"unavailable"` |
-
-### StatsResponse
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `total_documents` | int | Общее количество документов |
-| `total_categories` | int | Количество уникальных категорий |
-| `documents_today` | int | Документов обработано сегодня |
-| `moderating` | int | Документов на модерации |
-| `by_category` | dict[str, int] | Количество по категориям |
-| `by_status` | dict[str, int] | Количество по статусам |
-| `by_extension` | dict[str, int] | Количество по расширениям файлов |
-| `by_brand` | dict[str, int] | Количество по брендам |
-| `success` | int | Успешно сконвертировано |
-| `indexed` | int | Проиндексировано в векторном хранилище |
-| `failed` | int | Ошибка обработки |
-| `skipped` | int | Пропущено (дубликат и т.д.) |
-| `total_tokens` | int | Всего использовано токенов |
-| `avg_processing_seconds` | float | Среднее время обработки |
-
-### DocumentListResponse
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `items` | DocumentResponse[] | Список документов |
-| `total` | int | Общее количество |
-
-### DocumentResponse
+Основная модель документа, используемая во всех эндпоинтах, возвращающих документы.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -309,13 +206,49 @@ http://<host>:8000
 | `created_at` | datetime? | Когда запись создана |
 | `indexed_at` | datetime? | Когда проиндексирован в векторное хранилище |
 
-### CategoryCountsResponse
+#### Вспомогательные модели
+
+**DocumentListResponse** — обёртка списка документов.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `items` | DocumentResponse[] | Список документов |
+| `total` | int | Общее количество |
+
+**StatsResponse** — агрегированная статистика.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `total_documents` | int | Общее количество документов |
+| `total_categories` | int | Количество уникальных категорий |
+| `documents_today` | int | Документов обработано сегодня |
+| `moderating` | int | Документов на модерации |
+| `by_category` | dict[str, int] | Количество по категориям |
+| `by_status` | dict[str, int] | Количество по статусам |
+| `by_extension` | dict[str, int] | Количество по расширениям файлов |
+| `by_brand` | dict[str, int] | Количество по брендам |
+| `success` | int | Успешно сконвертировано |
+| `indexed` | int | Проиндексировано в векторном хранилище |
+| `failed` | int | Ошибка обработки |
+| `skipped` | int | Пропущено (дубликат и т.д.) |
+| `total_tokens` | int | Всего использовано токенов |
+| `avg_processing_seconds` | float | Среднее время обработки |
+
+**HealthResponse** — состояние сервиса.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `status` | string | `"healthy"` |
+| `version` | string | Версия API |
+| `database` | string | Путь к БД или `"unavailable"` |
+
+**CategoryCountsResponse** — количество по категориям.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `categories` | dict[str, int] | Количество документов по категориям |
 
-### FileUploadResponse
+**FileUploadResponse** — результат загрузки файла.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -325,7 +258,7 @@ http://<host>:8000
 | `status` | string | Всегда `"accepted"` |
 | `message` | string | `"File accepted for processing"` |
 
-### BatchUploadResponse
+**BatchUploadResponse** — результат пакетной загрузки.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -334,7 +267,7 @@ http://<host>:8000
 | `total_accepted` | int | Количество принятых файлов |
 | `total_failed` | int | Количество отклонённых файлов |
 
-### FileUploadErrorDetail
+**FileUploadErrorDetail** — детали ошибки загрузки.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -343,7 +276,20 @@ http://<host>:8000
 
 ---
 
-## Перечисления (Enums)
+## 4. Коды ответов
+
+| Код | Ситуация |
+|:---:|----------|
+| 200 | Успех |
+| 202 | Файл принят для обработки (upload) |
+| 400 | Ошибка валидации (неподдерживаемое расширение, пустой файл, слишком большой файл, >20 файлов в batch) |
+| 404 | Документ не найден |
+| 422 | Ошибка валидации параметров запроса (FastAPI) |
+| 500 | Внутренняя ошибка |
+
+---
+
+## 5. Перечисления (Enums)
 
 | Перечисление | Значения |
 |--------------|----------|
@@ -351,3 +297,9 @@ http://<host>:8000
 | Category | `product`, `regulation`, `contract`, `finance`, `analytics`, `hr`, `logistics`, `marketing`, `technical`, `correspondence`, `legal`, `other` |
 | BrandId | `ohana_market`, `ohana_kids`, `all` |
 | AccessLevel | `staff`, `manager`, `senior`, `director` |
+
+---
+
+**Документ подготовлен:** Февраль 2026
+**Версия:** 1.0
+**Статус:** Актуальный
