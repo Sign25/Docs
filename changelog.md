@@ -5,11 +5,20 @@ mode: "wide"
 ---
 
 **Проект:** ADOLF — AI-Driven Operations Layer Framework\
-**Обновлено:** 17 февраля 2026
+**Обновлено:** 18 февраля 2026
 
 **Репозитории:**
 - [Sign25/Docs](https://github.com/Sign25/Docs) — документация всех модулей
 - [Sign25/watcher](https://github.com/Sign25/watcher) — исходный код Watcher Collector (Node.js)
+
+---
+
+## 18 февраля 2026
+
+- **Content Factory** / Раздел 0 → v1.1 — standalone-страница вместо chat pipeline, Claude Opus на бэкенде, обновлённый быстрый старт [(6778e8d)](https://github.com/Sign25/Docs/commit/6778e8d)
+- **Content Factory** / Раздел 4 → v1.1 — полная перезапись: навигация под хедером, dashboard с кнопками Авто/Ручная/✕, 3-шаговый флоу, диалог подтверждения, API-эндпоинты [(6778e8d)](https://github.com/Sign25/Docs/commit/6778e8d)
+- **Content Factory** / Раздел 6 → v1.1 — реальные UI-сценарии вместо chat-диалогов: автогенерация, ручная обработка, исключение, перегенерация, публикация [(6778e8d)](https://github.com/Sign25/Docs/commit/6778e8d)
+- **Content Factory** / Раздел 8 — новый: UI/UX Guidelines — shadcn-svelte, навигация, иконки Lucide, диалоги, адаптивность, локализация [(6778e8d)](https://github.com/Sign25/Docs/commit/6778e8d)
 
 ---
 
