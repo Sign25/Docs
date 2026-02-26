@@ -5,7 +5,7 @@ mode: "wide"
 
 **Проект:** ADOLF — AI-Driven Operations Layer Framework
 **Модуль:** Content Factory / REST API
-**Версия:** 1.0
+**Версия:** 1.2
 **Дата:** Февраль 2026
 
 ---
@@ -281,6 +281,16 @@ GET /api/content/product?sku=203873004&marketplace=wb
 }
 ```
 
+#### SEO-теги по маркетплейсам
+
+| Маркетплейс | Формат `seo_tags` | Куда отправляются при публикации |
+|:-----------:|-------------------|:-------------------------------:|
+| **WB** | Поисковые фразы, 10-15 штук<br/>`"Футболка женская"`, `"футболка хлопок"` | Поле «Комплектация» |
+| **Ozon** | Хештеги через `_`, 5-10 штук<br/>`"халат_женский_ohana"`, `"халат_велюровый_ohana"` | Поле `keywords` |
+| **YM** | Не генерируются | — |
+
+> **Ozon:** SEO-теги генерируются как хештеги — слова через нижнее подчёркивание, без символа `#`, всё строчными, максимум 30 символов каждый. К каждому хештегу автоматически добавляется бренд товара. При публикации отправляются в поле `keywords` через `POST /v1/product/import-by-sku`.
+
 **Записи в БД:**
 
 | Таблица | Операция |
@@ -369,7 +379,7 @@ flowchart TD
 |------|-----|:----------:|----------|
 | `title` | string | да | Финальное название (может отличаться от AI-черновика) |
 | `description` | string | да | Финальное описание |
-| `seo_tags` | list[string] | нет | SEO-теги (отправляются в "Комплектация" на WB) |
+| `seo_tags` | list[string] | нет | SEO-теги (WB → «Комплектация», Ozon → `keywords`, YM → не отправляются) |
 | `update_all_in_group` | bool | нет | Обновить все карточки в склейке. По умолчанию `false` |
 | `source` | string | нет | Тип обработки: `manual` или `auto`. По умолчанию `manual` |
 
@@ -607,15 +617,83 @@ GET /api/content/wb/errors
   "auto_check_interval": "weekly",
   "auto_check_enabled": true,
   "tag_scheduler_enabled": true,
-  "wb_token": "eyJhbGc...***",
-  "ozon_client_id": "12345***",
-  "ozon_api_key": "abcde***",
-  "ym_api_key": "AQAAA***",
-  "ym_business_id": "12345678"
+  "wb_token": "eyJh***",
+  "ozon_client_id": "1234***",
+  "ozon_api_key": "abcd***",
+  "ym_api_key": "ACMA***",
+  "ym_business_id": "12345678",
+  "tokens_status": {
+    "wb": {
+      "marketplace": "wb",
+      "status": "expiring_soon",
+      "configured": true,
+      "expires_at": "2026-03-25T14:30:00+00:00",
+      "days_remaining": 27,
+      "message": "WB токен истекает через 27 дней",
+      "checked_at": "2026-02-27T12:00:00+00:00"
+    },
+    "ozon": {
+      "marketplace": "ozon",
+      "status": "active",
+      "configured": true,
+      "expires_at": null,
+      "days_remaining": null,
+      "message": "Ozon токен активен (бессрочный)",
+      "checked_at": "2026-02-27T12:00:00+00:00"
+    },
+    "ym": {
+      "marketplace": "ym",
+      "status": "not_configured",
+      "configured": false,
+      "expires_at": null,
+      "days_remaining": null,
+      "message": "Яндекс Маркет credentials не настроены",
+      "checked_at": "2026-02-27T12:00:00+00:00"
+    },
+    "checked_at": "2026-02-27T12:00:00+00:00",
+    "has_warnings": true
+  }
 }
 ```
 
-**Примечание:** Токены и ключи возвращаются замаскированными (первые символы + `***`).
+**Примечание:** Токены и ключи возвращаются замаскированными (первые 4 символа + `***`).
+
+#### Мониторинг токенов (`tokens_status`)
+
+Поле `tokens_status` заполняется фоновым планировщиком, который проверяет токены каждые **12 часов**. Первая проверка — через ~10 секунд после старта приложения. Если приложение только запустилось и проверка ещё не прошла, поле = `null`.
+
+**Как проверяется каждый маркетплейс:**
+
+| Маркетплейс | Метод проверки | Срок действия токена |
+|:-----------:|----------------|:-------------------:|
+| WB | Декодирование JWT (`exp` claim из payload) | 180 дней от создания |
+| Ozon | Тестовый API-вызов (`POST /v3/product/list`, limit=1) | Бессрочный |
+| YM | Тестовый API-вызов (`POST /businesses/{id}/offer-mappings`, limit=1) | Бессрочный |
+
+**Возможные статусы:**
+
+| Статус | Описание |
+|:------:|----------|
+| `active` | Токен валиден и работает |
+| `expiring_soon` | Только WB: осталось менее 30 дней |
+| `critical` | Только WB: осталось менее 7 дней |
+| `expired` | Только WB: JWT `exp` в прошлом |
+| `invalid` | Токен есть, но API вернул 401/403 |
+| `error` | Токен есть, но API-вызов упал (сеть/таймаут) |
+| `not_configured` | Токен пустой или не задан |
+
+**Поля для WB:**
+- `expires_at` — дата истечения (ISO 8601)
+- `days_remaining` — количество дней до истечения
+
+**Поля для Ozon/YM:**
+- `expires_at` = `null` (бессрочные токены)
+- `days_remaining` = `null`
+
+**Логирование предупреждений:**
+Планировщик автоматически логирует:
+- `ERROR` — для `expired`, `critical`, `invalid`
+- `WARNING` — для `expiring_soon`
 
 ---
 
@@ -801,7 +879,7 @@ flowchart LR
 | `marketplace` | string | `wb` / `ozon` / `ym` |
 | `title` | string | Сгенерированное название |
 | `description` | string | Сгенерированное описание |
-| `seo_tags` | list[string] | SEO-теги (только WB) |
+| `seo_tags` | list[string] | SEO-теги (WB — поисковые фразы, Ozon — хештеги, YM — пусто) |
 | `imt_id` | int \| null | ID склейки |
 | `group_nm_ids` | list[int] | Все nmID в склейке |
 | `generated_for_group` | bool | Генерация для всей склейки |
