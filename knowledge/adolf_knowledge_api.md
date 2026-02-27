@@ -74,6 +74,7 @@ flowchart LR
   "by_status": {"indexed": 130, "failed": 2},
   "by_extension": {".pdf": 80, ".docx": 40},
   "by_brand": {"ohana_market": 90, "ohana_kids": 52},
+  "processing": 0,
   "success": 140,
   "indexed": 130,
   "failed": 2,
@@ -93,12 +94,13 @@ flowchart LR
 | POST | `/api/v1/knowledge/documents/upload` | — | Загрузка одного файла (202) |
 | POST | `/api/v1/knowledge/documents/upload-batch` | — | Пакетная загрузка файлов, макс. 20 (202) |
 | GET | `/api/v1/knowledge/documents/{doc_id}` | — | Получение документа по ID |
+| DELETE | `/api/v1/knowledge/documents/{doc_id}` | — | Удаление документа и всех его артефактов (204) |
 
 #### Query-параметры фильтрации
 
 | Параметр | Тип | Описание |
 |----------|-----|----------|
-| `status` | string | `success`, `indexed`, `failed`, `skipped` |
+| `status` | string | `processing`, `success`, `indexed`, `failed`, `skipped` |
 | `category` | string | Одна из категорий (см. [Перечисления](#5-перечисления-enums)) |
 | `q` | string | Поисковый запрос — подстрока имени файла (SQLite LIKE) |
 
@@ -116,7 +118,8 @@ flowchart LR
   "original_filename": "report.pdf",
   "size_bytes": 245760,
   "status": "accepted",
-  "message": "File accepted for processing"
+  "message": "File accepted for processing",
+  "document_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
@@ -147,6 +150,19 @@ flowchart LR
   "total_failed": 1
 }
 ```
+
+#### DELETE /documents/{doc_id}
+
+Удаляет документ полностью:
+- Запись в SQLite
+- Векторы в Qdrant (все чанки документа)
+- Markdown-файл из output_dir
+- Оригинальный файл из archive_dir
+
+| Код | Ситуация |
+|:---:|----------|
+| 204 | Документ удалён |
+| 404 | Документ не найден |
 
 #### Формат ответа /documents/{doc_id}
 
@@ -198,7 +214,7 @@ flowchart LR
 | `confidence` | float? | Уверенность классификации (0–1) |
 | `classified_by` | string? | Источник классификации |
 | `kb_file_id` | string? | Ссылка на внешний файл в KB |
-| `status` | string | `success`, `indexed`, `failed`, `skipped` |
+| `status` | string | `processing`, `success`, `indexed`, `failed`, `skipped` |
 | `error_message` | string? | Детали ошибки при сбое |
 | `processing_seconds` | float? | Время обработки |
 | `tokens_used` | int | Использовано токенов |
@@ -227,6 +243,7 @@ flowchart LR
 | `by_status` | dict[str, int] | Количество по статусам |
 | `by_extension` | dict[str, int] | Количество по расширениям файлов |
 | `by_brand` | dict[str, int] | Количество по брендам |
+| `processing` | int | Документов в процессе обработки |
 | `success` | int | Успешно сконвертировано |
 | `indexed` | int | Проиндексировано в векторном хранилище |
 | `failed` | int | Ошибка обработки |
@@ -257,6 +274,7 @@ flowchart LR
 | `size_bytes` | int | Размер файла |
 | `status` | string | Всегда `"accepted"` |
 | `message` | string | `"File accepted for processing"` |
+| `document_id` | string | UUID документа для отслеживания статуса обработки |
 
 **BatchUploadResponse** — результат пакетной загрузки.
 
@@ -282,8 +300,10 @@ flowchart LR
 |:---:|----------|
 | 200 | Успех |
 | 202 | Файл принят для обработки (upload) |
+| 204 | Документ успешно удалён (DELETE) |
 | 400 | Ошибка валидации (неподдерживаемое расширение, пустой файл, слишком большой файл, >20 файлов в batch) |
 | 404 | Документ не найден |
+| 409 | Файл с идентичным содержимым (SHA256) уже существует |
 | 422 | Ошибка валидации параметров запроса (FastAPI) |
 | 500 | Внутренняя ошибка |
 
@@ -293,7 +313,7 @@ flowchart LR
 
 | Перечисление | Значения |
 |--------------|----------|
-| DocumentStatus | `success`, `indexed`, `failed`, `skipped` |
+| DocumentStatus | `processing`, `success`, `indexed`, `failed`, `skipped` |
 | Category | `product`, `regulation`, `contract`, `finance`, `analytics`, `hr`, `logistics`, `marketing`, `technical`, `correspondence`, `legal`, `other` |
 | BrandId | `ohana_market`, `ohana_kids`, `all` |
 | AccessLevel | `staff`, `manager`, `senior`, `director` |
