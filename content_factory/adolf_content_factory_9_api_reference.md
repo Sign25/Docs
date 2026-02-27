@@ -109,9 +109,11 @@ flowchart LR
 |----------|-----|:----------:|----------|
 | `url` | string | нет* | URL товара на маркетплейсе |
 | `sku` | string | нет* | Артикул товара (nmID) |
-| `marketplace` | string | нет | Маркетплейс (`wb`, `ozon`, `ym`). По умолчанию `wb` |
+| `marketplace` | string | нет | Маркетплейс (`wb`, `ozon`, `ym`). Используется только для парсинга SKU из URL |
 
 \* Необходимо указать `url` или `sku` (хотя бы один).
+
+> **Важно:** Маркетплейс для валидации и анализа берётся из БД (поле `marketplace` в `reputation_products`), а не из параметра запроса. Даже если указать `marketplace=wb` для товара Ozon — валидация пройдёт по лимитам Ozon.
 
 **Пример запроса:**
 
@@ -124,6 +126,7 @@ GET /api/content/product?sku=203873004&marketplace=wb
 ```json
 {
   "sku": "203873004",
+  "marketplace": "wb",
   "title": "Носки мужские длинные хлопок",
   "description": "Носки мужские из хлопка...",
   "media_urls": [
@@ -455,6 +458,8 @@ flowchart TD
 
 История всех публикаций контента с фильтрацией по источнику (авто/ручной).
 
+> Показываются только записи начиная с 26.02.2026.
+
 **Доступ:** Senior+
 
 **Query параметры:**
@@ -485,7 +490,6 @@ GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=
     {
       "id": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
       "sku": "203873004",
-      "vendor_code": "16378",
       "marketplace": "wb",
       "title": "Носки мужские высокие хлопковые комплект",
       "description": "Мужские носки из натурального хлопка...",
@@ -497,7 +501,6 @@ GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=
     {
       "id": "a9b8c7d6-e5f4-3210-fedc-ba0987654321",
       "sku": "198765432",
-      "vendor_code": "22451",
       "marketplace": "wb",
       "title": "Футболка женская оверсайз хлопок",
       "description": "Стильная женская футболка свободного кроя...",
@@ -516,7 +519,6 @@ GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=
 |------|-----|----------|
 | `id` | UUID | ID записи публикации |
 | `sku` | string | Артикул товара (nmID) |
-| `vendor_code` | string \| null | Артикул продавца (из reputation\_products) |
 | `marketplace` | string | Маркетплейс |
 | `title` | string | Опубликованное название |
 | `description` | string | Опубликованное описание |
@@ -790,9 +792,9 @@ GET /api/content/wb/errors
 
 | Маркетплейс | Title max | Description min | Description max |
 |:-----------:|:---------:|:---------------:|:---------------:|
-| wb | 60 | 1000 | 5000 |
-| ozon | 255 | 100 | 6000 |
-| ym | 150 | 100 | 3000 |
+| wb | 60 | 900 | 2000 |
+| ozon | 200 | 100 | 6000 |
+| ym | 256 | 500 | 6000 |
 
 ### Проверки Title
 
