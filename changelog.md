@@ -5,11 +5,22 @@ mode: "wide"
 ---
 
 **Проект:** ADOLF — AI-Driven Operations Layer Framework\
-**Обновлено:** 18 февраля 2026
+**Обновлено:** 6 марта 2026
 
 **Репозитории:**
 - [Sign25/Docs](https://github.com/Sign25/Docs) — документация всех модулей
 - [Sign25/watcher](https://github.com/Sign25/watcher) — исходный код Watcher Collector (Node.js)
+
+---
+
+## 6 марта 2026
+
+- **ADOLF Overview** → v4.4 — standalone-страницы вместо chat-агентов, таблица модулей с роутами [(626c4a1)](https://github.com/Sign25/Docs/commit/626c4a1)
+- **Content Factory** / Раздел 4 → v1.2 — таб «История» вместо «Публикации», колонка «Балл» вместо «Статус», пагинация 50, все 3 МП настраиваемы, эндпоинт `/approvals/history` [(626c4a1)](https://github.com/Sign25/Docs/commit/626c4a1)
+- **UI** / Раздел 2 → v1.3 — иконка Knowledge: `database-search` → `database` (несуществующая иконка Lucide) [(626c4a1)](https://github.com/Sign25/Docs/commit/626c4a1)
+- **UI** / Приложение A → v1.3 — исправлена иконка Knowledge [(626c4a1)](https://github.com/Sign25/Docs/commit/626c4a1)
+- **UI** / Раздел 4 → v1.2 — навигация Sidebar → Module Page (с табами) вместо Sidebar → Launcher → Result [(626c4a1)](https://github.com/Sign25/Docs/commit/626c4a1)
+- **Все модули** / Open WebUI — добавлены примечания о фактической реализации: standalone-страницы с табами вместо chat-агентов (Reputation, Watcher, CFO, Marketing, Scout, Lex, Logistic, Office, Shop) [(626c4a1)](https://github.com/Sign25/Docs/commit/626c4a1)
 
 ---
 
