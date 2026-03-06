@@ -1,1896 +1,1037 @@
----
-title: "Раздел 4: Open WebUI"
-mode: "wide"
----
+# ADOLF CFO — Раздел 4: Open WebUI
 
 **Проект:** Финансовый учёт и управленческая аналитика  
 **Модуль:** CFO  
-**Версия:** 1.2  
-**Дата:** Февраль 2026
+**Версия:** 1.0  
+**Дата:** Январь 2026
 
 ---
 
 ## 4.1 Назначение
 
-Раздел описывает интерфейс модуля CFO в Open WebUI. Модуль использует **dashboard-first** подход: пользователь (директор) видит визуальный дашборд с KPI-метриками, графиками и каталогом готовых отчётов — без необходимости формулировать запросы к ИИ. Чат с ИИ доступен отдельно через главный экран Open WebUI.
+> **Примечание (Март 2026):** Ниже описана архитектура интеграции через chat-агента. Фактическая реализация использует **standalone-страницу** `/cfo`. Структура страницы:
+>
+> | Вкладка | Описание |
+> |---------|----------|
+> | P&L категории | Прибыль и убытки по категориям |
+> | P&L бренды | Прибыль и убытки по брендам |
+> | P&L МП | Прибыль и убытки по маркетплейсам |
+> | ABC | ABC-анализ |
+> | Убыточные | Убыточные позиции |
+> | P&L по SKU | Прибыль и убытки по SKU |
+> | AI-инсайты | AI-аналитика |
+> | Тренды | Трендовый анализ |
+> | Кастомный | Пользовательские отчёты |
+>
+> Фильтры периода: Сегодня, Неделя, Месяц, Квартал
+>
+> Документация агента ниже сохранена как спецификация backend API.
 
-### Изменения относительно v1.0
+Раздел описывает интеграцию модуля CFO с Open WebUI: Pipeline, Tools, интерактивные кнопки и пользовательский интерфейс.
 
-| Аспект | v1.0 | v1.1 | v1.2 |
-|--------|------|------|------|
-| Парадигма | Chat-first | Dashboard-first | Dashboard-first + стратегическая аналитика |
-| Точка входа | Pipeline \`@Adolf_CFO\` | Launcher + единый чат \`@Adolf\` | Launcher + единый чат \`@Adolf\` |
-| KPI | — | 6 оперативных метрик | 6 оперативных + 6 стратегических (KB) |
-| Категории баннеров | — | 6 (P&L, товарный, динамика, склад, себестоимость, AI) | 11 (+фин. устойчивость, ДДС, риски/прогнозы, каналы, задолженность) |
-| Источники данных | 1С (себестоимость) | 13 выгрузок 1С | 13 выгрузок 1С + ~90 документов KB Qdrant |
-| Прогнозирование | — | — | 3 сценария (KB + тренд 1С + сезонность) |
-| Severity-индикация | — | — | Пороговые значения для KPI и рисков |
+### Компоненты интеграции
 
-### Компоненты интерфейса
-
-| Компонент | shadcn/ui основа | Описание |
-|-----------|-----------------|----------|
-| KPI Header | [Card](https://ui.shadcn.com/docs/components/card), [Badge](https://ui.shadcn.com/docs/components/badge), [Hover Card](https://ui.shadcn.com/docs/components/hover-card) | 2 строки: оперативные (1С) + стратегические (KB) с severity |
-| Banner Grid | [Card](https://ui.shadcn.com/docs/components/card), [Accordion](https://ui.shadcn.com/docs/components/accordion), [Badge](https://ui.shadcn.com/docs/components/badge) | 11 категорий баннеров |
-| Result Page | [Tabs](https://ui.shadcn.com/docs/components/tabs), [Data Table](https://ui.shadcn.com/docs/components/data-table), [Alert](https://ui.shadcn.com/docs/components/alert) | Таблицы, графики, AI-комментарии, severity-alerts |
-| Charts | [Chart](https://ui.shadcn.com/docs/components/chart) (Recharts) | Area, Bar, Line, Pie, Radar, RadialBar, Waterfall |
-| Forecast | [Chart](https://ui.shadcn.com/docs/components/chart), [Progress](https://ui.shadcn.com/docs/components/progress) | 3 сценария (KB + тренд 1С + сезонность) |
-| Navigation | [Sidebar](https://ui.shadcn.com/docs/components/sidebar), [Breadcrumb](https://ui.shadcn.com/docs/components/breadcrumb), [Toggle Group](https://ui.shadcn.com/docs/components/toggle-group) | Навигация, период, фильтры |
-| Feedback | [Toast](https://ui.shadcn.com/docs/components/toast), [Skeleton](https://ui.shadcn.com/docs/components/skeleton), [Empty](https://ui.shadcn.com/docs/components/empty) | Уведомления, загрузка, пустые состояния |
-| Pipeline | — | Единый чат \`@Adolf\` — автомаршрутизация |
-
----
-
-## 4.2 Архитектура интерфейса
-
-### 4.2.1 Общая схема
-
-```mermaid
-flowchart TB
-    subgraph ENTRY["Точки входа"]
-        SIDEBAR["Sidebar → CFO"]
-        MAIN["Главный экран<br/>Open WebUI"]
-    end
-
-    subgraph CFO_UI["CFO Interface"]
-        DASHBOARD["Dashboard Page<br/>/apps/cfo"]
-        RESULT["Result Page<br/>/apps/cfo/result"]
-        CHAT["Единый чат @Adolf<br/>(главный экран)"]
-    end
-
-    subgraph DASHBOARD_PARTS["Компоненты Dashboard"]
-        KPI["KPI Header<br/>6 карточек метрик"]
-        BANNERS["Banner Grid<br/>6 категорий"]
-    end
-
-    subgraph BACKEND["Backend"]
-        API["Launcher API"]
-        EXECUTOR["CFO Executors"]
-        PIPELINE["CFO Pipeline"]
-    end
-
-    subgraph DATA["Источники данных"]
-        PG["PostgreSQL<br/>cfo_* таблицы"]
-        CSV_1C["CSV из 1С<br/>13 выгрузок"]
-        MP_API["API маркетплейсов"]
-    end
-
-    SIDEBAR -->|"Клик"| DASHBOARD
-    MAIN -->|"@Adolf"| CHAT
-
-    DASHBOARD --> KPI
-    DASHBOARD --> BANNERS
-
-    KPI -->|"GET /api/cfo/kpi"| API
-    BANNERS -->|"POST /api/launcher/execute"| API
-    CHAT -->|"Pipeline"| PIPELINE
-
-    API --> EXECUTOR
-    EXECUTOR --> PG
-    PIPELINE --> PG
-
-    CSV_1C -->|"ETL"| PG
-    MP_API -->|"Celery"| PG
-```
-
-### 4.2.2 Навигационный поток
-
-```mermaid
-sequenceDiagram
-    participant U as Director
-    participant D as Dashboard /apps/cfo
-    participant A as Launcher API
-    participant R as Result Page
-
-    U->>D: Открывает CFO из sidebar
-    D->>A: GET /api/cfo/kpi
-    A-->>D: KPI-метрики
-    D->>U: Дашборд: KPI + баннеры
-
-    U->>D: Клик по баннеру "P&L по категориям"
-    D->>A: POST /api/launcher/execute
-    A-->>R: Данные отчёта
-    R->>U: Таблица + график + кнопки действий
-
-    U->>R: Клик "Назад"
-    R->>D: Возврат на дашборд
-```
-
-### 4.2.3 Чат с ИИ — отдельный поток
-
-Для свободных вопросов директор использует главный экран Open WebUI — единый чат \`@Adolf\`. Pipeline автоматически маршрутизирует финансовые запросы к CFO Tools на основе контекста сообщения. Роль пользователя определяет набор доступных Tools и уровень детализации ответов. Подробнее — в подразделе 4.8.
-
-### 4.2.4 Реестр shadcn/ui компонентов
-
-Все визуальные элементы дашборда CFO построены на компонентах [shadcn/ui](https://ui.shadcn.com/docs/components). Ниже — маппинг компонентов на элементы интерфейса.
-
-**Каркас страницы**
-
-| Элемент интерфейса | shadcn/ui компонент | Документация |
-|---------------------|---------------------|-------------|
-| Навигация модулей | [Sidebar](https://ui.shadcn.com/docs/components/sidebar) | Collapsible sidebar с иконками модулей |
-| Хлебные крошки | [Breadcrumb](https://ui.shadcn.com/docs/components/breadcrumb) | Финансы / P&L по категориям |
-| Переключатель периода | [Toggle Group](https://ui.shadcn.com/docs/components/toggle-group) | Нед \| Мес \| Кв |
-| Выбор произвольного периода | [Date Picker](https://ui.shadcn.com/docs/components/date-picker) + [Popover](https://ui.shadcn.com/docs/components/popover) | Календарь с выбором диапазона |
-| Разделитель блоков | [Separator](https://ui.shadcn.com/docs/components/separator) | Между KPI и баннерами |
-| Прокрутка категорий | [Scroll Area](https://ui.shadcn.com/docs/components/scroll-area) | Стилизованный скролл на мобильных |
-
-**KPI Dashboard Header**
-
-| Элемент | shadcn/ui компонент | Использование |
-|---------|---------------------|---------------|
-| KPI-карточка | [Card](https://ui.shadcn.com/docs/components/card) | CardHeader (иконка + заголовок), CardContent (значение + дельта) |
-| Severity-бейдж | [Badge](https://ui.shadcn.com/docs/components/badge) | variant: \`default\` / \`secondary\` / \`destructive\` |
-| Подробности метрики | [Hover Card](https://ui.shadcn.com/docs/components/hover-card) | При наведении: формула расчёта, период данных, источник |
-| Загрузка метрик | [Skeleton](https://ui.shadcn.com/docs/components/skeleton) | Плейсхолдер при загрузке KPI |
-| Спиннер обновления | [Spinner](https://ui.shadcn.com/docs/components/spinner) | При перезагрузке данных |
-
-**Banner Grid**
-
-| Элемент | shadcn/ui компонент | Использование |
-|---------|---------------------|---------------|
-| Баннер отчёта | [Card](https://ui.shadcn.com/docs/components/card) | Кликабельная карточка с иконкой, заголовком, описанием |
-| Категория-аккордеон | [Accordion](https://ui.shadcn.com/docs/components/accordion) | Сворачиваемые группы баннеров (мобильная версия) |
-| Бейдж "AI" / "!" | [Badge](https://ui.shadcn.com/docs/components/badge) | На баннерах AI-дайджеста и критических рисков |
-| Пустая категория | [Empty](https://ui.shadcn.com/docs/components/empty) | Когда нет данных для категории |
-
-**Result Page (отчёты)**
-
-| Элемент | shadcn/ui компонент | Использование |
-|---------|---------------------|---------------|
-| Таблица данных | [Data Table](https://ui.shadcn.com/docs/components/data-table) | Сортировка, фильтрация, пагинация |
-| Простая таблица | [Table](https://ui.shadcn.com/docs/components/table) | Сводки без интерактива |
-| Вкладки отчётов | [Tabs](https://ui.shadcn.com/docs/components/tabs) | Таблица \| График \| Сводка |
-| Кнопки действий | [Button](https://ui.shadcn.com/docs/components/button) + [Button Group](https://ui.shadcn.com/docs/components/button-group) | Связанные отчёты, экспорт |
-| Фильтры (МП, бренд) | [Select](https://ui.shadcn.com/docs/components/select) | Выпадающие списки фильтров |
-| Поиск по таблице | [Combobox](https://ui.shadcn.com/docs/components/combobox) | Поиск SKU с автодополнением |
-| Пагинация | [Pagination](https://ui.shadcn.com/docs/components/pagination) | Для больших таблиц (P&L по SKU) |
-| Уведомления | [Toast](https://ui.shadcn.com/docs/components/toast) (Sonner) | «Экспорт завершён», «Данные обновлены» |
-
-**Charts (Recharts через ChartContainer)**
-
-| Элемент | shadcn/ui Chart + Recharts | Использование |
-|---------|---------------------------|---------------|
-| Обёртка графика | \`ChartContainer\` + \`ChartConfig\` | Все графики; задаёт min-h, цвета из config |
-| Тултип графика | \`ChartTooltip\` + \`ChartTooltipContent\` | Значения при наведении |
-| Легенда графика | \`ChartLegend\` + \`ChartLegendContent\` | Подписи серий |
-| Area Chart | Recharts \`AreaChart\` + \`Area\` | Динамика выручки, Cash Runway |
-| Bar Chart | Recharts \`BarChart\` + \`Bar\` | P&L по категориям, маржа каналов |
-| Line Chart | Recharts \`LineChart\` + \`Line\` | Тренд маржи, прогноз (3 сценария) |
-| Pie / Donut | Recharts \`PieChart\` + \`Pie\` | ABC-распределение, структура расходов |
-| Radar Chart | Recharts \`RadarChart\` + \`Radar\` | Бенчмарк МП, фин. устойчивость |
-| Radial Bar | Recharts \`RadialBarChart\` + \`RadialBar\` | Gauge: ликвидность, Cash Runway |
-| Сетка | Recharts \`CartesianGrid\` | vertical=false, горизонтальные линии |
-| Оси | Recharts \`XAxis\` + \`YAxis\` | Даты, категории, значения |
-
-**Диалоги и панели**
-
-| Элемент | shadcn/ui компонент | Использование |
-|---------|---------------------|---------------|
-| Подтверждение экспорта | [Alert Dialog](https://ui.shadcn.com/docs/components/alert-dialog) | «Экспортировать в Excel?» |
-| Панель фильтров | [Sheet](https://ui.shadcn.com/docs/components/sheet) | Выдвижная панель с фильтрами (мобильная) |
-| Подсказки | [Tooltip](https://ui.shadcn.com/docs/components/tooltip) | На иконках, кнопках, заголовках |
-| Модальный детальный вид | [Dialog](https://ui.shadcn.com/docs/components/dialog) | Детали SKU из таблицы |
-| Мобильный drawer | [Drawer](https://ui.shadcn.com/docs/components/drawer) | Мобильная версия Dialog |
-
-**Обратная связь и состояния**
-
-| Элемент | shadcn/ui компонент | Использование |
-|---------|---------------------|---------------|
-| Алерт критического риска | [Alert](https://ui.shadcn.com/docs/components/alert) | variant: \`destructive\`; блок рисков |
-| Прогресс-бар | [Progress](https://ui.shadcn.com/docs/components/progress) | Выполнение roadmap, загрузка отчёта |
-| Загрузка данных | [Skeleton](https://ui.shadcn.com/docs/components/skeleton) | Плейсхолдеры таблиц и графиков |
-| Нет данных | [Empty](https://ui.shadcn.com/docs/components/empty) | Когда отчёт пуст за период |
-| Типографика | [Typography](https://ui.shadcn.com/docs/components/typography) | Заголовки, абзацы, числа |
-| Горячие клавиши | [Kbd](https://ui.shadcn.com/docs/components/kbd) | Подсказки shortcut-ов (v2.0) |
+| Компонент | Описание |
+|-----------|----------|
+| Pipeline | `@Adolf_CFO` — агент финансовой аналитики |
+| Tools | Function Calling для финансовых операций |
+| Buttons | Интерактивные кнопки быстрых действий |
+| Formatters | Форматирование отчётов в markdown |
 
 ---
 
-## 4.3 KPI Dashboard Header
+## 4.2 Pipeline Configuration
 
-При открытии страницы \`/apps/cfo\` в верхней части отображаются автообновляемые карточки ключевых метрик в двух строках: **оперативные** (данные 1С, обновляются ежедневно) и **стратегические** (данные из KB Qdrant, обновляются по мере загрузки отчётных периодов). Данные загружаются через endpoint \`GET /api/cfo/kpi\`.
-
-### 4.3.1 Состав KPI-карточек
-
-**Строка 1 — Оперативные метрики (1С + API маркетплейсов)**
-
-| # | Метрика | Источник | Дельта | Иконка |
-|:-:|---------|----------|--------|--------|
-| 1 | Выручка за неделю | \`cfo_pnl_daily\` | vs прошлая неделя | \`trending-up\` |
-| 2 | Операционная прибыль | \`cfo_pnl_daily\` + \`financial_summary\` | vs прошлая неделя | \`wallet\` |
-| 3 | Операционная маржа | Расчёт: (выручка − COGS − комиссии МП − логистика) / выручка | vs прошлая неделя (п.п.) | \`percent\` |
-| 4 | Убыточные SKU | \`cfo_abc_results\` (class D) | vs прошлая неделя | \`alert-triangle\` |
-| 5 | Оборачиваемость запасов | \`stock_balance\` + \`cost_prices\` | дни (тренд) | \`refresh-cw\` |
-| 6 | Выручка / сотрудник | \`cfo_pnl_daily\` + KB (\`2_9_kadry_i_fot\`) | vs прошлый месяц | \`users\` |
-
-**Строка 2 — Стратегические метрики (KB Qdrant)**
-
-| # | Метрика | Источник KB | Порог тревоги | Иконка |
-|:-:|---------|-------------|---------------|--------|
-| 7 | Текущая ликвидность | \`section_2_2_liquidity\` | &lt; 1.0 — критично | \`shield\` |
-| 8 | КЗ просрочена (&gt;180д) | \`2_5_debitorskaya_kreditorskaya\` | &gt; 40% — критично | \`clock\` |
-| 9 | Cash Runway | \`dds_analysis\` + \`section_2_4_cash_flow\` | &lt; 3 мес — критично | \`hourglass\` |
-| 10 | Доля коммерч. расходов | \`2_3_kommercheskie_rashody\` | &gt; 40% — высокая | \`pie-chart\` |
-| 11 | Неликвид | \`2_6_zapasy_nelikvid\` | &gt; 10% запасов — риск | \`archive-x\` |
-| 12 | Прогноз выручки (мес) | \`section_5_forecast\` + тренд 1С | базовый сценарий | \`target\` |
-
-Стратегические метрики отображаются только для ролей Director и Admin. Для Senior отображаются только оперативные метрики (строка 1).
-
-### 4.3.2 API Endpoint
-
-```
-GET /api/cfo/kpi
-Authorization: Bearer {token}
-```
-
-**Response:**
-
-```json
-{
-  "period": "2026-02-07 — 2026-02-13",
-  "rows": [
-    {
-      "id": "operational",
-      "label": "Оперативные показатели",
-      "min_role": "senior",
-      "metrics": [
-        {
-          "id": "revenue",
-          "label": "Выручка",
-          "value": 5250000,
-          "formatted": "5.25 млн ₽",
-          "delta": 12.3,
-          "delta_label": "+12.3% к пред. нед",
-          "trend": "up",
-          "icon": "trending-up",
-          "severity": "normal"
-        },
-        {
-          "id": "op_profit",
-          "label": "Опер. прибыль",
-          "value": 523000,
-          "formatted": "523 тыс ₽",
-          "delta": 8.1,
-          "delta_label": "+8.1% к пред. нед",
-          "trend": "up",
-          "icon": "wallet",
-          "severity": "normal"
-        },
-        {
-          "id": "op_margin",
-          "label": "Опер. маржа",
-          "value": 9.96,
-          "formatted": "9.96%",
-          "delta": 0.8,
-          "delta_label": "+0.8 п.п.",
-          "trend": "up",
-          "icon": "percent",
-          "severity": "warning"
-        },
-        {
-          "id": "loss_makers",
-          "label": "Убыточных SKU",
-          "value": 5,
-          "formatted": "5",
-          "delta": -2,
-          "delta_label": "-2 к пред. нед",
-          "trend": "down",
-          "icon": "alert-triangle",
-          "severity": "normal"
-        },
-        {
-          "id": "inventory_turnover",
-          "label": "Оборач. запасов",
-          "value": 76,
-          "formatted": "76 дн",
-          "delta": -3,
-          "delta_label": "-3 дн (улучшение)",
-          "trend": "down",
-          "icon": "refresh-cw",
-          "severity": "warning"
-        },
-        {
-          "id": "revenue_per_employee",
-          "label": "Выручка / сотр.",
-          "value": 36972,
-          "formatted": "37.0 тыс ₽",
-          "delta": -5.2,
-          "delta_label": "-5.2% к пред. мес",
-          "trend": "down",
-          "icon": "users",
-          "severity": "critical"
-        }
-      ]
-    },
-    {
-      "id": "strategic",
-      "label": "Стратегические индикаторы",
-      "min_role": "director",
-      "metrics": [
-        {
-          "id": "current_ratio",
-          "label": "Тек. ликвидность",
-          "value": 0.82,
-          "formatted": "0.82",
-          "delta": null,
-          "delta_label": "норма > 1.0",
-          "trend": "neutral",
-          "icon": "shield",
-          "severity": "critical",
-          "threshold": {"critical": 1.0, "warning": 1.5}
-        },
-        {
-          "id": "overdue_kz",
-          "label": "КЗ просроч. >180д",
-          "value": 46.6,
-          "formatted": "46.6%",
-          "delta": null,
-          "delta_label": "от общей КЗ",
-          "trend": "neutral",
-          "icon": "clock",
-          "severity": "critical",
-          "threshold": {"critical": 40, "warning": 25}
-        },
-        {
-          "id": "cash_runway",
-          "label": "Cash Runway",
-          "value": 4.2,
-          "formatted": "4.2 мес",
-          "delta": -0.8,
-          "delta_label": "-0.8 мес к пред.",
-          "trend": "down",
-          "icon": "hourglass",
-          "severity": "warning",
-          "threshold": {"critical": 3, "warning": 6}
-        },
-        {
-          "id": "commercial_expense_ratio",
-          "label": "Коммерч. расходы",
-          "value": 45.0,
-          "formatted": "45.0%",
-          "delta": 4.5,
-          "delta_label": "+4.5 п.п. к 2024",
-          "trend": "up",
-          "icon": "pie-chart",
-          "severity": "critical",
-          "threshold": {"critical": 40, "warning": 25}
-        },
-        {
-          "id": "deadstock",
-          "label": "Неликвид",
-          "value": 51.5,
-          "formatted": "51.5 млн ₽",
-          "delta": null,
-          "delta_label": "8.5% от запасов",
-          "trend": "neutral",
-          "icon": "archive-x",
-          "severity": "warning",
-          "threshold": {"critical": 10, "warning": 5}
-        },
-        {
-          "id": "revenue_forecast",
-          "label": "Прогноз (мес)",
-          "value": 6800000,
-          "formatted": "6.8 млн ₽",
-          "delta": null,
-          "delta_label": "базовый сценарий",
-          "trend": "neutral",
-          "icon": "target",
-          "severity": "normal"
-        }
-      ]
-    }
-  ]
-}
-```
-
-### 4.3.3 Компонент KPI Card
-
-Каждая KPI-карточка реализована через shadcn/ui [Card](https://ui.shadcn.com/docs/components/card) + [Badge](https://ui.shadcn.com/docs/components/badge) + [Hover Card](https://ui.shadcn.com/docs/components/hover-card):
-
-```
-Card
-├── CardHeader
-│   ├── Lucide Icon (иконка метрики)
-│   └── CardTitle (название метрики)
-├── CardContent
-│   ├── Typography.h2 (значение: "5.25 млн ₽")
-│   ├── Badge [variant по severity] (дельта: "+12.3%")
-│   └── Typography.muted (delta_label: "к пред. нед")
-└── HoverCard (при наведении)
-    ├── Формула расчёта
-    ├── Период данных
-    └── Источник (1С / KB)
-```
-
-Цветовая индикация определяется полем \`severity\`, маппится на shadcn/ui [Badge](https://ui.shadcn.com/docs/components/badge) variants:
-
-| Severity | Badge variant | Цвет рамки Card | Когда |
-|----------|--------------|-----------------|-------|
-| \`normal\` | \`default\` | border-default | Метрика в норме |
-| \`warning\` | \`secondary\` + custom color | border-warning | Метрика приближается к порогу |
-| \`critical\` | \`destructive\` | border-destructive | Метрика за пороговым значением |
-
-При загрузке метрик отображаются [Skeleton](https://ui.shadcn.com/docs/components/skeleton) плейсхолдеры вместо Card. Стратегические метрики (строка 2) содержат поле \`threshold\` для автоматического расчёта severity. Пороги настраиваются Admin через \`/api/cfo/settings\`.
-
-### 4.3.4 Backend реализация
+### 4.2.1 Регистрация Pipeline
 
 ```python
-# executors/launcher/cfo_kpi.py
+from typing import List
+from pydantic import BaseModel
 
-async def get_kpi(user: dict) -> dict:
-    """KPI-метрики для дашборда CFO. Две строки: оперативные + стратегические."""
-
-    # --- Строка 1: Оперативные (1С + API МП) ---
-    current = await pnl_service.get_summary(week_start(), yesterday())
-    previous = await pnl_service.get_summary(prev_week_start(), prev_week_end())
-    loss_count = await abc_service.count_class_d(week_start(), yesterday())
-    stock = await stock_service.get_total_balance()
-    cost_data = await cost_service.get_avg_cost()
-    headcount = await kb_service.query("численность персонала текущая")
-
-    inv_turnover = calculate_inventory_turnover(
-        cogs=current.cogs, avg_inventory=stock.total_value
-    )
-    rev_per_employee = current.revenue / headcount.value if headcount else None
-
-    operational = build_row("operational", "Оперативные показатели", "senior", [
-        build_metric("revenue", "Выручка", current.revenue,
-                     delta_pct(current.revenue, previous.revenue)),
-        build_metric("op_profit", "Опер. прибыль", current.op_profit,
-                     delta_pct(current.op_profit, previous.op_profit)),
-        build_metric("op_margin", "Опер. маржа", current.op_margin,
-                     current.op_margin - previous.op_margin,
-                     severity=calc_severity(current.op_margin, warning=15, critical=5)),
-        build_metric("loss_makers", "Убыточных SKU", loss_count.current,
-                     loss_count.current - loss_count.previous),
-        build_metric("inventory_turnover", "Оборач. запасов", inv_turnover,
-                     inv_turnover - previous_inv_turnover,
-                     severity=calc_severity(inv_turnover, warning=90, critical=120)),
-        build_metric("revenue_per_employee", "Выручка / сотр.", rev_per_employee,
-                     delta_pct(rev_per_employee, prev_rev_per_employee)),
-    ])
-
-    rows = [operational]
-
-    # --- Строка 2: Стратегические (KB Qdrant) — только Director+ ---
-    if user["role"] in ("director", "admin"):
-        kb_liquidity = await kb_service.query("текущая ликвидность коэффициент")
-        kb_overdue = await kb_service.query("КЗ просрочена более 180 дней процент")
-        kb_cash = await kb_service.query("cash runway месяцев денежный поток")
-        kb_commercial = await kb_service.query("доля коммерческих расходов в выручке")
-        kb_deadstock = await kb_service.query("неликвид сумма процент от запасов")
-        kb_forecast = await kb_service.query("прогноз выручки базовый сценарий месяц")
-
-        strategic = build_row("strategic", "Стратегические индикаторы", "director", [
-            build_metric("current_ratio", "Тек. ликвидность", kb_liquidity.value,
-                         threshold={"critical": 1.0, "warning": 1.5}),
-            build_metric("overdue_kz", "КЗ просроч. >180д", kb_overdue.value,
-                         threshold={"critical": 40, "warning": 25}),
-            build_metric("cash_runway", "Cash Runway", kb_cash.value,
-                         threshold={"critical": 3, "warning": 6}),
-            build_metric("commercial_expense_ratio", "Коммерч. расходы",
-                         kb_commercial.value,
-                         threshold={"critical": 40, "warning": 25}),
-            build_metric("deadstock", "Неликвид", kb_deadstock.value),
-            build_metric("revenue_forecast", "Прогноз (мес)", kb_forecast.value),
+class CFOPipeline:
+    """Pipeline финансовой аналитики."""
+    
+    class Valves(BaseModel):
+        CLAUDE_API_KEY: str = ""
+        DEFAULT_PERIOD_DAYS: int = 7
+        MARGIN_THRESHOLD: float = 10.0
+        ENABLE_AI_INSIGHTS: bool = True
+    
+    def __init__(self):
+        self.name = "Adolf_CFO"
+        self.description = "Финансовая аналитика: P&L, ABC-анализ, AI-инсайты"
+        self.valves = self.Valves()
+    
+    async def inlet(self, body: dict, user: dict) -> dict:
+        """Обработка входящего запроса."""
+        
+        if user.get("role") not in ["senior", "director", "admin"]:
+            raise PermissionError("Доступ к CFO только для Senior, Director и Admin")
+        
+        body["__user__"] = {
+            "id": user.get("id"),
+            "role": user.get("role"),
+            "brand_id": user.get("brand_id")
+        }
+        
+        return body
+    
+    async def outlet(self, body: dict, user: dict) -> dict:
+        """Обработка исходящего ответа."""
+        
+        if "buttons" not in body:
+            body["buttons"] = self._get_default_buttons(user.get("role"))
+        
+        return body
+    
+    def _get_default_buttons(self, role: str) -> List[dict]:
+        """Кнопки по умолчанию."""
+        
+        buttons = [
+            {"label": "📊 P&L по категориям", "action": "pnl_by_category"},
+            {"label": "🏷️ P&L по брендам", "action": "pnl_by_brand"},
+            {"label": "🛒 P&L по МП", "action": "pnl_by_marketplace"},
+            {"label": "🔤 ABC-анализ", "action": "abc_analysis"},
+            {"label": "🔴 Убыточные SKU", "action": "show_loss_makers"},
+        ]
+        
+        if role in ["director", "admin"]:
+            buttons.extend([
+                {"label": "📈 P&L по SKU", "action": "pnl_by_sku"},
+                {"label": "🤖 AI-инсайты", "action": "ai_insights"},
+                {"label": "📝 Кастомный отчёт", "action": "custom_report"},
+            ])
+        
+        buttons.extend([
+            {"label": "📥 Экспорт Excel", "action": "export_excel"},
+            {"label": "📄 Экспорт PDF", "action": "export_pdf"},
         ])
-        rows.append(strategic)
-
-    return {"period": f"{week_start()} — {yesterday()}", "rows": rows}
+        
+        return buttons
 ```
 
----
-
-## 4.4 Каталог баннеров
-
-Под KPI-шапкой располагается сетка баннеров, сгруппированных по категориям. Каждый баннер запускает готовый отчёт через \`POST /api/launcher/execute\`. Архитектура соответствует [Launcher Core 3.1](/core/adolf_core_3_1_launcher).
-
-### 4.4.1 Категории и баннеры
-
-**Категория 1: P&L отчёты**
-
-| Banner ID | Заголовок | Иконка | Доступ | Action |
-|-----------|-----------|--------|--------|--------|
-| \`pnl_category\` | P&L по категориям | \`folder-bar-chart\` | Senior+ | \`cfo.pnl_category\` |
-| \`pnl_brand\` | P&L по брендам | \`tags\` | Senior+ | \`cfo.pnl_brand\` |
-| \`pnl_marketplace\` | P&L по маркетплейсам | \`store\` | Senior+ | \`cfo.pnl_marketplace\` |
-| \`pnl_sku\` | P&L по SKU | \`barcode\` | Director+ | \`cfo.pnl_sku\` |
-| \`pnl_consolidated\` | Консолидированный P&L | \`file-bar-chart\` | Director+ | \`cfo.pnl_consolidated\` |
-
-**Категория 2: Товарный анализ**
-
-| Banner ID | Заголовок | Иконка | Доступ | Action |
-|-----------|-----------|--------|--------|--------|
-| \`abc_analysis\` | ABC-анализ | \`bar-chart-3\` | Senior+ | \`cfo.abc_analysis\` |
-| \`loss_makers\` | Убыточные SKU | \`alert-triangle\` | Senior+ | \`cfo.loss_makers\` |
-| \`top_profitable\` | Топ прибыльных | \`trophy\` | Senior+ | \`cfo.top_profitable\` |
-
-**Категория 3: Динамика (графики)**
-
-| Banner ID | Заголовок | Иконка | Badge | Action |
-|-----------|-----------|--------|-------|--------|
-| \`chart_revenue\` | Динамика выручки | \`trending-up\` | — | \`cfo.chart_revenue\` |
-| \`chart_margin\` | Динамика маржи | \`activity\` | — | \`cfo.chart_margin\` |
-| \`chart_compare\` | Сравнение периодов | \`git-compare-arrows\` | — | \`cfo.chart_compare\` |
-
-**Категория 4: Склад и логистика**
-
-| Banner ID | Заголовок | Иконка | Источник 1С | Action |
-|-----------|-----------|--------|-------------|--------|
-| \`stock_balance\` | Остатки на складах | \`package\` | \`stock_balance\` (ежедн.) | \`cfo.stock_balance\` |
-| \`shipments\` | Отгрузки на МП | \`truck\` | \`orders_shipped\` (ежедн.) | \`cfo.shipments\` |
-| \`returns\` | Возвраты | \`undo-2\` | \`returns_register\` (еженед.) | \`cfo.returns\` |
-| \`inventory_value\` | Оценка запасов | \`warehouse\` | \`inventory_valuation\` (ежемес.) | \`cfo.inventory_value\` |
-
-**Категория 5: Себестоимость**
-
-| Banner ID | Заголовок | Иконка | Источник 1С | Action |
-|-----------|-----------|--------|-------------|--------|
-| \`cost_by_sku\` | Себестоимость по SKU | \`calculator\` | \`cost_prices\` (еженед.) | \`cfo.cost_by_sku\` |
-| \`supplier_prices\` | Цены поставщиков | \`receipt\` | \`suppliers_prices\` (еженед.) | \`cfo.supplier_prices\` |
-| \`cost_dynamics\` | Динамика себестоимости | \`chart-line\` | \`cost_prices\` (история) | \`cfo.cost_dynamics\` |
-
-**Категория 6: AI-аналитика**
-
-| Banner ID | Заголовок | Иконка | Badge | Action |
-|-----------|-----------|--------|-------|--------|
-| \`ai_digest\` | AI-дайджест за неделю | \`sparkles\` | AI | \`cfo.ai_digest\` |
-| \`ai_chat\` | Задать вопрос CFO | \`message-square\` | — | \`cfo.ai_chat\` (redirect → единый чат) |
-
-**Категория 7: Финансовая устойчивость** (источник: KB Qdrant, Director+)
-
-| Banner ID | Заголовок | Иконка | Источник KB | Action |
-|-----------|-----------|--------|-------------|--------|
-| \`liquidity\` | Анализ ликвидности | \`shield-check\` | \`section_2_2_liquidity\` | \`cfo.liquidity\` |
-| \`debt_load\` | Долговая нагрузка | \`scale\` | \`2_5_debitorskaya_kreditorskaya\` | \`cfo.debt_load\` |
-| \`ebitda\` | EBITDA и рентабельность | \`badge-percent\` | \`section_2_1_key_metrics\` | \`cfo.ebitda\` |
-| \`financial_stability\` | Финансовая устойчивость | \`building\` | \`section_2_3_financial_stability\` | \`cfo.financial_stability\` |
-
-**Категория 8: Денежный поток** (источник: KB Qdrant, Director+)
-
-| Banner ID | Заголовок | Иконка | Источник KB | Action |
-|-----------|-----------|--------|-------------|--------|
-| \`cash_flow\` | Анализ ДДС | \`banknote\` | \`section_2_4_cash_flow\`, \`dds_analysis\` | \`cfo.cash_flow\` |
-| \`cash_runway_report\` | Cash Runway (прогноз) | \`hourglass\` | \`dds_analysis\` + тренд 1С | \`cfo.cash_runway\` |
-| \`working_capital\` | Оборотный капитал | \`rotate-ccw\` | \`2_8_oborotno_saldovye\` | \`cfo.working_capital\` |
-
-**Категория 9: Риски и прогнозы** (источник: KB Qdrant, Director+)
-
-| Banner ID | Заголовок | Иконка | Источник KB | Action |
-|-----------|-----------|--------|-------------|--------|
-| \`critical_risks\` | Критические риски | \`siren\` | \`section_1_2_critical_risks\` | \`cfo.critical_risks\` |
-| \`forecast_scenarios\` | Прогноз (3 сценария) | \`git-branch\` | \`section_5_forecast\` + тренд 1С | \`cfo.forecast\` |
-| \`roadmap\` | Дорожная карта | \`map\` | \`section_1_3_roadmap\` | \`cfo.roadmap\` |
-| \`audit_findings\` | Результаты аудита | \`clipboard-check\` | \`section_7_audit\` | \`cfo.audit\` |
-
-**Категория 10: Эффективность каналов** (источник: KB + 1С)
-
-| Banner ID | Заголовок | Иконка | Источник | Action |
-|-----------|-----------|--------|----------|--------|
-| \`channel_margins\` | Маржа по каналам | \`git-compare-arrows\` | \`section_3_1_channel_margins\` | \`cfo.channel_margins\` |
-| \`mp_commissions\` | Комиссии и логистика МП | \`receipt\` | \`section_3_2_logistics_commissions\` + 1С | \`cfo.mp_commissions\` |
-| \`redemption_rate\` | Процент выкупа | \`package-check\` | \`section_3_3_redemption_rate\` | \`cfo.redemption_rate\` |
-| \`mp_benchmark\` | Бенчмарк маркетплейсов | \`bar-chart-horizontal\` | KB аналитика МП | \`cfo.mp_benchmark\` |
-
-**Категория 11: Задолженность и поставщики** (источник: KB Qdrant, Director+)
-
-| Banner ID | Заголовок | Иконка | Источник KB | Action |
-|-----------|-----------|--------|-------------|--------|
-| \`dz_aging\` | ДЗ — aging report | \`clock\` | \`2_5_debitorskaya_kreditorskaya\` | \`cfo.dz_aging\` |
-| \`kz_aging\` | КЗ — aging report | \`timer\` | \`2_5_debitorskaya_kreditorskaya\` | \`cfo.kz_aging\` |
-| \`suppliers_analysis\` | Анализ поставщиков | \`handshake\` | \`2_13_Analiz_postavshchikov\` | \`cfo.suppliers_analysis\` |
-| \`inventory_deadstock\` | Неликвид и запасы | \`archive-x\` | \`section_4_1_inventory\`, \`2_6_zapasy\` | \`cfo.inventory_deadstock\` |
-
-### 4.4.2 JSON-конфигурация
-
-Файл: \`/config/launcher/cfo.json\`
-
-```json
-{
-  "module": "cfo",
-  "version": "1.1",
-  "title": "Финансы",
-  "description": "Финансовая аналитика и отчётность",
-  "icon": "line-chart",
-  "kpi_endpoint": "/api/cfo/kpi",
-  "categories": [
-    {
-      "id": "pnl",
-      "title": "P&L отчёты",
-      "banners": [
-        {
-          "id": "pnl_category",
-          "title": "P&L по категориям",
-          "description": "Прибыль и убытки в разрезе категорий товаров",
-          "icon": "folder-bar-chart",
-          "action": "cfo.pnl_category",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "pnl_brand",
-          "title": "P&L по брендам",
-          "description": "Сравнение Охана Маркет и Охана Кидс",
-          "icon": "tags",
-          "action": "cfo.pnl_brand",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "pnl_marketplace",
-          "title": "P&L по маркетплейсам",
-          "description": "Wildberries vs Ozon vs Яндекс.Маркет",
-          "icon": "store",
-          "action": "cfo.pnl_marketplace",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "pnl_sku",
-          "title": "P&L по SKU",
-          "description": "Детализация до каждого артикула",
-          "icon": "barcode",
-          "action": "cfo.pnl_sku",
-          "enabled": true,
-          "badge": null,
-          "min_role": "director"
-        },
-        {
-          "id": "pnl_consolidated",
-          "title": "Консолидированный P&L",
-          "description": "Общая картина по всему бизнесу",
-          "icon": "file-bar-chart",
-          "action": "cfo.pnl_consolidated",
-          "enabled": true,
-          "badge": null,
-          "min_role": "director"
-        }
-      ]
-    },
-    {
-      "id": "product_analysis",
-      "title": "Товарный анализ",
-      "banners": [
-        {
-          "id": "abc_analysis",
-          "title": "ABC-анализ",
-          "description": "Классификация SKU по вкладу в прибыль",
-          "icon": "bar-chart-3",
-          "action": "cfo.abc_analysis",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "loss_makers",
-          "title": "Убыточные SKU",
-          "description": "Позиции с отрицательной маржой",
-          "icon": "alert-triangle",
-          "action": "cfo.loss_makers",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "top_profitable",
-          "title": "Топ прибыльных",
-          "description": "Лидеры по абсолютной прибыли",
-          "icon": "trophy",
-          "action": "cfo.top_profitable",
-          "enabled": true,
-          "badge": null
-        }
-      ]
-    },
-    {
-      "id": "dynamics",
-      "title": "Динамика",
-      "banners": [
-        {
-          "id": "chart_revenue",
-          "title": "Динамика выручки",
-          "description": "График выручки за последние 30 дней",
-          "icon": "trending-up",
-          "action": "cfo.chart_revenue",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "chart_margin",
-          "title": "Динамика маржи",
-          "description": "Тренд маржинальности по дням",
-          "icon": "activity",
-          "action": "cfo.chart_margin",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "chart_compare",
-          "title": "Сравнение периодов",
-          "description": "Текущий vs предыдущий период",
-          "icon": "git-compare-arrows",
-          "action": "cfo.chart_compare",
-          "enabled": true,
-          "badge": null
-        }
-      ]
-    },
-    {
-      "id": "warehouse",
-      "title": "Склад и логистика",
-      "banners": [
-        {
-          "id": "stock_balance",
-          "title": "Остатки на складах",
-          "description": "Текущие остатки по складам и SKU",
-          "icon": "package",
-          "action": "cfo.stock_balance",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "shipments",
-          "title": "Отгрузки на МП",
-          "description": "Реестр отгрузок за период",
-          "icon": "truck",
-          "action": "cfo.shipments",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "returns",
-          "title": "Возвраты",
-          "description": "Анализ возвратов от маркетплейсов",
-          "icon": "undo-2",
-          "action": "cfo.returns",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "inventory_value",
-          "title": "Оценка запасов",
-          "description": "Стоимость товаров на складах",
-          "icon": "warehouse",
-          "action": "cfo.inventory_value",
-          "enabled": true,
-          "badge": null
-        }
-      ]
-    },
-    {
-      "id": "cost",
-      "title": "Себестоимость",
-      "banners": [
-        {
-          "id": "cost_by_sku",
-          "title": "Себестоимость по SKU",
-          "description": "Актуальная себестоимость из 1С",
-          "icon": "calculator",
-          "action": "cfo.cost_by_sku",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "supplier_prices",
-          "title": "Цены поставщиков",
-          "description": "Актуальные прайс-листы поставщиков",
-          "icon": "receipt",
-          "action": "cfo.supplier_prices",
-          "enabled": true,
-          "badge": null
-        },
-        {
-          "id": "cost_dynamics",
-          "title": "Динамика себестоимости",
-          "description": "Изменение себестоимости во времени",
-          "icon": "chart-line",
-          "action": "cfo.cost_dynamics",
-          "enabled": true,
-          "badge": null
-        }
-      ]
-    },
-    {
-      "id": "ai",
-      "title": "AI-аналитика",
-      "banners": [
-        {
-          "id": "ai_digest",
-          "title": "AI-дайджест за неделю",
-          "description": "Выводы, проблемы, рекомендации",
-          "icon": "sparkles",
-          "action": "cfo.ai_digest",
-          "enabled": true,
-          "badge": "AI"
-        },
-        {
-          "id": "ai_chat",
-          "title": "Задать вопрос CFO",
-          "description": "Свободный диалог с ИИ-ассистентом",
-          "icon": "message-square",
-          "action": "cfo.ai_chat",
-          "enabled": true,
-          "badge": null,
-          "action_type": "redirect_chat"
-        }
-      ]
-    },
-    {
-      "id": "financial_health",
-      "title": "Финансовая устойчивость",
-      "min_role": "director",
-      "source": "kb",
-      "banners": [
-        {
-          "id": "liquidity",
-          "title": "Анализ ликвидности",
-          "description": "Коэффициенты ликвидности, покрытие обязательств",
-          "icon": "shield-check",
-          "action": "cfo.liquidity",
-          "enabled": true
-        },
-        {
-          "id": "debt_load",
-          "title": "Долговая нагрузка",
-          "description": "ДЗ/КЗ, aging reports, просрочка",
-          "icon": "scale",
-          "action": "cfo.debt_load",
-          "enabled": true
-        },
-        {
-          "id": "ebitda",
-          "title": "EBITDA и рентабельность",
-          "description": "EBITDA, ROS, ROE, ROA",
-          "icon": "badge-percent",
-          "action": "cfo.ebitda",
-          "enabled": true
-        },
-        {
-          "id": "financial_stability",
-          "title": "Финансовая устойчивость",
-          "description": "Коэффициенты автономии, структура капитала",
-          "icon": "building",
-          "action": "cfo.financial_stability",
-          "enabled": true
-        }
-      ]
-    },
-    {
-      "id": "cash_flow",
-      "title": "Денежный поток",
-      "min_role": "director",
-      "source": "kb",
-      "banners": [
-        {
-          "id": "cash_flow_analysis",
-          "title": "Анализ ДДС",
-          "description": "Операционный, инвестиционный, финансовый потоки",
-          "icon": "banknote",
-          "action": "cfo.cash_flow",
-          "enabled": true
-        },
-        {
-          "id": "cash_runway_report",
-          "title": "Cash Runway (прогноз)",
-          "description": "Сколько месяцев без дополнительного финансирования",
-          "icon": "hourglass",
-          "action": "cfo.cash_runway",
-          "enabled": true
-        },
-        {
-          "id": "working_capital",
-          "title": "Оборотный капитал",
-          "description": "Структура и динамика оборотных средств",
-          "icon": "rotate-ccw",
-          "action": "cfo.working_capital",
-          "enabled": true
-        }
-      ]
-    },
-    {
-      "id": "risks_forecasts",
-      "title": "Риски и прогнозы",
-      "min_role": "director",
-      "source": "kb",
-      "banners": [
-        {
-          "id": "critical_risks",
-          "title": "Критические риски",
-          "description": "Реестр рисков с оценкой вероятности и влияния",
-          "icon": "siren",
-          "action": "cfo.critical_risks",
-          "enabled": true,
-          "badge": "!"
-        },
-        {
-          "id": "forecast_scenarios",
-          "title": "Прогноз (3 сценария)",
-          "description": "Пессимистичный / базовый / оптимистичный",
-          "icon": "git-branch",
-          "action": "cfo.forecast",
-          "enabled": true,
-          "badge": "AI"
-        },
-        {
-          "id": "roadmap",
-          "title": "Дорожная карта",
-          "description": "План мероприятий по выходу из кризиса",
-          "icon": "map",
-          "action": "cfo.roadmap",
-          "enabled": true
-        },
-        {
-          "id": "audit_findings",
-          "title": "Результаты аудита",
-          "description": "Ключевые выводы и замечания",
-          "icon": "clipboard-check",
-          "action": "cfo.audit",
-          "enabled": true
-        }
-      ]
-    },
-    {
-      "id": "channels",
-      "title": "Эффективность каналов",
-      "source": "kb+1c",
-      "banners": [
-        {
-          "id": "channel_margins",
-          "title": "Маржа по каналам",
-          "description": "Опт vs WB vs Ozon vs Яндекс.Маркет",
-          "icon": "git-compare-arrows",
-          "action": "cfo.channel_margins",
-          "enabled": true
-        },
-        {
-          "id": "mp_commissions",
-          "title": "Комиссии и логистика МП",
-          "description": "Структура расходов по маркетплейсам",
-          "icon": "receipt",
-          "action": "cfo.mp_commissions",
-          "enabled": true
-        },
-        {
-          "id": "redemption_rate",
-          "title": "Процент выкупа",
-          "description": "Анализ выкупа по МП и категориям",
-          "icon": "package-check",
-          "action": "cfo.redemption_rate",
-          "enabled": true
-        },
-        {
-          "id": "mp_benchmark",
-          "title": "Бенчмарк маркетплейсов",
-          "description": "Сравнительная эффективность каналов",
-          "icon": "bar-chart-horizontal",
-          "action": "cfo.mp_benchmark",
-          "enabled": true
-        }
-      ]
-    },
-    {
-      "id": "debt_suppliers",
-      "title": "Задолженность и поставщики",
-      "min_role": "director",
-      "source": "kb",
-      "banners": [
-        {
-          "id": "dz_aging",
-          "title": "ДЗ — aging report",
-          "description": "Дебиторская задолженность по срокам",
-          "icon": "clock",
-          "action": "cfo.dz_aging",
-          "enabled": true
-        },
-        {
-          "id": "kz_aging",
-          "title": "КЗ — aging report",
-          "description": "Кредиторская задолженность по срокам",
-          "icon": "timer",
-          "action": "cfo.kz_aging",
-          "enabled": true
-        },
-        {
-          "id": "suppliers_analysis",
-          "title": "Анализ поставщиков",
-          "description": "Концентрация, условия, риски",
-          "icon": "handshake",
-          "action": "cfo.suppliers_analysis",
-          "enabled": true
-        },
-        {
-          "id": "inventory_deadstock",
-          "title": "Неликвид и запасы",
-          "description": "Оценка неликвида, оборачиваемость",
-          "icon": "archive-x",
-          "action": "cfo.inventory_deadstock",
-          "enabled": true
-        }
-      ]
-    }
-  ]
-}
-```
-
-### 4.4.3 Расширение формата Launcher
-
-Для поддержки KPI-шапки и категорий JSON-конфигурация CFO расширяет базовый формат Launcher (Core 3.1):
-
-| Поле | Тип | Базовый Launcher | CFO Extension |
-|------|-----|:----------------:|:-------------:|
-| \`module\` | string | ✅ | ✅ |
-| \`banners[]\` | array | ✅ (плоский список) | — |
-| \`categories[]\` | array | — | ✅ (группы баннеров) |
-| \`kpi_endpoint\` | string | — | ✅ |
-| \`banners[].min_role\` | string | — | ✅ |
-| \`banners[].action_type\` | string | — | ✅ (\`direct\` / \`redirect_chat\` / \`redirect\`) |
-| \`categories[].min_role\` | string | — | ✅ (скрыть всю категорию) |
-| \`categories[].source\` | string | — | ✅ (\`1c\` / \`kb\` / \`kb+1c\` / \`api\`) |
-| \`metrics[].severity\` | string | — | ✅ (\`normal\` / \`warning\` / \`critical\`) |
-| \`metrics[].threshold\` | object | — | ✅ (автоматический расчёт severity) |
-
-Launcher API автоматически определяет формат по наличию поля \`categories\`: если есть — рендерит категоризированную сетку, если нет — плоский список (обратная совместимость).
-
----
-
-## 4.5 Графики и визуализация
-
-Все графики реализованы через [shadcn/ui Chart](https://ui.shadcn.com/docs/components/chart) — обёртку над [Recharts](https://recharts.org/). Архитектура: \`ChartContainer\` задаёт размеры и цвета через \`ChartConfig\`, внутри — стандартные Recharts-компоненты. Тултипы и легенды используют кастомные \`ChartTooltip\` / \`ChartLegend\` из shadcn/ui.
-
-Цвета графиков определены через CSS-переменные \`--chart-1\` ... \`--chart-5\` и реферируются в ChartConfig как \`color: "var(--chart-N)"\`.
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[300px]"]
-├── Recharts AreaChart / BarChart / LineChart / PieChart
-│   ├── CartesianGrid [vertical={false}]
-│   ├── XAxis [dataKey, tickFormatter]
-│   ├── YAxis [tickFormatter для ₽ / %]
-│   ├── ChartTooltip [content={<ChartTooltipContent />}]
-│   ├── ChartLegend [content={<ChartLegendContent />}]
-│   └── Area / Bar / Line / Pie [dataKey, fill="var(--color-KEY)"]
-```
-
-### 4.5.1 Типы графиков
-
-| Тип | Recharts компонент | shadcn/ui обёртка | Применение в CFO |
-|-----|--------------------|-------------------|------------------|
-| Area | \`AreaChart\` + \`Area\` | \`ChartContainer\` | Динамика выручки, прибыли, Cash Runway |
-| Bar | \`BarChart\` + \`Bar\` | \`ChartContainer\` | P&L по категориям, сравнение МП, маржа каналов |
-| Stacked Bar | \`BarChart\` + \`Bar[stackId]\` | \`ChartContainer\` | Структура расходов, aging ДЗ/КЗ, комиссии МП |
-| Line | \`LineChart\` + \`Line\` | \`ChartContainer\` | Тренд маржинальности, прогноз (3 сценария) |
-| Pie / Donut | \`PieChart\` + \`Pie\` | \`ChartContainer\` | Доля МП в выручке, ABC, структура расходов |
-| Radar | \`RadarChart\` + \`Radar\` + \`PolarGrid\` | \`ChartContainer\` | Бенчмарк МП, финансовая устойчивость |
-| Radial Bar | \`RadialBarChart\` + \`RadialBar\` | \`ChartContainer\` | Gauge: ликвидность, Cash Runway |
-| Waterfall | \`BarChart\` + \`Bar\` (кастомный shape) | \`ChartContainer\` | Анализ ДДС (операц. → инвест. → фин.) |
-
-Для всех графиков обязателен \`accessibilityLayer\` (keyboard + screen reader support).
-
-### 4.5.2 Спецификация данных для графиков
-
-Каждый executor возвращает объект с \`chartConfig\` (маппинг ключей → label + color) и \`chartData\` (массив данных). Фронтенд рендерит их через \`ChartContainer\`:
-
-**Динамика выручки (Area Chart)**
-
-Executor: \`cfo.chart_revenue\`
-
-```typescript
-// ChartConfig
-const chartConfig = {
-  revenue: { label: "Выручка", color: "var(--chart-1)" },
-  profit: { label: "Прибыль", color: "var(--chart-2)" },
-} satisfies ChartConfig
-
-// chartData
-const chartData = [
-  { date: "2026-01-15", revenue: 750000, profit: 320000 },
-  { date: "2026-01-16", revenue: 680000, profit: 290000 },
-]
-```
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[300px]"]
-└── AreaChart [accessibilityLayer, data={chartData}]
-    ├── CartesianGrid [vertical={false}]
-    ├── XAxis [dataKey="date", tickFormatter=formatDate]
-    ├── YAxis [tickFormatter=formatRub]
-    ├── ChartTooltip [content={<ChartTooltipContent />}]
-    ├── ChartLegend [content={<ChartLegendContent />}]
-    ├── Area [dataKey="revenue", fill="var(--color-revenue)", type="natural"]
-    └── Area [dataKey="profit", fill="var(--color-profit)", type="natural"]
-```
-
-**P&L по маркетплейсам (Bar Chart)**
-
-Executor: \`cfo.pnl_marketplace\`
-
-```typescript
-const chartConfig = {
-  revenue: { label: "Выручка", color: "var(--chart-1)" },
-  expenses: { label: "Расходы", color: "var(--chart-5)" },
-  profit: { label: "Прибыль", color: "var(--chart-2)" },
-} satisfies ChartConfig
-
-const chartData = [
-  { marketplace: "Wildberries", revenue: 3500000, expenses: 1925000, profit: 1575000 },
-  { marketplace: "Ozon", revenue: 1200000, expenses: 780000, profit: 420000 },
-  { marketplace: "Яндекс.Маркет", revenue: 550000, expenses: 308000, profit: 242000 },
-]
-```
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[300px]"]
-└── BarChart [accessibilityLayer, data={chartData}]
-    ├── CartesianGrid [vertical={false}]
-    ├── XAxis [dataKey="marketplace"]
-    ├── YAxis [tickFormatter=formatRub]
-    ├── ChartTooltip [content={<ChartTooltipContent />}]
-    ├── ChartLegend [content={<ChartLegendContent />}]
-    ├── Bar [dataKey="revenue", fill="var(--color-revenue)", radius={4}]
-    ├── Bar [dataKey="expenses", fill="var(--color-expenses)", radius={4}]
-    └── Bar [dataKey="profit", fill="var(--color-profit)", radius={4}]
-```
-
-**Распределение ABC (Pie Chart)**
-
-Executor: \`cfo.abc_analysis\`
-
-```typescript
-const chartConfig = {
-  A: { label: "Класс A", color: "var(--abc-a)" },
-  B: { label: "Класс B", color: "var(--abc-b)" },
-  C: { label: "Класс C", color: "var(--abc-c)" },
-  D: { label: "Класс D", color: "var(--abc-d)" },
-} satisfies ChartConfig
-
-const chartData = [
-  { class: "A", value: 7200000, count: 47, fill: "var(--color-A)" },
-  { class: "B", value: 1350000, count: 89, fill: "var(--color-B)" },
-  { class: "C", value: 450000, count: 156, fill: "var(--color-C)" },
-  { class: "D", value: -180000, count: 23, fill: "var(--color-D)" },
-]
-```
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[300px]"]
-└── PieChart [accessibilityLayer]
-    ├── ChartTooltip [content={<ChartTooltipContent nameKey="class" />}]
-    ├── ChartLegend [content={<ChartLegendContent nameKey="class" />}]
-    └── Pie [data={chartData}, dataKey="value", nameKey="class", innerRadius={60}]
-```
-
-**Тренд маржинальности (Line Chart)**
-
-Executor: \`cfo.chart_margin\`
-
-```typescript
-const chartConfig = {
-  margin_wb: { label: "Wildberries", color: "var(--mp-wb)" },
-  margin_ozon: { label: "Ozon", color: "var(--mp-ozon)" },
-  margin_ym: { label: "Яндекс.Маркет", color: "var(--mp-ym)" },
-} satisfies ChartConfig
-
-const chartData = [
-  { date: "2026-01-15", margin_wb: 45.2, margin_ozon: 38.1, margin_ym: 41.5 },
-]
-```
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[300px]"]
-└── LineChart [accessibilityLayer, data={chartData}]
-    ├── CartesianGrid [vertical={false}]
-    ├── XAxis [dataKey="date", tickFormatter=formatDate]
-    ├── YAxis [tickFormatter=v => v + "%"]
-    ├── ChartTooltip [content={<ChartTooltipContent indicator="line" />}]
-    ├── ChartLegend [content={<ChartLegendContent />}]
-    ├── Line [dataKey="margin_wb", stroke="var(--color-margin_wb)"]
-    ├── Line [dataKey="margin_ozon", stroke="var(--color-margin_ozon)"]
-    ├── Line [dataKey="margin_ym", stroke="var(--color-margin_ym)"]
-    └── ReferenceLine [y={40}, label="Целевая маржа", strokeDasharray="3 3"]
-```
-
-**Прогноз выручки — 3 сценария (Line Chart, KB)**
-
-Executor: \`cfo.forecast\`
-
-```typescript
-const chartConfig = {
-  actual: { label: "Факт", color: "var(--chart-1)" },
-  pessimistic: { label: "Пессимистичный", color: "var(--chart-5)" },
-  base: { label: "Базовый", color: "var(--chart-4)" },
-  optimistic: { label: "Оптимистичный", color: "var(--chart-2)" },
-} satisfies ChartConfig
-```
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[350px]"]
-└── LineChart [accessibilityLayer, data={chartData}]
-    ├── CartesianGrid [vertical={false}]
-    ├── XAxis [dataKey="month"]
-    ├── YAxis [tickFormatter=formatRub]
-    ├── ChartTooltip [content={<ChartTooltipContent />}]
-    ├── ChartLegend [content={<ChartLegendContent />}]
-    ├── Line [dataKey="actual", stroke="var(--color-actual)", strokeWidth={2}]
-    ├── Line [dataKey="pessimistic", stroke="var(--color-pessimistic)", strokeDasharray="5 5"]
-    ├── Line [dataKey="base", stroke="var(--color-base)", strokeDasharray="5 5"]
-    └── Line [dataKey="optimistic", stroke="var(--color-optimistic)", strokeDasharray="5 5"]
-```
-
-**Gauge ликвидности (Radial Bar Chart, KB)**
-
-Executor: \`cfo.liquidity\`
-
-```typescript
-const chartConfig = {
-  current_ratio: { label: "Текущая ликвидность", color: "var(--chart-5)" },
-} satisfies ChartConfig
-
-const chartData = [{ current_ratio: 0.82, fill: "var(--color-current_ratio)" }]
-// Цвет определяется severity: < 1.0 → --chart-5 (красный), < 1.5 → --chart-4, >= 1.5 → --chart-2
-```
-
-```
-ChartContainer [config={chartConfig}, className="min-h-[200px]"]
-└── RadialBarChart [data={chartData}, startAngle={180}, endAngle={0}, innerRadius={80}, outerRadius={130}]
-    ├── RadialBar [dataKey="current_ratio", background, cornerRadius={10}]
-    └── text (центр): "0.82" + Badge[destructive] "< 1.0"
-```
-
-### 4.5.3 Цветовая схема и ChartConfig
-
-Цвета определяются через CSS-переменные и реферируются в \`ChartConfig\` по стандарту [shadcn/ui Chart Theming](https://ui.shadcn.com/docs/components/chart#theming):
-
-```css
-/* globals.css */
-@layer base {
-  :root {
-    --chart-1: oklch(0.646 0.222 41.116);   /* Синий — серия 1 */
-    --chart-2: oklch(0.6 0.118 184.704);     /* Зелёный — прибыль */
-    --chart-3: oklch(0.5 0.05 260);          /* Серый — нейтрал */
-    --chart-4: oklch(0.75 0.15 85);          /* Жёлтый — акцент */
-    --chart-5: oklch(0.55 0.2 25);           /* Красный — расходы */
-    --mp-wb: #CB11AB;                        /* Wildberries */
-    --mp-ozon: #005BFF;                      /* Ozon */
-    --mp-ym: #FFCC00;                        /* Яндекс.Маркет */
-    --abc-a: oklch(0.65 0.2 145);            /* ABC A — зелёный */
-    --abc-b: oklch(0.6 0.18 250);            /* ABC B — синий */
-    --abc-c: oklch(0.75 0.15 85);            /* ABC C — жёлтый */
-    --abc-d: oklch(0.55 0.2 25);             /* ABC D — красный */
-  }
-}
-```
-
-Пример \`ChartConfig\` для P&L по маркетплейсам:
-
-```typescript
-const chartConfig = {
-  wb: {
-    label: "Wildberries",
-    color: "var(--mp-wb)",
-  },
-  ozon: {
-    label: "Ozon",
-    color: "var(--mp-ozon)",
-  },
-  ym: {
-    label: "Яндекс.Маркет",
-    color: "var(--mp-ym)",
-  },
-} satisfies ChartConfig
-```
-
-В Recharts-компонентах цвета используются как \`fill="var(--color-wb)"\` — shadcn/ui \`ChartContainer\` автоматически создаёт \`--color-\{key\}\` переменные из \`ChartConfig\`.
-
----
-
-## 4.6 Result Page
-
-При клике по баннеру открывается страница результата \`/apps/cfo/result\`. Формат зависит от типа отчёта.
-
-### 4.6.1 Структура Result Page
-
-Каждая Result Page собирается из shadcn/ui компонентов (сверху вниз):
-
-```
-Page Layout
-├── Breadcrumb                          ← shadcn/ui Breadcrumb
-│   └── "Финансы / P&L по категориям"
-├── div.header
-│   ├── Typography.h3 (заголовок отчёта)
-│   └── Toggle Group (Нед | Мес | Кв)  ← shadcn/ui Toggle Group
-├── Tabs                                ← shadcn/ui Tabs
-│   ├── TabsList
-│   │   ├── TabsTrigger "График"
-│   │   ├── TabsTrigger "Таблица"
-│   │   └── TabsTrigger "Сводка"
-│   ├── TabsContent "График"
-│   │   └── ChartContainer              ← shadcn/ui Chart
-│   │       └── BarChart / AreaChart / ...
-│   ├── TabsContent "Таблица"
-│   │   └── Data Table                  ← shadcn/ui Data Table
-│   │       ├── Table + TableHeader + TableBody + TableRow + TableCell
-│   │       ├── сортировка по столбцам
-│   │       ├── Combobox (поиск SKU)    ← shadcn/ui Combobox
-│   │       └── Pagination              ← shadcn/ui Pagination
-│   └── TabsContent "Сводка"
-│       └── Card[]                      ← shadcn/ui Card
-│           └── итоговые показатели + Badge severity
-├── Separator                           ← shadcn/ui Separator
-├── Button Group (связанные отчёты)     ← shadcn/ui Button Group
-└── Button Group (экспорт)              ← shadcn/ui Button Group
-```
-
-Для KB-отчётов (категории 7–11) структура расширена:
-
-```
-Page Layout (KB-отчёт)
-├── ... (стандартная структура сверху)
-├── Alert [variant="destructive"]       ← shadcn/ui Alert
-│   └── "Критический показатель: ликвидность 0.82 (норма > 1.0)"
-├── Card "AI-комментарий"               ← shadcn/ui Card
-│   └── Markdown-текст от LLM (анализ + рекомендации)
-├── Progress                            ← shadcn/ui Progress
-│   └── "Выполнение roadmap: 35%"
-└── Accordion "Методология расчёта"     ← shadcn/ui Accordion
-    └── формулы, источники, допущения
-```
-
-### 4.6.2 Переключатель периода
-
-Реализован через [Toggle Group](https://ui.shadcn.com/docs/components/toggle-group) с \`type="single"\`:
-
-| Кнопка | Период | API-параметр |
-|--------|--------|-------------|
-| Нед | Последние 7 дней | \`period=week\` |
-| Мес | Последние 30 дней | \`period=month\` |
-| Кв | Последние 90 дней | \`period=quarter\` |
-
-При переключении данные перезагружаются через тот же executor с новым параметром. Во время загрузки график и таблица заменяются на [Skeleton](https://ui.shadcn.com/docs/components/skeleton).
-
-Для KB-отчётов периоды соответствуют отчётным периодам документов (Q1 2025, H1 2025, 9М 2025) и отображаются через [Select](https://ui.shadcn.com/docs/components/select) вместо Toggle Group.
-
-### 4.6.3 Кнопки навигации между отчётами
-
-Реализованы через [Button Group](https://ui.shadcn.com/docs/components/button-group) — группа [Button](https://ui.shadcn.com/docs/components/button) с \`variant="outline"\`:
-
-| Текущий отчёт | Связанные кнопки |
-|---------------|------------------|
-| P&L по категориям | По брендам, По МП, ABC-анализ, Excel |
-| P&L по брендам | По категориям, По МП, По SKU*, Excel |
-| P&L по МП | По категориям, По брендам, Excel |
-| P&L по SKU | По категориям, ABC-анализ, Убыточные, Excel |
-| ABC-анализ | Убыточные SKU, Топ прибыльных, AI-дайджест, Excel |
-| Убыточные SKU | AI-рекомендации, ABC-анализ, Excel |
-| Остатки | Отгрузки, Оценка запасов |
-| Себестоимость | Цены поставщиков, Динамика |
-| Ликвидность | Долговая нагрузка, EBITDA, Cash Flow |
-| Критические риски | Прогноз, Roadmap, Аудит |
-| Маржа по каналам | Комиссии МП, % выкупа, Бенчмарк |
-| ДЗ aging | КЗ aging, Поставщики |
-
-### 4.6.4 Экспорт
-
-Кнопки экспорта реализованы через [Button Group](https://ui.shadcn.com/docs/components/button-group). Подтверждение через [Alert Dialog](https://ui.shadcn.com/docs/components/alert-dialog). Уведомление о завершении через [Toast](https://ui.shadcn.com/docs/components/toast) (Sonner):
-
-| Формат | Button variant | Реализация |
-|--------|---------------|------------|
-| Excel | \`outline\` + icon \`download\` | \`cfo.export\` → \`.xlsx\` файл |
-| PDF | \`outline\` + icon \`file-text\` | \`cfo.export\` → \`.pdf\` файл |
-| Копировать | \`ghost\` + icon \`clipboard\` | Clipboard API → markdown-таблица |
-
----
-
-## 4.7 Источники данных
-
-Модуль CFO использует два класса источников. **Оперативные** — 13 регулярных выгрузок из 1С:КА 2 (см. \`brain_1c_ka2_exports_registry_v1_1\`), поступают через ETL Core. **Стратегические** — ~90 аналитических документов в KB Qdrant (см. \`Perechen_dokumentov_proekta_Ohana\`), доступны через \`kb_service\`.
-
-### 4.7.1 Маппинг 1С → CFO Dashboard
-
-| Выгрузка 1С | Код файла | Периодичность | Баннеры CFO |
-|-------------|-----------|---------------|-------------|
-| Остатки и доступность | \`stock_balance\` | Ежедневно | Остатки на складах, KPI "Остатки" |
-| Ведомость по товарам | \`stock_movement\` | Ежедневно | (внутренние расчёты) |
-| Реестр документов продажи | \`orders_shipped\` | Ежедневно | Отгрузки на МП, KPI "Отгрузки" |
-| Себестоимость товаров | \`cost_prices\` | Еженедельно | Себестоимость по SKU, P&L расчёты |
-| Номенклатура | \`product_catalog\` | Еженедельно | (справочник товаров) |
-| Цены поставщиков | \`suppliers_prices\` | Еженедельно | Цены поставщиков |
-| Анализ возвратов | \`returns_register\` | Еженедельно | Возвраты |
-| Валовая прибыль | \`financial_summary\` | Ежемесячно | P&L консолидированный, Сравнение периодов |
-| Остатки (срез) | \`inventory_valuation\` | Ежемесячно | Оценка запасов |
-| Договоры | \`contracts_register\` | Ежемесячно | (справочник) |
-| Контрагенты | \`counterparties\` | Ежемесячно | (справочник) |
-| Квартальная прибыль | \`quarter_pnl\` | Ежеквартально | Сравнение периодов |
-| Инвентаризация | \`quarter_inventory_audit\` | Ежеквартально | (контроль) |
-
-### 4.7.2 Источники данных из KB (Qdrant)
-
-Стратегические метрики и аналитические отчёты основаны на документах, хранящихся в базе знаний Qdrant. Документы обновляются по мере поступления новых отчётных периодов.
-
-**Маппинг KB → CFO Dashboard**
-
-| Документ KB | Категория | Баннеры / KPI |
-|-------------|-----------|---------------|
-| \`Ohana_Financial_Data_Base\` | Фин. устойчивость | EBITDA, рентабельность, сводные показатели |
-| \`section_2_1_key_metrics\` | Фин. устойчивость | EBITDA, ROS, ROE, ROA |
-| \`section_2_2_liquidity\` | Фин. устойчивость | KPI «Тек. ликвидность», баннер «Ликвидность» |
-| \`section_2_3_financial_stability\` | Фин. устойчивость | Баннер «Финансовая устойчивость» |
-| \`section_2_4_cash_flow\` | Денежный поток | Баннер «Анализ ДДС» |
-| \`dds_analysis\` | Денежный поток | KPI «Cash Runway», баннер «Cash Runway» |
-| \`2_3_kommercheskie_rashody\` | KPI (стратег.) | KPI «Коммерч. расходы», баннер «Комиссии МП» |
-| \`2_5_debitorskaya_kreditorskaya\` | Задолженность | KPI «КЗ просроч.», баннеры «ДЗ/КЗ aging» |
-| \`2_6_zapasy_nelikvid\` | Задолженность | KPI «Неликвид», баннер «Неликвид и запасы» |
-| \`2_8_oborotno_saldovye\` | Денежный поток | Баннер «Оборотный капитал» |
-| \`2_9_kadry_i_fot\` | KPI (операт.) | KPI «Выручка / сотр.» |
-| \`2_13_Analiz_postavshchikov\` | Задолженность | Баннер «Анализ поставщиков» |
-| \`section_1_2_critical_risks\` | Риски и прогнозы | Баннер «Критические риски» |
-| \`section_1_3_roadmap\` | Риски и прогнозы | Баннер «Дорожная карта» |
-| \`section_3_1_channel_margins\` | Эффективность каналов | Баннер «Маржа по каналам» |
-| \`section_3_2_logistics_commissions\` | Эффективность каналов | Баннер «Комиссии и логистика МП» |
-| \`section_3_3_redemption_rate\` | Эффективность каналов | Баннер «Процент выкупа» |
-| \`section_4_1_inventory\` | Задолженность | Баннер «Неликвид и запасы» |
-| \`section_5_forecast\` | Риски и прогнозы | KPI «Прогноз выручки», баннер «Прогноз (3 сценария)» |
-| \`section_7_audit\` | Риски и прогнозы | Баннер «Результаты аудита» |
-| \`abc_xyz_analysis\` | Товарный анализ | Баннер «ABC-анализ» (дополнение) |
-| Аналитика WB/Ozon/YM | Эффективность каналов | Баннер «Бенчмарк маркетплейсов» |
-
-**Механизм доступа к KB:**
-
-```mermaid
-flowchart LR
-    EXECUTOR["CFO Executor"]
-    KB_SVC["kb_service"]
-    QDRANT["Qdrant"]
-    CACHE["Redis Cache"]
-    RESULT["Структурированный ответ"]
-
-    EXECUTOR -->|"RAG-запрос"| KB_SVC
-    KB_SVC --> CACHE
-    CACHE -->|"miss"| QDRANT
-    QDRANT -->|"chunks"| KB_SVC
-    KB_SVC -->|"LLM extract"| RESULT
-    RESULT --> EXECUTOR
-```
-
-Executors обращаются к KB через \`kb_service.query()\`, который выполняет RAG-поиск по Qdrant с кэшированием в Redis (TTL = 1 час для стратегических метрик). LLM извлекает структурированные данные (числа, коэффициенты, даты) из найденных чанков.
-
-### 4.7.3 Прогнозная модель
-
-Баннер «Прогноз (3 сценария)» комбинирует данные KB и оперативные тренды 1С для формирования актуального прогноза:
-
-| Сценарий | Источник | Логика |
-|----------|----------|--------|
-| Пессимистичный | KB (\`section_5_forecast\`) + тренд 1С | Сохранение текущей динамики падения |
-| Базовый | KB + тренд 1С + сезонность | Стабилизация с учётом сезонных паттернов |
-| Оптимистичный | KB + тренд 1С + эффект мероприятий | Реализация roadmap + рост МП-канала |
-
-Прогноз обновляется еженедельно через Celery-задачу \`cfo_update_forecast\`, которая:
-
-1. Извлекает базовые сценарии из KB (\`section_5_forecast\`)
-2. Корректирует на фактические данные за последние 4 недели из 1С
-3. Применяет сезонные коэффициенты из KB (\`2_10_svodnye_otchety\` — помесячная динамика)
-4. Сохраняет результат в \`cfo_forecasts\` (PostgreSQL)
-
-```mermaid
-flowchart TB
-    subgraph INPUTS["Входные данные"]
-        KB_FORECAST["KB: section_5_forecast<br/>Базовые сценарии"]
-        KB_SEASON["KB: 2_10_svodnye_otchety<br/>Сезонные паттерны"]
-        ACTUAL["1С: cfo_pnl_daily<br/>Факт за 4 недели"]
-    end
-
-    CELERY["Celery: cfo_update_forecast<br/>(еженедельно)"]
-
-    subgraph MODEL["Модель прогноза"]
-        EXTRACT["Извлечение сценариев"]
-        ADJUST["Корректировка на факт"]
-        SEASON["Сезонная корректировка"]
-    end
-
-    subgraph OUTPUT["Результат"]
-        PG["cfo_forecasts"]
-        CHART["Gauge / Area Chart"]
-    end
-
-    KB_FORECAST --> EXTRACT
-    ACTUAL --> ADJUST
-    KB_SEASON --> SEASON
-
-    CELERY --> EXTRACT
-    EXTRACT --> ADJUST
-    ADJUST --> SEASON
-    SEASON --> PG
-    PG --> CHART
-```
-
----
-
-## 4.8 Единый чат (финансовые запросы)
-
-Финансовые вопросы обрабатываются через **единый чат \`@Adolf\`** на главном экране Open WebUI — тот же Pipeline, который обслуживает все модули системы. Пользователь не выбирает отдельный финансовый Pipeline; маршрутизация к CFO Tools происходит автоматически на основе контекста запроса (см. [Core 1.2: Pipelines](/core/adolf_core_1_2_open_webui_pipelines)).
-
-### 4.8.1 Маршрутизация
-
-Единый Pipeline \`@Adolf\` определяет intent запроса через Middleware и подключает соответствующие Tools:
-
-```mermaid
-flowchart LR
-    USER["Пользователь:<br/>'Покажи P&L за неделю'"]
-    ADOLF["Pipeline @Adolf"]
-    MW["Middleware<br/>intent detection"]
-    CFO_TOOLS["CFO Tools"]
-    OTHER["Другие Tools"]
-
-    USER --> ADOLF
-    ADOLF --> MW
-    MW -->|"финансовый запрос"| CFO_TOOLS
-    MW -->|"другой запрос"| OTHER
-```
-
-Примеры маршрутизации к CFO:
-
-| Запрос пользователя | Определённый intent | Tool |
-|---------------------|---------------------|------|
-| «Покажи P&L по категориям» | finance.pnl | \`cfo_pnl_by_category\` |
-| «Сколько убыточных SKU?» | finance.abc | \`cfo_loss_makers\` |
-| «Какие остатки на складе?» | finance.stock | \`cfo_stock_balance\` |
-| «Сравни маржу WB и Ozon» | finance.custom | \`cfo_custom_report\` |
-
-### 4.8.2 Роль пользователя и доступ
-
-Pipeline \`@Adolf\` передаёт роль пользователя в каждый Tool. Финансовые Tools фильтруют данные и ограничивают функциональность в зависимости от роли:
-
-| Роль | Доступные финансовые функции в чате |
-|------|-------------------------------------|
-| Staff | Нет доступа к финансовым Tools |
-| Manager | Нет доступа к финансовым Tools |
-| Senior | P&L по категориям/брендам/МП, ABC-анализ, остатки, отгрузки |
-| Director | Все функции Senior + P&L по SKU, кастомные отчёты, AI-инсайты |
-| Admin | Все функции Director + настройки порогов |
-
-Если пользователь с недостаточной ролью запрашивает финансовые данные, Pipeline возвращает сообщение об ограничении доступа.
-
-### 4.8.3 Контекст для LLM
-
-Middleware инжектирует финансовый контекст в системный промпт при обнаружении finance-intent:
+### 4.2.2 Системный промпт Pipeline
 
 ```python
-CFO_CONTEXT_INJECTION = """
-Финансовый контекст (модуль CFO):
+CFO_SYSTEM_PROMPT = """
+Ты финансовый ассистент системы ADOLF для компании ОХАНА МАРКЕТ.
 
-Доступные функции:
-1. P&L отчёты (SKU, категории, бренды, маркетплейсы)
+Твои возможности:
+1. Формирование P&L отчётов (SKU, категории, бренды, маркетплейсы)
 2. ABC-анализ товарного портфеля
-3. Данные из 1С (остатки, отгрузки, возвраты, себестоимость)
+3. Выявление убыточных позиций
 4. AI-инсайты и рекомендации
 5. Кастомные отчёты по запросу
 
 Маркетплейсы: Wildberries (wb), Ozon (ozon), Яндекс.Маркет (ym)
 Бренды: Охана Маркет (ohana_market), Охана Кидс (ohana_kids)
 
-Правила форматирования:
-- Числа с разделителями тысяч (1 234 567 ₽)
-- Проценты до 1 знака (15.3%)
-- Всегда указывать период данных
-- Для убыточных позиций предлагать рекомендации
+Правила:
+1. Всегда указывай период данных
+2. Числа с разделителями тысяч (1 234 567 ₽)
+3. Проценты до 1 знака (15.3%)
+4. Для убыточных позиций предлагай рекомендации
 
-Примечание: основные отчёты доступны на дашборде CFO (sidebar → Финансы).
-В чате рекомендуется задавать кастомные вопросы и запрашивать углублённый анализ.
-
-Пользователь:
+Текущий пользователь:
 - Роль: {user_role}
 - Бренд: {user_brand}
-- Ограничения: {role_restrictions}
+
+{role_restrictions}
 """
-```
 
-### 4.8.4 Взаимодействие дашборда и чата
-
-Дашборд и чат используют **одни и те же Tools**, но через разные точки входа:
-
-| Аспект | Дашборд (/apps/cfo) | Чат (@Adolf) |
-|--------|---------------------|--------------|
-| Точка входа | Sidebar → CFO | Главный экран Open WebUI |
-| Запуск | Клик по баннеру → Executor | Текстовый запрос → Tool |
-| Параметры | Предустановлены (период по умолчанию) | Из контекста запроса |
-| Результат | Таблица + график на Result Page | Markdown-ответ в чате |
-| Кастомные вопросы | Недоступны | Основное назначение |
-| Навигация | Баннеры → результат → связанные отчёты | Свободный диалог |
-
-Баннер «Задать вопрос CFO» на дашборде (\`action_type: redirect_chat\`) перенаправляет пользователя на главный экран Open WebUI.
-
-**Новые Tools v1.1:**
-
-| Tool | Описание | Источник 1С |
-|------|----------|-------------|
-| \`cfo_stock_balance\` | Остатки товаров на складах | \`stock_balance\` |
-| \`cfo_shipments\` | Отгрузки на маркетплейсы | \`orders_shipped\` |
-| \`cfo_returns\` | Анализ возвратов | \`returns_register\` |
-| \`cfo_inventory_value\` | Оценка стоимости запасов | \`inventory_valuation\` |
-| \`cfo_supplier_prices\` | Цены поставщиков | \`suppliers_prices\` |
-| \`cfo_cost_dynamics\` | Динамика себестоимости | \`cost_prices\` (история) |
-| \`cfo_top_profitable\` | Топ прибыльных SKU | \`cfo_pnl_daily\` |
-| \`cfo_chart_revenue\` | Данные для графика выручки | \`cfo_pnl_daily\` |
-| \`cfo_chart_margin\` | Данные для графика маржи | \`cfo_pnl_daily\` |
-| \`cfo_chart_compare\` | Сравнение двух периодов | \`cfo_pnl_aggregated\` |
-
-**Описание новых Tools для LLM:**
-
-```json
-[
-  {
-    "name": "cfo_stock_balance",
-    "description": "Остатки товаров на складах. Данные из 1С (ежедневная выгрузка).",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "warehouse_code": {
-          "type": "string",
-          "description": "Код склада (all для всех)",
-          "default": "all"
-        },
-        "sku": {
-          "type": "string",
-          "description": "Фильтр по артикулу"
-        },
-        "limit": {"type": "integer", "default": 50}
-      }
-    }
-  },
-  {
-    "name": "cfo_shipments",
-    "description": "Отгрузки товаров на маркетплейсы. Данные из 1С.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "period": {"type": "string", "default": "week"},
-        "marketplace": {
-          "type": "string",
-          "enum": ["all", "Wildberries", "Ozon", "Яндекс.Маркет"],
-          "default": "all"
-        }
-      }
-    }
-  },
-  {
-    "name": "cfo_returns",
-    "description": "Анализ возвратов от маркетплейсов. Данные из 1С (еженедельно).",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "period": {"type": "string", "default": "week"},
-        "marketplace": {
-          "type": "string",
-          "enum": ["all", "Wildberries", "Ozon", "Яндекс.Маркет"],
-          "default": "all"
-        },
-        "group_by": {
-          "type": "string",
-          "enum": ["sku", "marketplace", "date"],
-          "default": "sku"
-        }
-      }
-    }
-  },
-  {
-    "name": "cfo_supplier_prices",
-    "description": "Актуальные цены поставщиков. Данные из 1С (еженедельно).",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "supplier_code": {"type": "string", "description": "Код поставщика (all для всех)", "default": "all"},
-        "sku": {"type": "string", "description": "Фильтр по артикулу"}
-      }
-    }
-  },
-  {
-    "name": "cfo_cost_dynamics",
-    "description": "Динамика себестоимости товаров за период.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "sku": {"type": "string", "description": "Артикул (обязательно)"},
-        "months": {"type": "integer", "default": 6, "description": "Количество месяцев"}
-      },
-      "required": ["sku"]
-    }
-  },
-  {
-    "name": "cfo_top_profitable",
-    "description": "Топ наиболее прибыльных SKU.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "period": {"type": "string", "default": "month"},
-        "limit": {"type": "integer", "default": 20},
-        "marketplace": {"type": "string", "enum": ["all", "wb", "ozon", "ym"], "default": "all"}
-      }
-    }
-  }
-]
-```
-
----
-
-## 4.9 Executors
-
-Каждый баннер дашборда вызывает соответствующий executor. Все executors расположены в \`/executors/launcher/cfo.py\`.
-
-### 4.9.1 Реестр Executors
-
-| Action | Executor Function | Возвращает |
-|--------|-------------------|------------|
-| \`cfo.pnl_category\` | \`pnl_category()\` | Таблица + Bar Chart |
-| \`cfo.pnl_brand\` | \`pnl_brand()\` | Таблица + Bar Chart |
-| \`cfo.pnl_marketplace\` | \`pnl_marketplace()\` | Таблица + Bar Chart |
-| \`cfo.pnl_sku\` | \`pnl_sku()\` | Таблица |
-| \`cfo.pnl_consolidated\` | \`pnl_consolidated()\` | Сводная таблица + Area Chart |
-| \`cfo.abc_analysis\` | \`abc_analysis()\` | Таблица + Pie Chart |
-| \`cfo.loss_makers\` | \`loss_makers()\` | Таблица + рекомендации |
-| \`cfo.top_profitable\` | \`top_profitable()\` | Таблица |
-| \`cfo.chart_revenue\` | \`chart_revenue()\` | Area Chart |
-| \`cfo.chart_margin\` | \`chart_margin()\` | Line Chart |
-| \`cfo.chart_compare\` | \`chart_compare()\` | Bar Chart (stacked) |
-| \`cfo.stock_balance\` | \`stock_balance()\` | Таблица |
-| \`cfo.shipments\` | \`shipments()\` | Таблица |
-| \`cfo.returns\` | \`returns()\` | Таблица |
-| \`cfo.inventory_value\` | \`inventory_value()\` | Таблица |
-| \`cfo.cost_by_sku\` | \`cost_by_sku()\` | Таблица |
-| \`cfo.supplier_prices\` | \`supplier_prices()\` | Таблица |
-| \`cfo.cost_dynamics\` | \`cost_dynamics()\` | Line Chart |
-| \`cfo.ai_digest\` | \`ai_digest()\` | Markdown (AI-текст) |
-| \`cfo.ai_chat\` | — | Redirect → Pipeline чат |
-| | **KB: Финансовая устойчивость** | |
-| \`cfo.liquidity\` | \`liquidity()\` | Таблица коэффициентов + Gauge |
-| \`cfo.debt_load\` | \`debt_load()\` | Таблица + Stacked Bar |
-| \`cfo.ebitda\` | \`ebitda()\` | KPI-карточки + Line Chart |
-| \`cfo.financial_stability\` | \`financial_stability()\` | Таблица коэффициентов + Radar |
-| | **KB: Денежный поток** | |
-| \`cfo.cash_flow\` | \`cash_flow()\` | Waterfall Chart + таблица |
-| \`cfo.cash_runway\` | \`cash_runway()\` | Gauge + Area Chart (прогноз) |
-| \`cfo.working_capital\` | \`working_capital()\` | Таблица + Bar Chart |
-| | **KB: Риски и прогнозы** | |
-| \`cfo.critical_risks\` | \`critical_risks()\` | Карточки рисков (severity) |
-| \`cfo.forecast\` | \`forecast()\` | 3 Line Charts (сценарии) |
-| \`cfo.roadmap\` | \`roadmap()\` | Timeline / Gantt |
-| \`cfo.audit\` | \`audit()\` | Markdown + severity badges |
-| | **KB: Эффективность каналов** | |
-| \`cfo.channel_margins\` | \`channel_margins()\` | Bar Chart + таблица |
-| \`cfo.mp_commissions\` | \`mp_commissions()\` | Stacked Bar + Pie Chart |
-| \`cfo.redemption_rate\` | \`redemption_rate()\` | Line Chart + таблица |
-| \`cfo.mp_benchmark\` | \`mp_benchmark()\` | Radar Chart |
-| | **KB: Задолженность** | |
-| \`cfo.dz_aging\` | \`dz_aging()\` | Stacked Bar (aging) + таблица |
-| \`cfo.kz_aging\` | \`kz_aging()\` | Stacked Bar (aging) + таблица |
-| \`cfo.suppliers_analysis\` | \`suppliers_analysis()\` | Таблица + Pie Chart |
-| \`cfo.inventory_deadstock\` | \`inventory_deadstock()\` | Таблица + Bar Chart |
-
-### 4.9.2 Формат ответа Executor
-
-Все executors возвращают унифицированный формат:
-
-```json
-{
-  "success": true,
-  "action": "cfo.pnl_category",
-  "title": "P&L по категориям",
-  "subtitle": "07.02.2026 — 13.02.2026",
-  "components": [
-    {
-      "type": "chart",
-      "chart_type": "bar",
-      "data": {}
-    },
-    {
-      "type": "table",
-      "columns": ["Категория", "Выручка", "Себест.", "Расходы МП", "Прибыль", "Маржа"],
-      "rows": [
-        ["Платья", "2 450 000 ₽", "980 000 ₽", "367 500 ₽", "1 102 500 ₽", "45.0%"]
-      ]
-    },
-    {
-      "type": "summary",
-      "items": [
-        {"label": "Выручка", "value": "4 570 000 ₽"},
-        {"label": "Прибыль", "value": "2 056 500 ₽"},
-        {"label": "Маржа", "value": "45.0%"}
-      ]
-    }
-  ],
-  "actions": [
-    {"label": "🏷️ По брендам", "action": "cfo.pnl_brand"},
-    {"label": "🛒 По МП", "action": "cfo.pnl_marketplace"},
-    {"label": "📥 Excel", "action": "cfo.export", "params": {"report_type": "pnl_category"}}
-  ],
-  "period_selector": true,
-  "export_available": true
+ROLE_RESTRICTIONS = {
+    "senior": """
+Ограничения Senior:
+- P&L по SKU недоступен
+- Консолидированный P&L недоступен
+- Себестоимость по SKU недоступна
+- Кастомные отчёты недоступны
+""",
+    "director": "Роль Director: полный доступ.",
+    "admin": "Роль Administrator: полный доступ + настройки."
 }
 ```
 
-### 4.9.3 Промпт для реализации
+---
+
+## 4.3 Tools (Function Calling)
+
+### 4.3.1 Реестр Tools
+
+| Tool | Описание | Доступ |
+|------|----------|--------|
+| `cfo_pnl_by_sku` | P&L по артикулам | Director+ |
+| `cfo_pnl_by_category` | P&L по категориям | Senior+ |
+| `cfo_pnl_by_brand` | P&L по брендам | Senior+ |
+| `cfo_pnl_by_marketplace` | P&L по маркетплейсам | Senior+ |
+| `cfo_pnl_consolidated` | Консолидированный P&L | Director+ |
+| `cfo_abc_analysis` | ABC-анализ | Senior+ |
+| `cfo_loss_makers` | Убыточные SKU | Senior+ |
+| `cfo_ai_insights` | AI-инсайты | Senior+ |
+| `cfo_custom_report` | Кастомный отчёт | Director+ |
+| `cfo_export` | Экспорт отчёта | Senior+ |
+
+### 4.3.2 Описание Tools для LLM
+
+```json
+{
+  "tools": [
+    {
+      "name": "cfo_pnl_by_sku",
+      "description": "P&L по артикулам. Выручка, расходы, прибыль для каждого товара. Только Director+.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "week, month, quarter или YYYY-MM-DD:YYYY-MM-DD",
+            "default": "week"
+          },
+          "marketplace": {
+            "type": "string",
+            "enum": ["all", "wb", "ozon", "ym"],
+            "default": "all"
+          },
+          "brand_id": {
+            "type": "string",
+            "enum": ["all", "ohana_market", "ohana_kids"],
+            "default": "all"
+          },
+          "category": {
+            "type": "string",
+            "description": "Фильтр по категории"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 20
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": ["revenue", "profit", "margin", "quantity"],
+            "default": "profit"
+          }
+        }
+      }
+    },
+    {
+      "name": "cfo_pnl_by_category",
+      "description": "P&L по категориям товаров.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "default": "week"},
+          "marketplace": {"type": "string", "enum": ["all", "wb", "ozon", "ym"], "default": "all"},
+          "brand_id": {"type": "string", "enum": ["all", "ohana_market", "ohana_kids"], "default": "all"}
+        }
+      }
+    },
+    {
+      "name": "cfo_pnl_by_brand",
+      "description": "P&L по брендам. Сравнение Охана Маркет и Охана Кидс.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "default": "week"},
+          "marketplace": {"type": "string", "enum": ["all", "wb", "ozon", "ym"], "default": "all"}
+        }
+      }
+    },
+    {
+      "name": "cfo_pnl_by_marketplace",
+      "description": "P&L по маркетплейсам. Сравнение WB, Ozon, YM.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "default": "week"},
+          "brand_id": {"type": "string", "enum": ["all", "ohana_market", "ohana_kids"], "default": "all"}
+        }
+      }
+    },
+    {
+      "name": "cfo_abc_analysis",
+      "description": "ABC-анализ: A (80%), B (15%), C (5%), D (убыточные).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "default": "month"},
+          "marketplace": {"type": "string", "enum": ["all", "wb", "ozon", "ym"], "default": "all"},
+          "brand_id": {"type": "string", "enum": ["all", "ohana_market", "ohana_kids"], "default": "all"},
+          "show_class": {"type": "string", "enum": ["all", "A", "B", "C", "D"], "default": "all"}
+        }
+      }
+    },
+    {
+      "name": "cfo_loss_makers",
+      "description": "Убыточные SKU с рекомендациями.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "default": "week"},
+          "marketplace": {"type": "string", "enum": ["all", "wb", "ozon", "ym"], "default": "all"},
+          "limit": {"type": "integer", "default": 20}
+        }
+      }
+    },
+    {
+      "name": "cfo_ai_insights",
+      "description": "AI-инсайты: анализ проблем, рекомендации.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "default": "week"},
+          "focus": {"type": "string", "enum": ["summary", "problems", "recommendations", "trends"], "default": "summary"}
+        }
+      }
+    },
+    {
+      "name": "cfo_custom_report",
+      "description": "Кастомный отчёт по запросу. Только Director+.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {"type": "string", "description": "Запрос пользователя"},
+          "period": {"type": "string", "default": "month"}
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "cfo_export",
+      "description": "Экспорт в Excel или PDF.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "report_type": {"type": "string", "enum": ["pnl_sku", "pnl_category", "pnl_brand", "pnl_marketplace", "abc"]},
+          "format": {"type": "string", "enum": ["excel", "pdf"], "default": "excel"},
+          "period": {"type": "string", "default": "week"}
+        },
+        "required": ["report_type"]
+      }
+    }
+  ]
+}
+```
+
+### 4.3.3 Реализация Tools
+
+```python
+from datetime import date, timedelta
+from typing import Optional, List
+
+class CFOTools:
+    """Реализация Tools для CFO."""
+    
+    def __init__(self, pnl_service, abc_service, insight_service, export_service):
+        self.pnl = pnl_service
+        self.abc = abc_service
+        self.insights = insight_service
+        self.export = export_service
+    
+    async def cfo_pnl_by_sku(
+        self,
+        user: dict,
+        period: str = "week",
+        marketplace: str = "all",
+        brand_id: str = "all",
+        category: str = None,
+        limit: int = 20,
+        sort_by: str = "profit"
+    ) -> dict:
+        """P&L по SKU."""
+        
+        if user["role"] not in ["director", "admin"]:
+            return {"error": True, "message": "P&L по SKU доступен только для Director и Admin"}
+        
+        date_from, date_to = self._parse_period(period)
+        
+        results = await self.pnl.get_pnl_by_sku(
+            date_from=date_from,
+            date_to=date_to,
+            marketplace=marketplace if marketplace != "all" else None,
+            brand_id=brand_id if brand_id != "all" else None,
+            category=category,
+            limit=limit,
+            sort_by=sort_by
+        )
+        
+        return {
+            "report_type": "pnl_by_sku",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "filters": {"marketplace": marketplace, "brand_id": brand_id, "category": category},
+            "data": [r.to_dict() for r in results],
+            "summary": self._calculate_summary(results)
+        }
+    
+    async def cfo_pnl_by_category(
+        self,
+        user: dict,
+        period: str = "week",
+        marketplace: str = "all",
+        brand_id: str = "all"
+    ) -> dict:
+        """P&L по категориям."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        results = await self.pnl.get_pnl_by_category(
+            date_from=date_from,
+            date_to=date_to,
+            marketplace=marketplace if marketplace != "all" else None,
+            brand_id=brand_id if brand_id != "all" else None
+        )
+        
+        return {
+            "report_type": "pnl_by_category",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "data": results,
+            "summary": self._calculate_summary_from_dict(results)
+        }
+    
+    async def cfo_pnl_by_brand(
+        self,
+        user: dict,
+        period: str = "week",
+        marketplace: str = "all"
+    ) -> dict:
+        """P&L по брендам."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        results = await self.pnl.get_pnl_by_brand(
+            date_from=date_from,
+            date_to=date_to,
+            marketplace=marketplace if marketplace != "all" else None
+        )
+        
+        return {
+            "report_type": "pnl_by_brand",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "data": results
+        }
+    
+    async def cfo_pnl_by_marketplace(
+        self,
+        user: dict,
+        period: str = "week",
+        brand_id: str = "all"
+    ) -> dict:
+        """P&L по маркетплейсам."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        results = await self.pnl.get_pnl_by_marketplace(
+            date_from=date_from,
+            date_to=date_to,
+            brand_id=brand_id if brand_id != "all" else None
+        )
+        
+        return {
+            "report_type": "pnl_by_marketplace",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "data": results
+        }
+    
+    async def cfo_abc_analysis(
+        self,
+        user: dict,
+        period: str = "month",
+        marketplace: str = "all",
+        brand_id: str = "all",
+        show_class: str = "all"
+    ) -> dict:
+        """ABC-анализ."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        results, summary = await self.abc.analyze(
+            date_from=date_from,
+            date_to=date_to,
+            marketplace=marketplace if marketplace != "all" else None,
+            brand_id=brand_id if brand_id != "all" else None
+        )
+        
+        if show_class != "all":
+            results = [r for r in results if r.abc_class == show_class]
+        
+        return {
+            "report_type": "abc_analysis",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "summary": summary.to_dict(),
+            "data": [r.to_dict() for r in results]
+        }
+    
+    async def cfo_loss_makers(
+        self,
+        user: dict,
+        period: str = "week",
+        marketplace: str = "all",
+        limit: int = 20
+    ) -> dict:
+        """Убыточные SKU."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        results = await self.pnl.get_loss_makers(
+            date_from=date_from,
+            date_to=date_to,
+            marketplace=marketplace if marketplace != "all" else None,
+            limit=limit
+        )
+        
+        for r in results:
+            r["recommendation"] = self._generate_recommendation(r)
+        
+        return {
+            "report_type": "loss_makers",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "total_count": len(results),
+            "total_loss": sum(r["net_profit"] for r in results),
+            "data": results
+        }
+    
+    async def cfo_ai_insights(
+        self,
+        user: dict,
+        period: str = "week",
+        focus: str = "summary"
+    ) -> dict:
+        """AI-инсайты."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        pnl_data = await self.pnl.get_summary(date_from, date_to)
+        abc_data = await self.abc.get_summary(date_from, date_to)
+        anomalies = await self.pnl.get_anomalies(date_from, date_to)
+        
+        insights = await self.insights.generate(
+            pnl_summary=pnl_data,
+            abc_summary=abc_data,
+            anomalies=anomalies,
+            focus=focus
+        )
+        
+        return {
+            "report_type": "ai_insights",
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "focus": focus,
+            "insights": insights
+        }
+    
+    async def cfo_custom_report(
+        self,
+        user: dict,
+        query: str,
+        period: str = "month"
+    ) -> dict:
+        """Кастомный отчёт."""
+        
+        if user["role"] not in ["director", "admin"]:
+            return {"error": True, "message": "Кастомные отчёты только для Director и Admin"}
+        
+        date_from, date_to = self._parse_period(period)
+        
+        context = {
+            "pnl_by_sku": await self.pnl.get_pnl_by_sku(date_from, date_to, limit=50),
+            "pnl_by_category": await self.pnl.get_pnl_by_category(date_from, date_to),
+            "abc_results": await self.abc.get_results(date_from, date_to)
+        }
+        
+        report = await self.insights.generate_custom_report(query, context)
+        
+        return {
+            "report_type": "custom",
+            "query": query,
+            "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+            "report": report
+        }
+    
+    async def cfo_export(
+        self,
+        user: dict,
+        report_type: str,
+        format: str = "excel",
+        period: str = "week"
+    ) -> dict:
+        """Экспорт отчёта."""
+        
+        date_from, date_to = self._parse_period(period)
+        
+        if report_type == "pnl_sku":
+            if user["role"] not in ["director", "admin"]:
+                return {"error": True, "message": "Нет доступа"}
+            data = await self.pnl.get_pnl_by_sku(date_from, date_to)
+        elif report_type == "pnl_category":
+            data = await self.pnl.get_pnl_by_category(date_from, date_to)
+        elif report_type == "abc":
+            data, _ = await self.abc.analyze(date_from, date_to)
+        else:
+            return {"error": True, "message": f"Неизвестный тип: {report_type}"}
+        
+        if format == "excel":
+            file_path = await self.export.to_excel(data, report_type)
+        else:
+            file_path = await self.export.to_pdf(data, report_type)
+        
+        return {"success": True, "file_path": file_path, "format": format}
+    
+    def _parse_period(self, period: str) -> tuple:
+        """Парсинг периода."""
+        
+        today = date.today()
+        
+        if period == "week":
+            return today - timedelta(days=7), today - timedelta(days=1)
+        elif period == "month":
+            return today - timedelta(days=30), today - timedelta(days=1)
+        elif period == "quarter":
+            return today - timedelta(days=90), today - timedelta(days=1)
+        elif ":" in period:
+            parts = period.split(":")
+            return date.fromisoformat(parts[0]), date.fromisoformat(parts[1])
+        else:
+            return today - timedelta(days=7), today - timedelta(days=1)
+    
+    def _generate_recommendation(self, loss_maker: dict) -> str:
+        """Рекомендация для убыточного SKU."""
+        
+        margin = loss_maker.get("net_margin_pct", 0)
+        revenue = loss_maker.get("revenue", 1)
+        logistics = loss_maker.get("logistics", 0)
+        logistics_pct = logistics / revenue * 100 if revenue > 0 else 0
+        
+        if logistics_pct > 15:
+            return "Высокая логистика. Перевод на FBO или пересмотр габаритов."
+        elif margin > -10:
+            return "Небольшой убыток. Повышение цены на 5-10%."
+        else:
+            return "Значительный убыток. Вывод из ассортимента."
+    
+    def _calculate_summary(self, results: List) -> dict:
+        """Расчёт сводки."""
+        
+        return {
+            "total_revenue": sum(r.net_revenue for r in results),
+            "total_profit": sum(r.net_profit for r in results),
+            "avg_margin": sum(r.net_margin_pct for r in results) / len(results) if results else 0,
+            "sku_count": len(results)
+        }
+```
+
+---
+
+## 4.4 Интерактивные кнопки
+
+### 4.4.1 Конфигурация кнопок
+
+```python
+CFO_BUTTONS = {
+    "pnl_by_category": {
+        "label": "📊 P&L по категориям",
+        "tool": "cfo_pnl_by_category",
+        "params": {"period": "week"},
+        "access": ["senior", "director", "admin"]
+    },
+    "pnl_by_brand": {
+        "label": "🏷️ P&L по брендам",
+        "tool": "cfo_pnl_by_brand",
+        "params": {"period": "week"},
+        "access": ["senior", "director", "admin"]
+    },
+    "pnl_by_marketplace": {
+        "label": "🛒 P&L по МП",
+        "tool": "cfo_pnl_by_marketplace",
+        "params": {"period": "week"},
+        "access": ["senior", "director", "admin"]
+    },
+    "pnl_by_sku": {
+        "label": "📈 P&L по SKU",
+        "tool": "cfo_pnl_by_sku",
+        "params": {"period": "week", "limit": 20},
+        "access": ["director", "admin"]
+    },
+    "abc_analysis": {
+        "label": "🔤 ABC-анализ",
+        "tool": "cfo_abc_analysis",
+        "params": {"period": "month"},
+        "access": ["senior", "director", "admin"]
+    },
+    "show_loss_makers": {
+        "label": "🔴 Убыточные SKU",
+        "tool": "cfo_loss_makers",
+        "params": {"period": "week"},
+        "access": ["senior", "director", "admin"]
+    },
+    "ai_insights": {
+        "label": "🤖 AI-инсайты",
+        "tool": "cfo_ai_insights",
+        "params": {"period": "week", "focus": "summary"},
+        "access": ["senior", "director", "admin"]
+    },
+    "custom_report": {
+        "label": "📝 Кастомный отчёт",
+        "action": "prompt",
+        "prompt_template": "Сформируй отчёт: ",
+        "access": ["director", "admin"]
+    },
+    "export_excel": {
+        "label": "📥 Экспорт Excel",
+        "tool": "cfo_export",
+        "params": {"format": "excel"},
+        "requires_context": True,
+        "access": ["senior", "director", "admin"]
+    },
+    "export_pdf": {
+        "label": "📄 Экспорт PDF",
+        "tool": "cfo_export",
+        "params": {"format": "pdf"},
+        "requires_context": True,
+        "access": ["senior", "director", "admin"]
+    },
+    "period_week": {
+        "label": "📅 Неделя",
+        "action": "set_param",
+        "param": "period",
+        "value": "week",
+        "access": ["senior", "director", "admin"]
+    },
+    "period_month": {
+        "label": "📅 Месяц",
+        "action": "set_param",
+        "param": "period",
+        "value": "month",
+        "access": ["senior", "director", "admin"]
+    },
+    "period_quarter": {
+        "label": "📅 Квартал",
+        "action": "set_param",
+        "param": "period",
+        "value": "quarter",
+        "access": ["senior", "director", "admin"]
+    }
+}
+```
+
+### 4.4.2 Группировка кнопок по контексту
+
+```python
+BUTTON_GROUPS = {
+    "main_menu": {
+        "title": "Отчёты",
+        "buttons": ["pnl_by_category", "pnl_by_brand", "pnl_by_marketplace", "pnl_by_sku"]
+    },
+    "analysis": {
+        "title": "Анализ",
+        "buttons": ["abc_analysis", "show_loss_makers", "ai_insights"]
+    },
+    "export": {
+        "title": "Экспорт",
+        "buttons": ["export_excel", "export_pdf"]
+    },
+    "period": {
+        "title": "Период",
+        "buttons": ["period_week", "period_month", "period_quarter"]
+    }
+}
+```
+
+---
+
+## 4.5 Форматирование ответов
+
+### 4.5.1 P&L Formatter
+
+```python
+class PnLFormatter:
+    """Форматирование P&L в markdown."""
+    
+    def format_sku_table(self, data: List[dict]) -> str:
+        """Таблица P&L по SKU."""
+        
+        lines = [
+            "| SKU | Выручка | Расходы | Прибыль | Маржа |",
+            "|-----|--------:|--------:|--------:|------:|"
+        ]
+        
+        for item in data:
+            lines.append(
+                f"| {item['sku']} | "
+                f"{item['net_revenue']:,.0f} ₽ | "
+                f"{item['total_expenses']:,.0f} ₽ | "
+                f"{item['net_profit']:,.0f} ₽ | "
+                f"{item['net_margin_pct']:.1f}% |"
+            )
+        
+        return "\n".join(lines)
+    
+    def format_category_table(self, data: dict) -> str:
+        """Таблица P&L по категориям."""
+        
+        lines = [
+            "| Категория | Выручка | Себест. | Расходы МП | Прибыль | Маржа |",
+            "|-----------|--------:|--------:|-----------:|--------:|------:|"
+        ]
+        
+        for category, values in data.items():
+            lines.append(
+                f"| {category} | "
+                f"{values['revenue']:,.0f} ₽ | "
+                f"{values['cogs']:,.0f} ₽ | "
+                f"{values['mp_expenses']:,.0f} ₽ | "
+                f"{values['profit']:,.0f} ₽ | "
+                f"{values['margin']:.1f}% |"
+            )
+        
+        return "\n".join(lines)
+    
+    def format_brand_table(self, data: dict) -> str:
+        """Таблица P&L по брендам."""
+        
+        lines = [
+            "| Бренд | Выручка | Прибыль | Маржа |",
+            "|-------|--------:|--------:|------:|"
+        ]
+        
+        for brand, values in data.items():
+            lines.append(
+                f"| {brand} | "
+                f"{values['revenue']:,.0f} ₽ | "
+                f"{values['profit']:,.0f} ₽ | "
+                f"{values['margin']:.1f}% |"
+            )
+        
+        return "\n".join(lines)
+    
+    def format_marketplace_table(self, data: dict) -> str:
+        """Таблица P&L по маркетплейсам."""
+        
+        mp_names = {"wb": "Wildberries", "ozon": "Ozon", "ym": "Яндекс.Маркет"}
+        
+        lines = [
+            "| Маркетплейс | Выручка | Комиссия | Логистика | Прибыль | Маржа |",
+            "|-------------|--------:|---------:|----------:|--------:|------:|"
+        ]
+        
+        for mp, values in data.items():
+            lines.append(
+                f"| {mp_names.get(mp, mp)} | "
+                f"{values['revenue']:,.0f} ₽ | "
+                f"{values['commission']:,.0f} ₽ | "
+                f"{values['logistics']:,.0f} ₽ | "
+                f"{values['profit']:,.0f} ₽ | "
+                f"{values['margin']:.1f}% |"
+            )
+        
+        return "\n".join(lines)
+    
+    def format_summary(self, summary: dict) -> str:
+        """Форматирование сводки."""
+        
+        return f"""
+**Сводка за период {summary['period_start']} — {summary['period_end']}**
+
+| Показатель | Значение |
+|------------|----------|
+| Выручка | {summary['total_revenue']:,.0f} ₽ |
+| Себестоимость | {summary['total_cogs']:,.0f} ₽ |
+| Расходы МП | {summary['mp_expenses']:,.0f} ₽ |
+| Чистая прибыль | {summary['net_profit']:,.0f} ₽ |
+| Маржинальность | {summary['margin']:.1f}% |
+"""
+```
+
+### 4.5.2 ABC Formatter
+
+```python
+class ABCFormatter:
+    """Форматирование ABC-анализа."""
+    
+    def format_summary(self, summary: dict) -> str:
+        """Сводка ABC-анализа."""
+        
+        return f"""
+**ABC-анализ за период {summary['period_start']} — {summary['period_end']}**
+
+| Класс | SKU | Прибыль | Доля |
+|:-----:|----:|--------:|-----:|
+| **A** | {summary['class_a_count']} | {summary['class_a_profit']:,.0f} ₽ | {summary['class_a_pct']:.1f}% |
+| **B** | {summary['class_b_count']} | {summary['class_b_profit']:,.0f} ₽ | {summary['class_b_pct']:.1f}% |
+| **C** | {summary['class_c_count']} | {summary['class_c_profit']:,.0f} ₽ | {summary['class_c_pct']:.1f}% |
+| **D** | {summary['class_d_count']} | −{summary['class_d_loss']:,.0f} ₽ | убыток |
+
+Всего SKU: {summary['total_skus']}
+"""
+    
+    def format_class_table(self, data: List[dict], abc_class: str) -> str:
+        """Таблица SKU класса."""
+        
+        lines = [
+            f"**Класс {abc_class}**",
+            "",
+            "| # | SKU | Прибыль | Маржа | Накоп. % |",
+            "|--:|-----|--------:|------:|---------:|"
+        ]
+        
+        for item in data:
+            lines.append(
+                f"| {item['rank']} | {item['sku']} | "
+                f"{item['net_profit']:,.0f} ₽ | "
+                f"{item['net_margin_pct']:.1f}% | "
+                f"{item['cumulative_pct']:.1f}% |"
+            )
+        
+        return "\n".join(lines)
+
+
+class LossMakersFormatter:
+    """Форматирование убыточных SKU."""
+    
+    def format_table(self, data: List[dict]) -> str:
+        """Таблица убыточных SKU."""
+        
+        lines = [
+            "| SKU | Выручка | Убыток | Маржа | Рекомендация |",
+            "|-----|--------:|-------:|------:|--------------|"
+        ]
+        
+        for item in data:
+            lines.append(
+                f"| {item['sku']} | "
+                f"{item['revenue']:,.0f} ₽ | "
+                f"{abs(item['net_profit']):,.0f} ₽ | "
+                f"{item['net_margin_pct']:.1f}% | "
+                f"{item['recommendation']} |"
+            )
+        
+        return "\n".join(lines)
+    
+    def format_summary(self, data: List[dict]) -> str:
+        """Сводка по убыточным SKU."""
+        
+        total_loss = sum(item['net_profit'] for item in data)
+        
+        return f"""
+**Убыточные SKU (класс D)**
+
+Всего: {len(data)} SKU
+Общий убыток: {abs(total_loss):,.0f} ₽
+"""
+```
+
+---
+
+## 4.6 Примеры диалогов
+
+### 4.6.1 P&L по категориям (Senior)
 
 ```
-Промпт для Claude Code:
+Пользователь: Покажи P&L по категориям за неделю
 
-Создай файл executors/launcher/cfo.py с async-функциями для каждого 
-action из реестра 4.9.1. Каждая функция:
-- Принимает user: dict (id, role, brand_id)
-- Возвращает dict в формате раздела 4.9.2
-- Использует сервисы: pnl_service, abc_service, stock_service, 
-  insight_service, export_service
-- Проверяет доступ по роли (min_role из конфигурации баннера)
-- Для графиков формирует data в формате Recharts
-- Для таблиц форматирует числа с разделителями тысяч
+@Adolf_CFO: **P&L по категориям за 08.01.2026 — 14.01.2026**
 
-Зависимости: SQLAlchemy async, FastAPI, Pydantic.
-Бизнес-логика: см. adolf_cfo_3_ai_pipeline.md
-Схема БД: см. adolf_cfo_5_database.md
+| Категория | Выручка | Себест. | Расходы МП | Прибыль | Маржа |
+|-----------|--------:|--------:|-----------:|--------:|------:|
+| Платья | 2 450 000 ₽ | 980 000 ₽ | 367 500 ₽ | 1 102 500 ₽ | 45.0% |
+| Блузки | 1 230 000 ₽ | 492 000 ₽ | 184 500 ₽ | 553 500 ₽ | 45.0% |
+| Брюки | 890 000 ₽ | 356 000 ₽ | 133 500 ₽ | 400 500 ₽ | 45.0% |
+
+**Итого:** Выручка 4 570 000 ₽, Прибыль 2 056 500 ₽, Маржа 45.0%
+
+[📊 P&L по SKU] [🔤 ABC-анализ] [🤖 AI-инсайты] [📥 Excel]
+```
+
+### 4.6.2 ABC-анализ (Director)
+
+```
+Пользователь: ABC-анализ за месяц
+
+@Adolf_CFO: **ABC-анализ за 15.12.2025 — 14.01.2026**
+
+| Класс | SKU | Прибыль | Доля |
+|:-----:|----:|--------:|-----:|
+| **A** | 47 | 7 200 000 ₽ | 80.0% |
+| **B** | 89 | 1 350 000 ₽ | 15.0% |
+| **C** | 156 | 450 000 ₽ | 5.0% |
+| **D** | 23 | −180 000 ₽ | убыток |
+
+Всего SKU: 315
+
+⚠️ Обнаружено 23 убыточных SKU с общим убытком 180 000 ₽
+
+[🔴 Показать убыточные] [📈 Топ-10 класса A] [🤖 AI-инсайты]
+```
+
+### 4.6.3 Убыточные SKU
+
+```
+Пользователь: Покажи убыточные SKU
+
+@Adolf_CFO: **Убыточные SKU (класс D) за 08.01.2026 — 14.01.2026**
+
+| SKU | Выручка | Убыток | Маржа | Рекомендация |
+|-----|--------:|-------:|------:|--------------|
+| OM-45678 | 45 000 ₽ | 12 500 ₽ | −27.8% | Высокая логистика. Перевод на FBO. |
+| OK-12345 | 23 000 ₽ | 8 200 ₽ | −35.7% | Вывод из ассортимента |
+| OM-78901 | 67 000 ₽ | 5 100 ₽ | −7.6% | Повышение цены на 10% |
+
+Всего: 23 SKU, общий убыток: 180 000 ₽
+
+[🤖 AI-рекомендации] [📥 Excel] [📄 PDF]
+```
+
+### 4.6.4 AI-инсайты
+
+```
+Пользователь: Дай AI-инсайты по финансам
+
+@Adolf_CFO: **AI-инсайты за 08.01.2026 — 14.01.2026**
+
+**Резюме**
+Неделя показала стабильные результаты с общей маржинальностью 45%. 
+Выручка составила 4.57 млн ₽, чистая прибыль — 2.06 млн ₽.
+
+**Ключевые проблемы**
+1. 23 SKU в убытке (−180 000 ₽). Основная причина — высокая логистика.
+2. Категория «Аксессуары» показывает падение маржи на 3 п.п. к прошлой неделе.
+
+**Рекомендации**
+1. **OM-45678**: перевести на FBO для снижения логистики.
+2. **OK-12345, OK-12346**: рассмотреть вывод из ассортимента.
+3. Пересмотреть цены в категории «Брюки» (+5-7%).
+
+**Возможности роста**
+- Платья класса A показывают маржу 52% — увеличить закупку.
+- На Ozon маржа выше WB на 2 п.п. — рассмотреть перераспределение.
+
+[📊 Детальный отчёт] [📥 Excel]
+```
+
+### 4.6.5 Кастомный отчёт (Director)
+
+```
+Пользователь: Сравни маржинальность WB и Ozon по платьям за квартал
+
+@Adolf_CFO: **Сравнение: Платья на WB vs Ozon, Q4 2025**
+
+| Показатель | Wildberries | Ozon | Δ |
+|------------|------------:|-----:|--:|
+| Выручка | 8 450 000 ₽ | 3 210 000 ₽ | +163% |
+| Себестоимость | 3 380 000 ₽ | 1 284 000 ₽ | — |
+| Комиссия | 1 098 500 ₽ (13%) | 545 700 ₽ (17%) | +4 п.п. |
+| Логистика | 507 000 ₽ (6%) | 256 800 ₽ (8%) | +2 п.п. |
+| Прибыль | 3 464 500 ₽ | 1 123 500 ₽ | — |
+| Маржа | 41.0% | 35.0% | −6 п.п. |
+
+**Вывод:** Wildberries показывает более высокую маржинальность за счёт 
+меньшей комиссии (13% vs 17%) и более низких затрат на логистику.
+
+**Рекомендация:** На Ozon рассмотреть повышение цен на 5-7% для 
+выравнивания маржинальности с WB.
+
+[📥 Excel] [📄 PDF]
 ```
 
 ---
 
-## 4.10 Матрица доступа
-
-| Компонент | Senior | Director | Admin |
-|-----------|:------:|:--------:|:-----:|
-| **KPI — оперативные (строка 1)** | ✅ | ✅ | ✅ |
-| **KPI — стратегические (строка 2)** | ❌ | ✅ | ✅ |
-| **P&L отчёты** | | | |
-| P&L по категориям / брендам / МП | ✅ | ✅ | ✅ |
-| P&L по SKU | ❌ | ✅ | ✅ |
-| Консолидированный P&L | ❌ | ✅ | ✅ |
-| **Товарный анализ** | ✅ | ✅ | ✅ |
-| **Динамика (графики)** | ✅ | ✅ | ✅ |
-| **Склад и логистика** | ✅ | ✅ | ✅ |
-| **Себестоимость** | ✅ | ✅ | ✅ |
-| **AI-аналитика** | ✅ | ✅ | ✅ |
-| **Эффективность каналов** | ✅ | ✅ | ✅ |
-| **Финансовая устойчивость (KB)** | ❌ | ✅ | ✅ |
-| **Денежный поток (KB)** | ❌ | ✅ | ✅ |
-| **Риски и прогнозы (KB)** | ❌ | ✅ | ✅ |
-| **Задолженность и поставщики (KB)** | ❌ | ✅ | ✅ |
-| Чат @Adolf (финансы) | ✅ | ✅ | ✅ |
-| Кастомные отчёты (чат) | ❌ | ✅ | ✅ |
-| Настройки порогов KPI | ❌ | ❌ | ✅ |
-
-Категории с пометкой (KB) содержат стратегические данные из базы знаний Qdrant и скрыты для ролей ниже Director. Баннеры с \`min_role\` не отображаются для недопустимых ролей. Доступ проверяется и на фронтенде (скрытие категории/баннера), и на бэкенде (executor возвращает ошибку 403).
-
----
-
-## 4.11 Связанные документы
-
-| Документ | Связь |
-|----------|-------|
-| [Core 3.1: Launcher](/core/adolf_core_3_1_launcher) | Базовая архитектура баннерного подменю |
-| [Core 1.2: Pipelines](/core/adolf_core_1_2_open_webui_pipelines) | Единый Pipeline \`@Adolf\`, маршрутизация |
-| [CFO 3: AI Pipeline](/cfo/adolf_cfo_3_ai_pipeline) | Бизнес-логика расчётов P&L и ABC |
-| [CFO 5: Database](/cfo/adolf_cfo_5_database) | Схема таблиц \`cfo_*\` |
-| [CFO 7: Celery](/cfo/adolf_cfo_7_celery) | Фоновые задачи импорта данных и прогнозирования |
-| [UI Reference: CFO](/ui_reference/cfo/) | Визуальный reference компонентов |
-| [UI Reference: shadcn](/ui_reference/base/) | CSS-переменные и design tokens |
-| \`brain_1c_ka2_exports_registry_v1_1\` | Регламент выгрузок из 1С (13 выгрузок) |
-| \`Perechen_dokumentov_proekta_Ohana\` | Перечень документов KB (~90 файлов, 27 МБ) |
-
----
-
-**Документ подготовлен:** Февраль 2026  
-**Версия:** 1.2  
-**Статус:** Утверждён  
-**Заменяет:** v1.1 (Февраль 2026)
+**Документ подготовлен:** Январь 2026  
+**Версия:** 1.0  
+**Статус:** Черновик

@@ -1,716 +1,1344 @@
----
-title: "Раздел 6: Analyzer и Open WebUI"
-mode: "wide"
----
+# ADOLF WATCHER — Раздел 6: Open WebUI
 
-**Проект:** ADOLF — AI-Driven Operations Layer Framework  
-**Модуль:** Watcher / Analyzer  
-**Версия:** 4.3  
-**Дата:** Февраль 2026
+**Проект:** Интеллектуальная система мониторинга цен конкурентов  
+**Модуль:** Watcher / Open WebUI  
+**Версия:** 2.0  
+**Дата:** Январь 2026
 
 ---
 
-## 6.1 Обзор
-
-Analyzer — аналитическая подсистема Watcher, работающая на основном сервере ADOLF. Получает данные из модуля Knowledge (Qdrant), выполняет аналитику и предоставляет результаты через Open WebUI.
-
-В отличие от Collector (Node.js, VPS), Analyzer интегрирован в стандартную инфраструктуру ADOLF: FastAPI, PostgreSQL, Celery, Open WebUI.
-
-### Два режима доступа к данным
-
-| Режим | Где | Интерфейс | Назначение |
-|-------|-----|-----------|------------|
-| **Дашборд** | Модуль Watcher (пункт меню Open WebUI) | Баннеры → готовые отчёты → фильтры уточнения | Повседневная работа с предгенерированными данными |
-| **AI-чат** | Главная страница Open WebUI (экран приветствия) | Свободный текстовый запрос | Произвольные вопросы (в т.ч. о конкурентах) |
-
-Дашборд не содержит строки ввода для ИИ. Пользователь выбирает баннер, получает готовый отчёт и при необходимости уточняет выборку через фильтры (маркетплейс, продавец, период, категория).
-
-AI-чат — единый для всей платформы ADOLF. На главной странице Open WebUI пользователь задаёт свободный вопрос, а LLM имеет доступ к Tools всех модулей одновременно (Watcher, Reputation, CFO и др.). Набор доступных Tools определяется ролью пользователя через ADOLF Core Middleware. Модуль Watcher регистрирует свои Tools в общем пуле.
-
-```mermaid
-flowchart TB
-    subgraph OWUI["Open WebUI"]
-        HOME["Главная страница<br/>(экран приветствия)"]
-        MENU["Меню модулей"]
-
-        HOME --> CHAT["Единый AI-чат<br/>свободный вопрос"]
-        CHAT --> MW["Core Middleware<br/>(фильтрация Tools по роли)"]
-        MW --> TOOLS_ALL["Tools всех модулей:<br/>Watcher, Reputation,<br/>CFO, Marketing, ..."]
-
-        MENU --> DASH["Модуль Watcher<br/>(дашборд)"]
-        DASH --> BANNERS["Баннеры<br/>(готовые отчёты)"]
-        BANNERS --> FILTERS["Фильтры уточнения<br/>(маркетплейс, продавец,<br/>период, категория)"]
-        FILTERS --> REPORT["Предгенерированный отчёт"]
-    end
-
-    subgraph BACKEND["Backend"]
-        FAST["FastAPI<br/>Analyzer"]
-        CELERY_B["Celery Beat<br/>(предгенерация)"]
-    end
-
-    TOOLS_ALL --> FAST
-    REPORT --> FAST
-    CELERY_B --> FAST
-```
-
-### Архитектура
-
-```mermaid
-flowchart TB
-    subgraph VPS["VPS — Collector"]
-        SQLITE[("SQLite<br/>watcher.db")]
-        API_COL["REST API :3002<br/>(см. Раздел 5)"]
-        KP["Knowledge Pipeline"]
-    end
-
-    subgraph MAIN["Основной сервер — ADOLF"]
-        subgraph ANALYZER["Analyzer"]
-            FAST["FastAPI<br/>watcher_analyzer"]
-            CELERY_W["Celery Worker"]
-            CELERY_B["Celery Beat"]
-        end
-
-        subgraph KNOWLEDGE["Knowledge"]
-            INPUT["Входная директория<br/>/data/knowledge/incoming/watcher"]
-            ETL["ETL Pipeline"]
-            QDRANT[("Qdrant<br/>vector DB")]
-        end
-
-        subgraph OWUI["Open WebUI"]
-            DASH["Дашборд Watcher<br/>(баннеры + фильтры)"]
-            TOOLS["Watcher Tools<br/>(в общем пуле AI-чата)"]
-        end
-
-        CORE_DB[("PostgreSQL<br/>watcher_* таблицы")]
-        REDIS[("Redis")]
-    end
-
-    KP -->|"Markdown по сети"| INPUT
-    INPUT --> ETL
-    ETL --> QDRANT
-
-    QDRANT --> FAST
-    FAST --> CORE_DB
-    FAST --> CELERY_W
-    CELERY_B --> REDIS --> CELERY_W
-
-    DASH --> FAST
-    TOOLS --> FAST
-
-    API_COL -.->|"HTTP (резерв)"| FAST
-```
-
-### Статус реализации
-
-| Компонент | Статус |
-|-----------|--------|
-| Knowledge Pipeline (Collector) | 🔲 Спецификация |
-| Markdown-конвертер | 🔲 Спецификация |
-| Analyzer FastAPI | 🔲 Спецификация |
-| Дашборд (баннеры) | 🔲 Спецификация |
-| AI-чат (Tools) | 🔲 Спецификация |
-| Celery-задачи (предгенерация) | 🔲 Спецификация |
-
----
-
-## 6.2 Knowledge Pipeline
+## 6.1 Обзор интеграции
 
 ### Назначение
 
-Knowledge Pipeline обеспечивает однонаправленный поток данных: Collector (VPS) → Knowledge (основной сервер). Данные конвертируются из JSON в Markdown с YAML-заголовком и передаются в модуль Knowledge для индексации в Qdrant.
+> **Примечание (Март 2026):** Ниже описана архитектура интеграции через chat Tools и Pipelines. Фактическая реализация использует **standalone-страницу** `/watcher` с прямыми вызовами REST API. Структура страницы:
+>
+> | Таб | Описание |
+> |-----|----------|
+> | **Конкуренты** | Список отслеживаемых продавцов с поиском, пакетным импортом URL. Вложенные табы: Товары, Описания, Цены, Изменения, Настройки |
+> | **Алерты** | Уведомления об изменениях цен с фильтрацией |
+> | **История цен** | Графики и таблицы истории цен, экспорт в CSV |
+>
+> Мини-дашборд на главной: Конкуренты, Активных сканов, Алертов, В очереди.
+> Документация Tools ниже сохранена как спецификация backend API.
 
-### Поток данных
+Open WebUI служит основным интерфейсом для взаимодействия пользователей с модулем Watcher через:
 
-```mermaid
-sequenceDiagram
-    participant RN as Runner (VPS)
-    participant DB as SQLite
-    participant KP as Knowledge Pipeline
-    participant FS as Network FS
-    participant ETL as Knowledge ETL
-    participant QD as Qdrant
+- **Standalone-страница** `/watcher` — основной интерфейс с табами
+- **Tools** — функции backend API (добавление продавцов, просмотр цен)
+- **REST API** — прямые вызовы из фронтенда
 
-    RN->>DB: Enrich completed
-    RN->>KP: triggerPipeline(sellerId)
-
-    KP->>DB: SELECT product_details WHERE seller_rowid = ?
-    KP->>DB: SELECT price_history (last 2 scans for diff)
-
-    KP->>KP: generateMarkdown(seller, products, diff)
-    KP->>FS: Write .md to /data/knowledge/incoming/watcher/
-
-    Note over FS: Передача по сети<br/>(rsync / NFS / scp)
-
-    ETL->>FS: Watch for new files
-    ETL->>QD: Chunk + Embed + Index
-```
-
-### Входные данные
-
-Knowledge Pipeline использует данные из Collector (см. [Раздел 4](/watcher/adolf_watcher_4_scanners_enrichers) и [Раздел 5](/watcher/adolf_watcher_5_database_api)):
-
-| Источник | Файл / таблица | Ключевые поля |
-|----------|----------------|---------------|
-| Scan | `results_seller_<id>.json` | seller\_name, marketplace, total\_products, products\[\] (sku, name, price, old\_price, discount, rating, reviews\_count, badges) |
-| Enrich | `enriched_seller_<id>.json` | products\[\] (sku, name, sale\_price, feedbacks, sale\_count, sizes, total\_stock, description, characteristics, images, seller\_name, seller\_ogrn) |
-| DB | `price_history` table | sku, price, old\_price, discount, recorded\_at |
-| DB | `products` table | Два последних скана для computeDiff() |
-
-### Типы выходных документов
-
-| Тип | Файл | Триггер | Содержание |
-|-----|------|---------|------------|
-| Обогащённый каталог | `{mp}_seller_{id}_catalog.md` | После enrich | Полные данные по всем SKU |
-| Ценовые изменения | `{mp}_seller_{id}_diff.md` | После повторного scan | Diff между двумя сканами |
-| Сводка по продавцу | `{mp}_seller_{id}_summary.md` | После scan | Агрегированные метрики |
-
-### Формат Markdown-документа
-
-#### YAML-заголовок
-
-```yaml
----
-title: "Конкурент: Seller Name (Wildberries)"
-category: competitive_intelligence
-subcategory: enriched_catalog
-marketplace: wildberries
-seller_id: "1025130"
-seller_name: "Seller Name"
-enrichment_date: "2026-02-14"
-total_products: 142
-brand_id: all
-access_level: manager
-source: watcher_collector
----
-```
-
-| Поле | Назначение в RAG |
-|------|-----------------|
-| `category` | Фильтрация по типу данных (`competitive_intelligence`) |
-| `subcategory` | Уточнение: `enriched_catalog`, `price_diff`, `seller_summary` |
-| `marketplace` | Фильтрация по маркетплейсу |
-| `seller_id` | Идентификация конкурента |
-| `brand_id` | Ролевая фильтрация (`all` = доступно всем брендам) |
-| `access_level` | Минимальная роль для доступа |
-
-#### Тело: обогащённый каталог
-
-```markdown
-# Каталог: Seller Name (Wildberries)
-
-**Дата обогащения:** 2026-02-14
-**Товаров:** 142
-**Средняя цена:** 2 450 ₽
-**Средний рейтинг:** 4.6
-
-## Товары
-
-### SKU 123456789 — Платье летнее миди
-
-- **Цена:** 2 990 ₽ (старая: 5 980 ₽, скидка 50%)
-- **Рейтинг:** 4.7 (1 284 отзыва, 5 420 продаж)
-- **Наличие:** 47 шт (размеры: 42, 44, 46, 48, 50)
-- **Описание:** Лёгкое платье из вискозы...
-- **Характеристики:** Состав: вискоза 100%; Цвет: красный; Сезон: лето
-- **Продавец:** ООО Конкурент (ОГРН 1234567890123)
-```
-
-#### Тело: ценовые изменения
-
-Формируется из `computeDiff()` (см. [Раздел 3, utils](/watcher/adolf_watcher_3_orchestrator_runner)).
-
-```markdown
-# Ценовые изменения: Seller Name (Wildberries)
-
-**Период:** 2026-02-12 → 2026-02-14
-**Новых товаров:** 3
-**Удалённых товаров:** 1
-**Изменений цен:** 12
-
-## Подорожавшие (5)
-
-- SKU 123456789 «Платье летнее»: 2 500 ₽ → 2 990 ₽ (+19.6%)
-
-## Подешевевшие (7)
-
-- SKU 345678901 «Худи оверсайз»: 4 300 ₽ → 3 010 ₽ (−30.0%)
-
-## Новые товары (3)
-
-- SKU 456789012 «Юбка миди» — 1 890 ₽, рейтинг 0 (новинка)
-
-## Снятые с продажи (1)
-
-- SKU 567890123 «Шапка зимняя» — последняя цена 990 ₽
-```
-
-### Передача файлов
-
-| Метод | Описание | Приоритет |
-|-------|----------|:---------:|
-| rsync по SSH | `rsync -az /opt/watcher/knowledge/ user@main:/data/knowledge/incoming/watcher/` | 1 |
-| NFS mount | Сетевая директория, примонтированная на VPS | 2 |
-| scp | Простое копирование файлов | 3 |
-
----
-
-## 6.3 Analyzer: FastAPI-сервис
-
-### Регистрация в ADOLF Core
-
-```python
-# Промпт для Claude Code:
-#
-# Создай FastAPI-роутер для модуля Watcher Analyzer.
-# Файл: /opt/adolf/modules/watcher/router.py
-# Prefix: /api/v1/watcher
-# Зависимости: Knowledge (Qdrant), PostgreSQL, Redis
-# Авторизация: через ADOLF Core Middleware (depends=[check_role("manager")])
-# Эндпоинты: см. спецификацию ниже
-```
-
-### Эндпоинты для дашборда
-
-Дашборд получает данные через эти эндпоинты. Каждый эндпоинт возвращает предгенерированный или рассчитываемый на лету отчёт.
-
-| Метод | Путь | Роли | Баннер |
-|:-----:|------|:----:|--------|
-| GET | `/api/v1/watcher/dashboard/alerts` | Manager+ | Алерты |
-| GET | `/api/v1/watcher/dashboard/price-changes` | Manager+ | Ценовые изменения |
-| GET | `/api/v1/watcher/dashboard/sellers` | Manager+ | Обзор конкурентов |
-| GET | `/api/v1/watcher/dashboard/seller/{id}/catalog` | Manager+ | Каталог продавца |
-| GET | `/api/v1/watcher/dashboard/seller/{id}/enriched` | Manager+ | Обогащённые данные |
-| GET | `/api/v1/watcher/dashboard/seller/{id}/price-history` | Manager+ | История цен |
-| GET | `/api/v1/watcher/dashboard/seller/{id}/diff` | Manager+ | Diff последних сканов |
-| GET | `/api/v1/watcher/dashboard/analytics/pricing` | Manager+ | Ценовая аналитика |
-| GET | `/api/v1/watcher/dashboard/analytics/assortment` | Manager+ | Ассортиментный анализ |
-| GET | `/api/v1/watcher/dashboard/analytics/bestsellers` | Manager+ | Бестселлеры конкурентов |
-| GET | `/api/v1/watcher/dashboard/analytics/compare` | Manager+ | Сравнение конкурентов |
-| GET | `/api/v1/watcher/dashboard/analytics/stock` | Manager+ | Остатки и размерные сетки |
-| GET | `/api/v1/watcher/dashboard/system` | Admin | Статус системы |
-
-Все эндпоинты поддерживают query-параметры фильтрации: `marketplace`, `seller_id`, `period` (`7d`, `30d`, `90d`), `category`.
-
-### Эндпоинты для AI-чата
-
-| Метод | Путь | Роли | Описание |
-|:-----:|------|:----:|----------|
-| GET | `/api/v1/watcher/prices/{sku}` | Manager+ | Данные по SKU (для Tool) |
-| GET | `/api/v1/watcher/prices/{sku}/history` | Manager+ | Ценовая история (для Tool) |
-| GET | `/api/v1/watcher/compare` | Manager+ | Сравнение конкурентов (для Tool) |
-
-### Управление
-
-| Метод | Путь | Роли | Описание |
-|:-----:|------|:----:|----------|
-| PUT | `/api/v1/watcher/alerts/{id}/read` | Manager+ | Пометить алерт прочитанным |
-| GET | `/api/v1/watcher/alerts/settings` | Admin | Настройки порогов |
-| PUT | `/api/v1/watcher/alerts/settings` | Admin | Обновить пороги |
-| GET | `/api/v1/watcher/subscriptions` | Manager+ | Список подписок |
-| POST | `/api/v1/watcher/subscriptions` | Manager+ | Добавить подписку |
-| DELETE | `/api/v1/watcher/subscriptions/{id}` | Manager+ | Удалить подписку |
-| GET | `/api/v1/watcher/status` | Admin | Статус Collector (проксирование :3002) |
-| POST | `/api/v1/watcher/command` | Admin | Команда Collector |
-
-### Источники данных
+### Архитектура интеграции
 
 ```mermaid
-flowchart LR
-    subgraph PRIMARY["Основной источник"]
-        QD[("Qdrant<br/>(Knowledge)")] -->|"RAG-запросы"| AZ["Analyzer"]
+graph TB
+    subgraph USER["Пользователь"]
+        CHAT["Chat Interface"]
     end
-
-    subgraph FALLBACK["Резервный (прямой доступ)"]
-        COL["Collector API<br/>:3002 через VPN"] -.->|"HTTP GET"| AZ
+    
+    subgraph OWUI["Open WebUI"]
+        PIPE["Watcher Pipeline"]
+        TOOLS["Watcher Tools"]
+        UI["Interactive UI<br/>(buttons, forms)"]
     end
-
-    AZ --> PG[("PostgreSQL<br/>(кэш + предгенерация)")]
+    
+    subgraph MIDDLEWARE["ADOLF Middleware"]
+        AUTH["Auth & RBAC"]
+        ROUTE["Router"]
+    end
+    
+    subgraph WATCHER["Watcher Backend"]
+        API["REST API"]
+        WS["WebSocket"]
+    end
+    
+    CHAT --> PIPE
+    PIPE --> TOOLS
+    TOOLS --> UI
+    PIPE --> AUTH
+    AUTH --> ROUTE
+    ROUTE --> API
+    ROUTE --> WS
+    
+    API --> PIPE
+    UI --> CHAT
 ```
-
-Основной: Qdrant через RAG-запросы к модулю Knowledge.
-
-Резервный: прямой HTTP к Collector REST API :3002 (см. [Раздел 5.5](/watcher/adolf_watcher_5_database_api)). Для real-time данных и когда Knowledge Pipeline ещё не обработал свежие данные.
 
 ---
 
-## 6.4 Дашборд Watcher
+## 6.2 Watcher Tools
 
-Дашборд — основной интерфейс модуля. Отображается при выборе «Watcher» в меню Open WebUI. Не содержит строки ввода для ИИ.
-
-### Структура дашборда
-
-```mermaid
-flowchart TB
-    DASH["Дашборд Watcher<br/>(главный экран модуля)"]
-
-    DASH --> ROW1["Строка 1: Сводка"]
-    DASH --> ROW2["Строка 2: Баннеры отчётов"]
-    DASH --> ROW3["Строка 3: Аналитика"]
-    DASH --> ROW4["Строка 4: Система (Admin)"]
-
-    ROW1 --> S1["Продавцов<br/>отслеживается: 12"]
-    ROW1 --> S2["Товаров<br/>в базе: 15 420"]
-    ROW1 --> S3["Непрочитанных<br/>алертов: 5"]
-    ROW1 --> S4["Последний скан<br/>2 часа назад"]
-
-    ROW2 --> B1["🔔 Алерты"]
-    ROW2 --> B2["📊 Ценовые<br/>изменения"]
-    ROW2 --> B3["📦 Каталоги<br/>конкурентов"]
-    ROW2 --> B4["🔍 Обогащённые<br/>данные"]
-
-    ROW3 --> A1["💰 Ценовая<br/>аналитика"]
-    ROW3 --> A2["📈 Бестселлеры<br/>конкурентов"]
-    ROW3 --> A3["⚖️ Сравнение<br/>конкурентов"]
-    ROW3 --> A4["📋 Ассортимент<br/>и остатки"]
-
-    ROW4 --> SYS1["🖥️ Статус<br/>Collector"]
-    ROW4 --> SYS2["📋 Очередь<br/>задач"]
-```
-
-### Баннеры и отчёты
-
-Каждый баннер при нажатии открывает соответствующий отчёт с возможностью фильтрации.
-
-#### Строка 1: Сводка (числовые карточки)
-
-Четыре метрики верхнего уровня, обновляются автоматически.
-
-| Карточка | Источник данных | API |
-|----------|-----------------|-----|
-| Продавцов отслеживается | `sellers` (status=active) | `/dashboard/sellers` |
-| Товаров в базе | `products` + `product_details` | `/dashboard/sellers` |
-| Непрочитанных алертов | `watcher_alerts` (status=unread) | `/dashboard/alerts` |
-| Последний скан | `scans` (status=completed, MAX created\_at) | `/dashboard/sellers` |
-
-#### Строка 2: Баннеры основных отчётов
-
-| Баннер | Содержание отчёта | Фильтры | Источник данных |
-|--------|-------------------|---------|-----------------|
-| **Алерты** | Список алертов по приоритету: снижение цен, новые товары, бестселлеры, массовый вывод, рост отзывов | Тип, маркетплейс, продавец, период | `watcher_alerts` (PostgreSQL) |
-| **Ценовые изменения** | Подорожавшие / подешевевшие товары, новые / снятые с продажи. Сводка по всем продавцам | Маркетплейс, продавец, порог %, период | `computeDiff()` → `price_diff` документы (Qdrant) |
-| **Каталоги конкурентов** | Выбор продавца → таблица товаров: SKU, название, цена, скидка, рейтинг, отзывы, бейджи | Маркетплейс, продавец, сортировка (цена, рейтинг, отзывы) | `products` (SQLite) → Qdrant |
-| **Обогащённые данные** | Выбор продавца → детали: описание, характеристики, состав, размеры, остатки, фото, ОГРН | Маркетплейс, продавец, SKU | `product_details` (SQLite) → Qdrant |
-
-#### Строка 3: Аналитические отчёты
-
-| Баннер | Содержание отчёта | Фильтры | Источник данных |
-|--------|-------------------|---------|-----------------|
-| **Ценовая аналитика** | Средние цены и скидки по продавцам, частота изменений, ценовые диапазоны | Маркетплейс, период | `price_history` + `product_details` (агрегация) |
-| **Бестселлеры конкурентов** | Топ товаров по рейтингу, отзывам и продажам. ABC-анализ ассортимента | Маркетплейс, продавец, топ N | `product_details` (sale\_count, feedbacks, rating) |
-| **Сравнение конкурентов** | Таблица: продавец × метрика (кол-во товаров, средняя цена, средняя скидка, средний рейтинг, глубина ассортимента) | Маркетплейс, выбор продавцов | `sellers` + `products` + `product_details` (агрегация) |
-| **Ассортимент и остатки** | Размерные сетки, остатки по складам, товары с низким стоком, скорость обновления ассортимента (new/removed за период) | Маркетплейс, продавец, порог остатка | `product_details` (sizes, total\_stock) + `computeDiff()` |
-
-#### Строка 4: Система (только Admin)
-
-| Баннер | Содержание отчёта | Источник данных |
-|--------|-------------------|-----------------|
-| **Статус Collector** | ПК: онлайн/оффлайн/занят, задачи: running/queued, статистика: сканов, товаров, обогащений | CDP Pool `/summary` + Collector `/stats` + `/tasks` |
-| **Очередь задач** | Текущие и ожидающие задачи (scan + enrich), приоритеты, время ожидания | Collector `/tasks` |
-
-### Навигация пользователя
-
-```mermaid
-flowchart TB
-    DASH["Дашборд"] -->|"клик баннер"| LIST["Список / таблица<br/>(отчёт верхнего уровня)"]
-    LIST -->|"фильтры"| FILTERED["Отфильтрованный список"]
-    FILTERED -->|"клик на строку"| DETAIL["Детальный вид<br/>(продавец / товар / алерт)"]
-    DETAIL -->|"назад"| LIST
-
-    LIST -->|"выбор продавца"| SELLER["Профиль продавца:<br/>— каталог<br/>— обогащённые данные<br/>— ценовые изменения<br/>— история цен"]
-```
-
-Пример цепочки: Дашборд → «Ценовые изменения» → фильтр «Wildberries» → фильтр «Подешевевшие &gt; 20%» → клик на продавца → профиль продавца с детализацией.
-
-### Карточка продавца
-
-При выборе конкретного продавца (из любого баннера) открывается профиль с табами:
-
-| Таб | Содержание | API |
-|-----|------------|-----|
-| Каталог | Таблица товаров последнего скана | `/dashboard/seller/{id}/catalog` |
-| Детали | Обогащённые данные: описания, характеристики, фото | `/dashboard/seller/{id}/enriched` |
-| Цены | История цен по SKU (таблица / график) | `/dashboard/seller/{id}/price-history` |
-| Изменения | Diff последних двух сканов | `/dashboard/seller/{id}/diff` |
-| Инфо | Имя, маркетплейс, приоритет, расписание, последний скан | `/dashboard/sellers` |
-
----
-
-## 6.5 Watcher Tools (AI-чат)
-
-Watcher регистрирует свои Tools в общем пуле ADOLF. На главной странице Open WebUI пользователь задаёт свободный вопрос — LLM автоматически выбирает подходящий Tool из всех модулей. Доступность каждого Tool определяется ролью пользователя через ADOLF Core Middleware.
-
-### Архитектура
-
-```mermaid
-flowchart TB
-    USER["Пользователь<br/>(главная Open WebUI)"] -->|"свободный вопрос"| LLM["LLM<br/>(GPT-5 mini)"]
-    LLM --> MW["Core Middleware<br/>(проверка роли)"]
-    MW -->|"tool_call"| WT["Watcher Tools"]
-    MW -->|"tool_call"| RT["Reputation Tools"]
-    MW -->|"tool_call"| OT["... другие модули"]
-    WT -->|"HTTP"| FAST["FastAPI Analyzer"]
-    FAST --> RESP["Ответ в чате"]
-```
-
-### Watcher Tools
+### Список Tools
 
 | Tool | Описание | Роли |
-|------|----------|:----:|
-| `watcher_get_prices` | Текущие цены конкурентов по SKU | Manager+ |
+|------|----------|------|
+| `watcher_get_prices` | Получение текущих цен для SKU | Manager+ |
 | `watcher_price_history` | История цен за период | Manager+ |
-| `watcher_compare_competitors` | Сравнение ценового позиционирования | Manager+ |
-| `watcher_get_alerts` | Активные алерты | Manager+ |
-| `watcher_add_subscription` | Добавление продавца для мониторинга | Manager+ |
-| `watcher_list_subscriptions` | Список отслеживаемых конкурентов | Manager+ |
-| `watcher_mark_alert_read` | Пометить алерт прочитанным | Manager+ |
-| `watcher_agent_status` | Статус системы Collector | Admin |
-| `watcher_agent_command` | Управление Collector | Admin |
-| `watcher_settings` | Настройки алертов и порогов | Admin |
+| `watcher_compare_competitors` | Сравнение с конкурентами | Manager+ |
+| `watcher_add_subscription` | Добавление SKU для мониторинга | Manager+ |
+| `watcher_add_competitor` | Добавление конкурента | Manager+ |
+| `watcher_list_subscriptions` | Список подписок | Manager+ |
+| `watcher_list_competitors` | Список конкурентов | Manager+ |
+| `watcher_get_alerts` | Получение алертов | Manager+ |
+| `watcher_mark_alert_read` | Пометка алерта прочитанным | Manager+ |
+| `watcher_agent_status` | Статус агентов | Admin |
+| `watcher_agent_command` | Команда агенту | Admin |
+| `watcher_settings` | Настройки модуля | Admin |
 
-### Примеры взаимодействия
-
-| Запрос пользователя | Tool | Ответ |
-|---------------------|------|-------|
-| «Какая цена на артикул 12345?» | watcher\_get\_prices | Таблица цен по конкурентам |
-| «Как менялась цена товара 12345 за месяц?» | watcher\_price\_history | Таблица изменений + сводка |
-| «Сравни цены Seller A и Seller B» | watcher\_compare\_competitors | Сводная таблица + AI-анализ |
-| «Что нового у конкурентов?» | watcher\_get\_alerts | Список алертов |
-| «Добавь продавца 1025130 с WB» | watcher\_add\_subscription | Подтверждение добавления |
-| «Статус системы сбора» | watcher\_agent\_status | Отчёт о Collector |
-
-### Промпты для Claude Code (Tools)
+### 6.2.1 watcher_get_prices
 
 ```python
-# Промпт для Claude Code:
-#
-# Создай Open WebUI Tool: watcher_get_prices
-# Файл: /opt/adolf/tools/watcher_get_prices.py
-#
-# Описание для LLM:
-#   "Получение текущих цен конкурентов для товара по SKU.
-#    Используй когда пользователь спрашивает о ценах конкурентов,
-#    стоимости товара на маркетплейсах, или просит сравнить цены."
-#
-# Параметры:
-#   sku: str — артикул товара
-#   marketplace: Optional[str] — фильтр маркетплейса
-#
-# Логика:
-#   1. Запрос к Analyzer API: GET /api/v1/watcher/prices/{sku}
-#   2. Форматирование ответа в Markdown-таблицу
-#   3. Если есть история — добавить краткую сводку динамики
+# tools/watcher_get_prices.py
+
+class Tools:
+    def __init__(self):
+        self.name = "watcher_get_prices"
+        self.description = """
+        Получение текущих цен для товара.
+        
+        Используй этот инструмент когда пользователь спрашивает:
+        - "Какая сейчас цена на [SKU]?"
+        - "Покажи цены товара [артикул]"
+        - "Сколько стоит [SKU] на маркетплейсах?"
+        """
+    
+    class Valves(BaseModel):
+        api_base_url: str = Field(
+            default="http://middleware:8000",
+            description="URL Middleware API"
+        )
+    
+    class UserValves(BaseModel):
+        pass
+    
+    async def run(
+        self,
+        sku: str,
+        marketplace: str = None,
+        __user__: dict = None,
+        __event_emitter__=None
+    ) -> str:
+        """
+        Получение текущих цен для SKU.
+        
+        Args:
+            sku: Артикул товара (например, "OM-12345")
+            marketplace: Маркетплейс (wildberries/ozon/yandex_market) или None для всех
+        
+        Returns:
+            Форматированный ответ с ценами
+        """
+        user_id = __user__.get("id")
+        
+        # Запрос к API
+        params = {"sku": sku}
+        if marketplace:
+            params["marketplace"] = marketplace
+        
+        response = await self._api_request(
+            method="GET",
+            endpoint="/api/v1/watcher/prices/current",
+            params=params,
+            user_id=user_id
+        )
+        
+        if not response.get("success"):
+            return f"❌ Ошибка: {response.get('error', 'Неизвестная ошибка')}"
+        
+        data = response.get("data", {})
+        
+        # Форматирование ответа
+        result = f"## 💰 Цены для {sku}\n\n"
+        
+        for mp_data in data.get("marketplaces", []):
+            mp_name = self._marketplace_name(mp_data["marketplace"])
+            result += f"### {mp_name}\n\n"
+            
+            # Наш товар
+            own = mp_data.get("own")
+            if own:
+                result += f"**Наша цена:** {own['current_price']:,.0f} ₽"
+                if own.get("old_price"):
+                    result += f" ~~{own['old_price']:,.0f} ₽~~"
+                if own.get("spp_price"):
+                    result += f" (СПП: {own['spp_price']:,.0f} ₽)"
+                result += "\n"
+                result += f"**Наличие:** {'✅ В наличии' if own.get('in_stock') else '❌ Нет в наличии'}\n"
+                if own.get("rating"):
+                    result += f"**Рейтинг:** {own['rating']}⭐ ({own.get('reviews_count', 0)} отзывов)\n"
+            
+            # Конкуренты
+            competitors = mp_data.get("competitors", [])
+            if competitors:
+                result += f"\n**Конкуренты ({len(competitors)}):**\n\n"
+                
+                for i, comp in enumerate(competitors[:5], 1):
+                    price_diff = ""
+                    if own and own.get("current_price") and comp.get("current_price"):
+                        diff = comp["current_price"] - own["current_price"]
+                        if diff > 0:
+                            price_diff = f" (+{diff:,.0f} ₽)"
+                        elif diff < 0:
+                            price_diff = f" ({diff:,.0f} ₽) ⚠️"
+                    
+                    result += f"{i}. **{comp.get('seller_name', 'Неизвестный')}**: "
+                    result += f"{comp['current_price']:,.0f} ₽{price_diff}\n"
+            
+            result += "\n"
+        
+        # Интерактивные кнопки
+        if __event_emitter__:
+            await __event_emitter__({
+                "type": "actions",
+                "data": {
+                    "actions": [
+                        {
+                            "id": f"history_{sku}",
+                            "label": "📊 История цен",
+                            "action": f"Покажи историю цен для {sku} за 30 дней"
+                        },
+                        {
+                            "id": f"competitors_{sku}",
+                            "label": "👥 Все конкуренты",
+                            "action": f"Покажи всех конкурентов для {sku}"
+                        },
+                        {
+                            "id": f"alerts_{sku}",
+                            "label": "🔔 Алерты",
+                            "action": f"Покажи алерты для {sku}"
+                        }
+                    ]
+                }
+            })
+        
+        return result
+    
+    def _marketplace_name(self, code: str) -> str:
+        names = {
+            "wildberries": "🟣 Wildberries",
+            "ozon": "🔵 Ozon",
+            "yandex_market": "🔴 Яндекс.Маркет"
+        }
+        return names.get(code, code)
+    
+    async def _api_request(self, method: str, endpoint: str, **kwargs):
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method=method,
+                url=f"{self.valves.api_base_url}{endpoint}",
+                **kwargs
+            )
+            return response.json()
 ```
 
-```python
-# Промпт для Claude Code:
-#
-# Создай Open WebUI Tool: watcher_compare_competitors
-# Файл: /opt/adolf/tools/watcher_compare_competitors.py
-#
-# Описание для LLM:
-#   "Сравнение ценового позиционирования конкурентов."
-#
-# Параметры:
-#   seller_ids: List[str] — ID продавцов для сравнения
-#   marketplace: Optional[str]
-#
-# Логика:
-#   1. RAG-запрос к Knowledge
-#   2. Fallback к Collector API (GET /api/v1/sellers/:id/enriched)
-#   3. Агрегация: средние цены, скидки, ассортимент
-#   4. AI-анализ (GPT-5 mini): выявление стратегий
-```
+### 6.2.2 watcher_price_history
 
 ```python
-# Промпт для Claude Code:
-#
-# Создай Open WebUI Tool: watcher_agent_status
-# Файл: /opt/adolf/tools/watcher_agent_status.py
-#
-# Описание для LLM:
-#   "Получение статуса системы сбора данных Watcher Collector.
-#    Только для администраторов."
-#
-# Логика:
-#   1. HTTP GET к Collector API: /api/v1/pool/summary
-#   2. HTTP GET к Collector API: /api/v1/tasks
-#   3. HTTP GET к Collector API: /api/v1/stats
-#   4. Форматирование в читаемый отчёт
-#
-# Collector API: см. Раздел 5.5
+# tools/watcher_price_history.py
+
+class Tools:
+    def __init__(self):
+        self.name = "watcher_price_history"
+        self.description = """
+        Получение истории цен для товара.
+        
+        Используй этот инструмент когда пользователь спрашивает:
+        - "Покажи историю цен [SKU]"
+        - "Как менялась цена [артикул] за последний месяц?"
+        - "График цен для [SKU]"
+        """
+    
+    async def run(
+        self,
+        sku: str,
+        days: int = 30,
+        marketplace: str = None,
+        include_competitors: bool = False,
+        __user__: dict = None,
+        __event_emitter__=None
+    ) -> str:
+        """
+        Получение истории цен.
+        
+        Args:
+            sku: Артикул товара
+            days: Количество дней (по умолчанию 30)
+            marketplace: Маркетплейс или None для всех
+            include_competitors: Включить цены конкурентов
+        """
+        user_id = __user__.get("id")
+        
+        params = {
+            "sku": sku,
+            "days": min(days, 365),  # Максимум год
+            "include_competitors": include_competitors
+        }
+        if marketplace:
+            params["marketplace"] = marketplace
+        
+        response = await self._api_request(
+            method="GET",
+            endpoint="/api/v1/watcher/prices/history",
+            params=params,
+            user_id=user_id
+        )
+        
+        if not response.get("success"):
+            return f"❌ Ошибка: {response.get('error')}"
+        
+        data = response.get("data", {})
+        history = data.get("history", [])
+        
+        if not history:
+            return f"📭 Нет данных о ценах для {sku} за последние {days} дней"
+        
+        # Форматирование
+        result = f"## 📊 История цен: {sku}\n"
+        result += f"*Период: последние {days} дней*\n\n"
+        
+        # Статистика
+        prices = [h["current_price"] for h in history if h.get("current_price")]
+        if prices:
+            result += f"**Минимум:** {min(prices):,.0f} ₽\n"
+            result += f"**Максимум:** {max(prices):,.0f} ₽\n"
+            result += f"**Среднее:** {sum(prices)/len(prices):,.0f} ₽\n"
+            
+            if len(prices) >= 2:
+                change = prices[0] - prices[-1]  # Первый = последний по времени
+                change_pct = (change / prices[-1]) * 100 if prices[-1] else 0
+                emoji = "📈" if change > 0 else "📉" if change < 0 else "➡️"
+                result += f"**Изменение:** {emoji} {change:+,.0f} ₽ ({change_pct:+.1f}%)\n"
+        
+        result += "\n"
+        
+        # Таблица последних значений
+        result += "### Последние записи\n\n"
+        result += "| Дата | Цена | СПП | Наличие | Рейтинг |\n"
+        result += "|------|------|-----|---------|--------|\n"
+        
+        for h in history[:10]:
+            date = h["parsed_at"][:10]
+            price = f"{h['current_price']:,.0f} ₽" if h.get("current_price") else "—"
+            spp = f"{h['spp_price']:,.0f} ₽" if h.get("spp_price") else "—"
+            stock = "✅" if h.get("in_stock") else "❌"
+            rating = f"{h['rating']}⭐" if h.get("rating") else "—"
+            
+            result += f"| {date} | {price} | {spp} | {stock} | {rating} |\n"
+        
+        # График (если поддерживается)
+        if __event_emitter__ and len(prices) >= 2:
+            chart_data = [
+                {"date": h["parsed_at"][:10], "price": h.get("current_price")}
+                for h in history
+                if h.get("current_price")
+            ]
+            
+            await __event_emitter__({
+                "type": "chart",
+                "data": {
+                    "type": "line",
+                    "title": f"Динамика цены {sku}",
+                    "data": chart_data,
+                    "xKey": "date",
+                    "yKey": "price",
+                    "yLabel": "Цена, ₽"
+                }
+            })
+        
+        return result
+```
+
+### 6.2.3 watcher_add_subscription
+
+```python
+# tools/watcher_add_subscription.py
+
+class Tools:
+    def __init__(self):
+        self.name = "watcher_add_subscription"
+        self.description = """
+        Добавление товара для мониторинга цен.
+        
+        Используй этот инструмент когда пользователь говорит:
+        - "Добавь товар [SKU] для мониторинга"
+        - "Начни отслеживать цены на [артикул]"
+        - "Мониторь этот товар: [URL]"
+        """
+    
+    async def run(
+        self,
+        sku: str = None,
+        url: str = None,
+        marketplace: str = None,
+        brand_id: str = None,
+        __user__: dict = None,
+        __event_emitter__=None
+    ) -> str:
+        """
+        Добавление подписки на мониторинг.
+        
+        Args:
+            sku: Артикул товара (если известен)
+            url: URL карточки товара (альтернатива SKU)
+            marketplace: Маркетплейс
+            brand_id: Бренд (ohana_market/ohana_kids)
+        """
+        user_id = __user__.get("id")
+        
+        # Валидация входных данных
+        if not sku and not url:
+            return "❓ Укажите артикул (SKU) или URL карточки товара"
+        
+        # Если указан URL — извлекаем SKU и маркетплейс
+        if url and not sku:
+            parsed = self._parse_marketplace_url(url)
+            if not parsed:
+                return "❌ Не удалось распознать URL маркетплейса"
+            sku = parsed["sku"]
+            marketplace = parsed["marketplace"]
+        
+        if not marketplace:
+            return "❓ Укажите маркетплейс (wildberries, ozon, yandex_market)"
+        
+        # Определение бренда из роли пользователя (если не указан)
+        if not brand_id:
+            user_brand = __user__.get("brand_id")
+            if user_brand and user_brand != "all":
+                brand_id = user_brand
+            else:
+                # Запрашиваем у пользователя
+                if __event_emitter__:
+                    await __event_emitter__({
+                        "type": "select",
+                        "data": {
+                            "id": "brand_select",
+                            "label": "Выберите бренд",
+                            "options": [
+                                {"value": "ohana_market", "label": "Охана Маркет"},
+                                {"value": "ohana_kids", "label": "Охана Кидс"}
+                            ],
+                            "callback": f"Добавь {sku} на {marketplace} для бренда {{value}}"
+                        }
+                    })
+                    return "👆 Выберите бренд для товара"
+        
+        # Запрос к API
+        payload = {
+            "sku": sku,
+            "marketplace": marketplace,
+            "brand_id": brand_id,
+            "url": url
+        }
+        
+        response = await self._api_request(
+            method="POST",
+            endpoint="/api/v1/watcher/subscriptions",
+            json=payload,
+            user_id=user_id
+        )
+        
+        if not response.get("success"):
+            error = response.get("error", "Неизвестная ошибка")
+            if "already exists" in error.lower():
+                return f"ℹ️ Товар {sku} уже отслеживается на {self._marketplace_name(marketplace)}"
+            return f"❌ Ошибка: {error}"
+        
+        result = f"✅ Товар добавлен для мониторинга!\n\n"
+        result += f"**SKU:** {sku}\n"
+        result += f"**Маркетплейс:** {self._marketplace_name(marketplace)}\n"
+        result += f"**Бренд:** {brand_id}\n\n"
+        result += "Первые данные появятся после ночного парсинга (21:00-07:00).\n"
+        
+        # Кнопки для следующих действий
+        if __event_emitter__:
+            await __event_emitter__({
+                "type": "actions",
+                "data": {
+                    "actions": [
+                        {
+                            "id": f"add_competitor_{sku}",
+                            "label": "➕ Добавить конкурента",
+                            "action": f"Добавь конкурента для {sku}"
+                        },
+                        {
+                            "id": "add_another",
+                            "label": "➕ Добавить ещё товар",
+                            "action": "Добавь ещё товар для мониторинга"
+                        }
+                    ]
+                }
+            })
+        
+        return result
+    
+    def _parse_marketplace_url(self, url: str) -> dict | None:
+        import re
+        
+        patterns = {
+            "wildberries": r"wildberries\.ru/catalog/(\d+)",
+            "ozon": r"ozon\.ru/product/[^/]+-(\d+)",
+            "yandex_market": r"market\.yandex\.ru/product/(\d+)"
+        }
+        
+        for marketplace, pattern in patterns.items():
+            match = re.search(pattern, url)
+            if match:
+                return {"sku": match.group(1), "marketplace": marketplace}
+        
+        return None
+```
+
+### 6.2.4 watcher_add_competitor
+
+```python
+# tools/watcher_add_competitor.py
+
+class Tools:
+    def __init__(self):
+        self.name = "watcher_add_competitor"
+        self.description = """
+        Добавление конкурента для мониторинга.
+        
+        Используй этот инструмент когда пользователь говорит:
+        - "Добавь конкурента [URL] для [SKU]"
+        - "Отслеживай этого продавца: [URL]"
+        - "Мониторь цены конкурента [URL]"
+        """
+    
+    async def run(
+        self,
+        competitor_url: str,
+        our_sku: str = None,
+        seller_name: str = None,
+        __user__: dict = None,
+        __event_emitter__=None
+    ) -> str:
+        """
+        Добавление конкурента.
+        
+        Args:
+            competitor_url: URL карточки конкурента
+            our_sku: Наш SKU для сравнения
+            seller_name: Название продавца (опционально)
+        """
+        user_id = __user__.get("id")
+        
+        # Парсинг URL конкурента
+        parsed = self._parse_marketplace_url(competitor_url)
+        if not parsed:
+            return "❌ Не удалось распознать URL маркетплейса"
+        
+        competitor_sku = parsed["sku"]
+        marketplace = parsed["marketplace"]
+        
+        # Если наш SKU не указан — предлагаем выбрать
+        if not our_sku:
+            # Получаем список наших подписок
+            subs_response = await self._api_request(
+                method="GET",
+                endpoint="/api/v1/watcher/subscriptions",
+                params={"marketplace": marketplace},
+                user_id=user_id
+            )
+            
+            subscriptions = subs_response.get("data", {}).get("subscriptions", [])
+            
+            if not subscriptions:
+                return f"❌ Нет отслеживаемых товаров на {self._marketplace_name(marketplace)}. Сначала добавьте свой товар."
+            
+            if len(subscriptions) == 1:
+                our_sku = subscriptions[0]["sku"]
+            else:
+                # Предлагаем выбрать
+                if __event_emitter__:
+                    options = [
+                        {"value": s["sku"], "label": f"{s['sku']}"}
+                        for s in subscriptions[:10]
+                    ]
+                    
+                    await __event_emitter__({
+                        "type": "select",
+                        "data": {
+                            "id": "sku_select",
+                            "label": "Выберите наш товар для сравнения",
+                            "options": options,
+                            "callback": f"Добавь конкурента {competitor_url} для {{value}}"
+                        }
+                    })
+                    return "👆 Выберите наш товар, с которым сравнивать конкурента"
+        
+        # Запрос к API
+        payload = {
+            "our_sku": our_sku,
+            "competitor_sku": competitor_sku,
+            "marketplace": marketplace,
+            "url": competitor_url,
+            "seller_name": seller_name
+        }
+        
+        response = await self._api_request(
+            method="POST",
+            endpoint="/api/v1/watcher/competitors",
+            json=payload,
+            user_id=user_id
+        )
+        
+        if not response.get("success"):
+            error = response.get("error", "Неизвестная ошибка")
+            if "already exists" in error.lower():
+                return f"ℹ️ Этот конкурент уже отслеживается для {our_sku}"
+            return f"❌ Ошибка: {error}"
+        
+        result = f"✅ Конкурент добавлен!\n\n"
+        result += f"**Наш товар:** {our_sku}\n"
+        result += f"**Конкурент SKU:** {competitor_sku}\n"
+        result += f"**Маркетплейс:** {self._marketplace_name(marketplace)}\n"
+        if seller_name:
+            result += f"**Продавец:** {seller_name}\n"
+        
+        return result
+```
+
+### 6.2.5 watcher_get_alerts
+
+```python
+# tools/watcher_get_alerts.py
+
+class Tools:
+    def __init__(self):
+        self.name = "watcher_get_alerts"
+        self.description = """
+        Получение алертов о ценах.
+        
+        Используй этот инструмент когда пользователь спрашивает:
+        - "Покажи алерты"
+        - "Есть ли новые уведомления о ценах?"
+        - "Какие изменения цен произошли?"
+        """
+    
+    async def run(
+        self,
+        sku: str = None,
+        unread_only: bool = True,
+        limit: int = 20,
+        __user__: dict = None,
+        __event_emitter__=None
+    ) -> str:
+        """
+        Получение алертов.
+        
+        Args:
+            sku: Фильтр по SKU (опционально)
+            unread_only: Только непрочитанные
+            limit: Количество записей
+        """
+        user_id = __user__.get("id")
+        brand_id = __user__.get("brand_id")
+        
+        params = {
+            "unread_only": unread_only,
+            "limit": min(limit, 50)
+        }
+        if sku:
+            params["sku"] = sku
+        if brand_id and brand_id != "all":
+            params["brand_id"] = brand_id
+        
+        response = await self._api_request(
+            method="GET",
+            endpoint="/api/v1/watcher/alerts",
+            params=params,
+            user_id=user_id
+        )
+        
+        if not response.get("success"):
+            return f"❌ Ошибка: {response.get('error')}"
+        
+        alerts = response.get("data", {}).get("alerts", [])
+        
+        if not alerts:
+            return "🔔 Нет новых алертов" if unread_only else "📭 Алерты отсутствуют"
+        
+        result = f"## 🔔 Алерты ({len(alerts)})\n\n"
+        
+        for alert in alerts:
+            emoji = self._alert_emoji(alert["alert_type"])
+            severity_badge = self._severity_badge(alert["severity"])
+            
+            result += f"### {emoji} {self._alert_title(alert['alert_type'])}\n"
+            result += f"{severity_badge} | {alert['sku']} | {self._marketplace_name(alert['marketplace'])}\n\n"
+            
+            details = alert.get("details", {})
+            
+            if alert["alert_type"] in ["price_drop", "price_rise", "dumping_detected"]:
+                old_price = details.get("old_price", 0)
+                new_price = details.get("new_price", 0)
+                change = details.get("change_percent", 0)
+                
+                result += f"**Было:** {old_price:,.0f} ₽ → **Стало:** {new_price:,.0f} ₽ ({change:+.1f}%)\n"
+                
+                if details.get("competitor_name"):
+                    result += f"**Конкурент:** {details['competitor_name']}\n"
+            
+            elif alert["alert_type"] in ["out_of_stock", "back_in_stock"]:
+                if details.get("competitor_name"):
+                    result += f"**Конкурент:** {details['competitor_name']}\n"
+            
+            result += f"*{alert['created_at'][:16].replace('T', ' ')}*\n\n"
+        
+        # Кнопки действий
+        if __event_emitter__ and alerts:
+            actions = [
+                {
+                    "id": "mark_all_read",
+                    "label": "✓ Отметить все прочитанными",
+                    "action": "Отметь все алерты прочитанными"
+                }
+            ]
+            
+            await __event_emitter__({
+                "type": "actions",
+                "data": {"actions": actions}
+            })
+        
+        return result
+    
+    def _alert_emoji(self, alert_type: str) -> str:
+        emojis = {
+            "price_drop": "📉",
+            "price_rise": "📈",
+            "out_of_stock": "❌",
+            "back_in_stock": "✅",
+            "new_competitor": "👤",
+            "rating_drop": "⭐",
+            "dumping_detected": "🚨"
+        }
+        return emojis.get(alert_type, "🔔")
+    
+    def _alert_title(self, alert_type: str) -> str:
+        titles = {
+            "price_drop": "Снижение цены",
+            "price_rise": "Повышение цены",
+            "out_of_stock": "Нет в наличии",
+            "back_in_stock": "Снова в наличии",
+            "new_competitor": "Новый конкурент",
+            "rating_drop": "Падение рейтинга",
+            "dumping_detected": "Обнаружен демпинг"
+        }
+        return titles.get(alert_type, alert_type)
+    
+    def _severity_badge(self, severity: str) -> str:
+        badges = {
+            "critical": "🔴 КРИТИЧНО",
+            "warning": "🟡 Внимание",
+            "info": "🔵 Инфо"
+        }
+        return badges.get(severity, severity)
+```
+
+### 6.2.6 watcher_agent_status (Admin)
+
+```python
+# tools/watcher_agent_status.py
+
+class Tools:
+    def __init__(self):
+        self.name = "watcher_agent_status"
+        self.description = """
+        Статус агентов парсинга (только для администраторов).
+        
+        Используй этот инструмент когда администратор спрашивает:
+        - "Статус агентов Watcher"
+        - "Как работают парсеры?"
+        - "Покажи состояние агентов"
+        """
+    
+    async def run(
+        self,
+        agent_id: str = None,
+        __user__: dict = None,
+        __event_emitter__=None
+    ) -> str:
+        """
+        Получение статуса агентов.
+        
+        Args:
+            agent_id: ID конкретного агента или None для всех
+        """
+        user_id = __user__.get("id")
+        user_role = __user__.get("role")
+        
+        # Проверка прав
+        if user_role != "admin":
+            return "🚫 Эта функция доступна только администраторам"
+        
+        if agent_id:
+            endpoint = f"/api/v1/watcher/agents/{agent_id}"
+        else:
+            endpoint = "/api/v1/watcher/agents"
+        
+        response = await self._api_request(
+            method="GET",
+            endpoint=endpoint,
+            user_id=user_id
+        )
+        
+        if not response.get("success"):
+            return f"❌ Ошибка: {response.get('error')}"
+        
+        if agent_id:
+            # Детальная информация об одном агенте
+            agent = response.get("data")
+            return self._format_agent_detail(agent, __event_emitter__)
+        else:
+            # Список всех агентов
+            agents = response.get("data", {}).get("agents", [])
+            return await self._format_agent_list(agents, __event_emitter__)
+    
+    async def _format_agent_list(self, agents: list, event_emitter) -> str:
+        result = "## 🤖 Агенты Watcher\n\n"
+        
+        # Сводка
+        online = sum(1 for a in agents if a["status"] in ["working", "ready", "idle"])
+        offline = sum(1 for a in agents if a["status"] == "offline")
+        error = sum(1 for a in agents if a["status"] in ["panic", "stopped"])
+        
+        result += f"**Онлайн:** {online} | **Офлайн:** {offline} | **Ошибки:** {error}\n\n"
+        
+        # Таблица
+        result += "| Агент | Статус | Выполнено | Ошибок | Последняя активность |\n"
+        result += "|-------|--------|-----------|--------|---------------------|\n"
+        
+        for agent in agents:
+            status_emoji = self._status_emoji(agent["status"])
+            last_hb = agent.get("last_heartbeat", "—")
+            if last_hb and last_hb != "—":
+                last_hb = last_hb[11:16]  # HH:MM
+            
+            result += f"| {agent['name']} | {status_emoji} {agent['status']} | "
+            result += f"{agent.get('tasks_completed_today', 0)} | "
+            result += f"{agent.get('tasks_failed_today', 0)} | {last_hb} |\n"
+        
+        # Кнопки управления
+        if event_emitter:
+            actions = []
+            for agent in agents:
+                if agent["status"] == "working":
+                    actions.append({
+                        "id": f"pause_{agent['id']}",
+                        "label": f"⏸️ Пауза {agent['name']}",
+                        "action": f"Поставь на паузу агента {agent['id']}"
+                    })
+                elif agent["status"] == "paused":
+                    actions.append({
+                        "id": f"resume_{agent['id']}",
+                        "label": f"▶️ Продолжить {agent['name']}",
+                        "action": f"Возобнови работу агента {agent['id']}"
+                    })
+            
+            if actions:
+                await event_emitter({
+                    "type": "actions",
+                    "data": {"actions": actions[:5]}  # Максимум 5 кнопок
+                })
+        
+        return result
+    
+    def _format_agent_detail(self, agent: dict, event_emitter) -> str:
+        result = f"## 🤖 Агент: {agent['name']}\n\n"
+        
+        result += f"**ID:** `{agent['id']}`\n"
+        result += f"**Статус:** {self._status_emoji(agent['status'])} {agent['status']}\n"
+        result += f"**IP:** {agent.get('current_ip', '—')}\n"
+        result += f"**Оператор:** {agent.get('modem_operator', '—')}\n"
+        result += f"**Сигнал:** {agent.get('signal_strength', '—')}\n"
+        result += f"**Версия:** {agent.get('version', '—')}\n\n"
+        
+        result += "### Статистика за сегодня\n"
+        result += f"- Выполнено: {agent.get('tasks_completed_today', 0)}\n"
+        result += f"- Ошибок: {agent.get('tasks_failed_today', 0)}\n"
+        result += f"- Среднее время: {agent.get('avg_task_time_ms', '—')} мс\n\n"
+        
+        result += "### Cookies\n"
+        cookies_time = agent.get("cookies_updated_at", "—")
+        if cookies_time and cookies_time != "—":
+            cookies_time = cookies_time[:16].replace("T", " ")
+        result += f"- Обновлены: {cookies_time}\n"
+        result += f"- Валидны: {'✅ Да' if agent.get('cookies_valid') else '❌ Нет'}\n"
+        
+        return result
+    
+    def _status_emoji(self, status: str) -> str:
+        emojis = {
+            "working": "🟢",
+            "ready": "🟡",
+            "idle": "⚪",
+            "paused": "⏸️",
+            "panic": "🔴",
+            "offline": "⚫",
+            "stopped": "🛑"
+        }
+        return emojis.get(status, "❓")
 ```
 
 ---
 
-## 6.6 Celery-задачи
+## 6.3 Watcher Pipeline
 
-### Предгенерация отчётов
+### Назначение
 
-Celery Beat генерирует отчёты заранее, чтобы дашборд открывался мгновенно. Результаты кэшируются в PostgreSQL (`watcher_analytics_cache`).
+Pipeline обрабатывает входящие сообщения, определяет intent и вызывает соответствующие Tools.
 
-| Задача | Расписание | Что генерирует |
-|--------|:----------:|----------------|
-| `watcher.pregenerate_alerts` | Каждый час | Список алертов из свежих данных |
-| `watcher.pregenerate_pricing` | Каждые 6 часов | Ценовая аналитика (средние, диапазоны, частота изменений) |
-| `watcher.pregenerate_bestsellers` | Каждые 6 часов | Топ товаров по sale\_count, feedbacks, rating |
-| `watcher.pregenerate_comparison` | Каждые 6 часов | Таблица сравнения всех активных продавцов |
-| `watcher.pregenerate_assortment` | Каждые 6 часов | Ассортиментные метрики, остатки, размерные сетки |
+```python
+# pipelines/watcher_pipeline.py
 
-### Периодические задачи (обслуживание)
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
 
-| Задача | Расписание | Описание |
-|--------|:----------:|----------|
-| `watcher.sync_knowledge` | Каждые 30 мин | Проверка входной директории Knowledge, запуск индексации |
-| `watcher.cleanup_alerts` | Ежедневно 03:00 | Удаление прочитанных алертов старше 90 дней |
-| `watcher.cleanup_cache` | Ежедневно 04:00 | Удаление просроченных записей из `watcher_analytics_cache` |
-| `watcher.collector_health` | Каждые 5 мин | Проверка доступности Collector API (:3002) |
 
-### Задачи по запросу
+class Pipeline:
+    def __init__(self):
+        self.name = "Watcher Pipeline"
+        self.description = "Обработка запросов к модулю мониторинга цен"
+    
+    class Valves(BaseModel):
+        enabled: bool = Field(default=True, description="Включить pipeline")
+        priority: int = Field(default=10, description="Приоритет")
+        model: str = Field(default="gpt-5-mini", description="Модель для intent detection")
+    
+    async def inlet(
+        self,
+        body: dict,
+        __user__: Optional[dict] = None
+    ) -> dict:
+        """Предобработка входящего запроса."""
+        
+        # Проверка прав доступа
+        user_role = __user__.get("role", "staff") if __user__ else "staff"
+        
+        if user_role == "staff":
+            # Staff не имеет доступа к Watcher
+            body["__watcher_access__"] = False
+        else:
+            body["__watcher_access__"] = True
+            body["__user_brand__"] = __user__.get("brand_id", "all")
+        
+        return body
+    
+    async def outlet(
+        self,
+        body: dict,
+        __user__: Optional[dict] = None
+    ) -> dict:
+        """Постобработка ответа."""
+        
+        # Добавление контекстной информации
+        messages = body.get("messages", [])
+        
+        if messages and body.get("__watcher_access__"):
+            last_message = messages[-1].get("content", "")
+            
+            # Проверка на Watcher-related keywords
+            watcher_keywords = [
+                "цена", "цены", "конкурент", "мониторинг", "алерт",
+                "wildberries", "ozon", "яндекс", "маркетплейс",
+                "sku", "артикул", "демпинг"
+            ]
+            
+            if any(kw in last_message.lower() for kw in watcher_keywords):
+                # Добавляем системный контекст
+                system_context = self._build_watcher_context(__user__)
+                
+                if body.get("messages") and body["messages"][0].get("role") == "system":
+                    body["messages"][0]["content"] += f"\n\n{system_context}"
+                else:
+                    body["messages"].insert(0, {
+                        "role": "system",
+                        "content": system_context
+                    })
+        
+        return body
+    
+    def _build_watcher_context(self, user: dict) -> str:
+        """Формирование контекста для Watcher запросов."""
+        
+        role = user.get("role", "manager")
+        brand = user.get("brand_id", "all")
+        
+        context = """
+## Контекст модуля Watcher
 
-| Задача | Триггер | Описание |
-|--------|---------|----------|
-| `watcher.analyze_seller` | AI-чат Tool | Глубокий AI-анализ конкурента (Claude Opus 4.5) |
-| `watcher.export_data` | AI-чат Tool (Senior+) | Экспорт данных в XLSX |
-| `watcher.forward_command` | AI-чат Tool (Admin) | Передача команды Collector API |
+Ты помогаешь пользователю работать с системой мониторинга цен ADOLF Watcher.
+
+### Доступные функции:
+- Просмотр текущих цен и истории
+- Сравнение с конкурентами
+- Добавление товаров и конкурентов для мониторинга
+- Просмотр алертов об изменениях цен
+
+### Правила:
+1. Используй соответствующие Tools для выполнения действий
+2. Форматируй цены с разделителями тысяч (1 234 ₽)
+3. Всегда указывай маркетплейс при выводе данных
+4. Предлагай следующие действия через интерактивные кнопки
+"""
+        
+        if role == "admin":
+            context += """
+### Административные функции (доступны):
+- Мониторинг статуса агентов
+- Управление агентами (пауза, возобновление)
+- Изменение настроек модуля
+"""
+        
+        if brand != "all":
+            context += f"\n### Фильтрация: Показывать только данные бренда `{brand}`"
+        
+        return context
+```
 
 ---
 
-## 6.7 Аналитические модели
+## 6.4 Интерактивные элементы
 
-### Ценовая аналитика
+### 6.4.1 Кнопки действий
 
-| Метрика | Источник данных | AI-модель |
-|---------|-----------------|-----------|
-| Динамика цен по SKU | `price_diff` документы | Без AI (расчёт) |
-| Средняя скидка продавца | `enriched_catalog` документы | Без AI (расчёт) |
-| Частота изменения цен | `price_diff` за период | Без AI (расчёт) |
-| Ценовые стратегии | Все документы продавца | GPT-5 mini |
-| Ценовое позиционирование | Каталоги нескольких продавцов | GPT-5 mini |
+```python
+# Пример отправки кнопок
+await __event_emitter__({
+    "type": "actions",
+    "data": {
+        "actions": [
+            {
+                "id": "action_1",
+                "label": "📊 История цен",
+                "action": "Покажи историю цен для OM-12345"
+            },
+            {
+                "id": "action_2", 
+                "label": "👥 Конкуренты",
+                "action": "Покажи конкурентов для OM-12345"
+            }
+        ]
+    }
+})
+```
 
-### Ассортиментная аналитика
+### 6.4.2 Выпадающий список
 
-| Метрика | Источник данных | AI-модель |
-|---------|-----------------|-----------|
-| Скорость обновления | `price_diff` (new/removed) | Без AI |
-| Глубина ассортимента | `enriched_catalog` | Без AI |
-| Бестселлеры и аутсайдеры | `enriched_catalog` (rating, reviews) | Без AI |
-| ABC-анализ | `enriched_catalog` (sale\_count, feedbacks) | Без AI |
-| Пересечение с нашим каталогом | Knowledge (watcher + own products) | GPT-5 mini |
+```python
+# Выбор из списка
+await __event_emitter__({
+    "type": "select",
+    "data": {
+        "id": "marketplace_select",
+        "label": "Выберите маркетплейс",
+        "options": [
+            {"value": "wildberries", "label": "🟣 Wildberries"},
+            {"value": "ozon", "label": "🔵 Ozon"},
+            {"value": "yandex_market", "label": "🔴 Яндекс.Маркет"}
+        ],
+        "callback": "Добавь товар на {value}"
+    }
+})
+```
+
+### 6.4.3 Графики
+
+```python
+# Линейный график цен
+await __event_emitter__({
+    "type": "chart",
+    "data": {
+        "type": "line",
+        "title": "Динамика цены",
+        "data": [
+            {"date": "2026-01-01", "price": 2499, "competitor": 2599},
+            {"date": "2026-01-02", "price": 2399, "competitor": 2599},
+            {"date": "2026-01-03", "price": 2399, "competitor": 2499}
+        ],
+        "xKey": "date",
+        "series": [
+            {"key": "price", "label": "Наша цена", "color": "#4CAF50"},
+            {"key": "competitor", "label": "Конкурент", "color": "#F44336"}
+        ]
+    }
+})
+```
+
+### 6.4.4 Таблицы с сортировкой
+
+```python
+# Интерактивная таблица
+await __event_emitter__({
+    "type": "table",
+    "data": {
+        "columns": [
+            {"key": "seller", "label": "Продавец", "sortable": True},
+            {"key": "price", "label": "Цена", "sortable": True, "type": "number"},
+            {"key": "stock", "label": "Наличие", "type": "boolean"},
+            {"key": "rating", "label": "Рейтинг", "sortable": True}
+        ],
+        "rows": [
+            {"seller": "Fashion Store", "price": 2499, "stock": True, "rating": 4.7},
+            {"seller": "Style Shop", "price": 2299, "stock": True, "rating": 4.5}
+        ],
+        "defaultSort": {"key": "price", "direction": "asc"}
+    }
+})
+```
+
+---
+
+## 6.5 Примеры диалогов
+
+### Просмотр цен
+
+```
+👤 Пользователь: Какие цены на OM-12345?
+
+🤖 Ассистент: 
+## 💰 Цены для OM-12345
+
+### 🟣 Wildberries
+
+**Наша цена:** 2 499 ₽ ~~4 999 ₽~~ (СПП: 2 249 ₽)
+**Наличие:** ✅ В наличии
+**Рейтинг:** 4.7⭐ (1234 отзывов)
+
+**Конкуренты (3):**
+
+1. **Fashion Store**: 2 599 ₽ (+100 ₽)
+2. **Style Shop**: 2 299 ₽ (-200 ₽) ⚠️
+3. **Trendy Wear**: 2 499 ₽
+
+[📊 История цен] [👥 Все конкуренты] [🔔 Алерты]
+```
+
+### Добавление товара
+
+```
+👤 Пользователь: Добавь для мониторинга https://www.wildberries.ru/catalog/12345678/detail.aspx
+
+🤖 Ассистент:
+👆 Выберите бренд для товара
+
+[Охана Маркет] [Охана Кидс]
+
+👤 Пользователь: *нажимает "Охана Маркет"*
+
+🤖 Ассистент:
+✅ Товар добавлен для мониторинга!
+
+**SKU:** 12345678
+**Маркетплейс:** 🟣 Wildberries
+**Бренд:** ohana_market
+
+Первые данные появятся после ночного парсинга (21:00-07:00).
+
+[➕ Добавить конкурента] [➕ Добавить ещё товар]
+```
 
 ### Алерты
 
-| Алерт | Условие (по умолчанию) | Параметр |
-|-------|------------------------|----------|
-| Резкое снижение цены | price\_change &lt; −15% | `alert_price_drop_pct` |
-| Резкое повышение цены | price\_change &gt; +20% | `alert_price_rise_pct` |
-| Новый товар в категории | new\_product в отслеживаемой категории | `alert_categories[]` |
-| Бейдж «Бестселлер» | badge = 'Бестселлер' (новый) | — |
-| Массовый вывод | removed &gt; 10% ассортимента за день | `alert_mass_removal_pct` |
-| Рост отзывов | reviews\_count delta &gt; +50 за сутки | `alert_review_surge` |
+```
+👤 Пользователь: Покажи алерты
 
----
+🤖 Ассистент:
+## 🔔 Алерты (3)
 
-## 6.8 Схема PostgreSQL (Analyzer)
+### 🚨 Обнаружен демпинг
+🔴 КРИТИЧНО | OM-12345 | 🟣 Wildberries
 
-```sql
--- Алерты
-CREATE TABLE watcher_alerts (
-    id SERIAL PRIMARY KEY,
-    type VARCHAR(50) NOT NULL,
-    severity VARCHAR(20) DEFAULT 'info',
-    marketplace VARCHAR(30),
-    seller_id VARCHAR(50),
-    seller_name VARCHAR(200),
-    sku VARCHAR(50),
-    product_name VARCHAR(500),
-    message TEXT NOT NULL,
-    data JSONB,
-    status VARCHAR(20) DEFAULT 'unread',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    read_at TIMESTAMPTZ,
-    read_by INTEGER REFERENCES users(id)
-);
+**Было:** 2 499 ₽ → **Стало:** 1 499 ₽ (-40.0%)
+**Конкурент:** Style Shop
+*2026-01-15 08:30*
 
--- Настройки алертов
-CREATE TABLE watcher_alert_settings (
-    id SERIAL PRIMARY KEY,
-    key VARCHAR(100) UNIQUE NOT NULL,
-    value JSONB NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_by INTEGER REFERENCES users(id)
-);
+### 📉 Снижение цены
+🟡 Внимание | OM-67890 | 🔵 Ozon
 
--- Подписки пользователей на конкурентов
-CREATE TABLE watcher_subscriptions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    marketplace VARCHAR(30) NOT NULL,
-    seller_id VARCHAR(50) NOT NULL,
-    seller_name VARCHAR(200),
-    notify_price_change BOOLEAN DEFAULT TRUE,
-    notify_new_products BOOLEAN DEFAULT TRUE,
-    notify_badges BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, marketplace, seller_id)
-);
+**Было:** 1 999 ₽ → **Стало:** 1 799 ₽ (-10.0%)
+**Конкурент:** Fashion Plus
+*2026-01-15 07:45*
 
--- Кэш предгенерированных отчётов для дашборда
-CREATE TABLE watcher_analytics_cache (
-    id SERIAL PRIMARY KEY,
-    cache_key VARCHAR(200) UNIQUE NOT NULL,
-    data JSONB NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+### ❌ Нет в наличии
+🔵 Инфо | OK-11111 | 🟣 Wildberries
 
--- Индексы
-CREATE INDEX idx_wa_status ON watcher_alerts(status, created_at DESC);
-CREATE INDEX idx_wa_seller ON watcher_alerts(seller_id, marketplace);
-CREATE INDEX idx_ws_user ON watcher_subscriptions(user_id);
-CREATE INDEX idx_wac_key ON watcher_analytics_cache(cache_key);
-CREATE INDEX idx_wac_expires ON watcher_analytics_cache(expires_at);
+**Конкурент:** Trendy Kids
+*2026-01-15 07:30*
+
+[✓ Отметить все прочитанными]
 ```
 
 ---
 
-## 6.9 Ролевая модель
+## 6.6 Уведомления
 
-### Матрица доступа
+### Push-уведомления (v2.0)
 
-| Функция | Staff | Manager | Senior | Director | Admin |
-|---------|:-----:|:-------:|:------:|:--------:|:-----:|
-| Дашборд: сводка | — | ✅ | ✅ | ✅ | ✅ |
-| Дашборд: алерты | — | ✅ | ✅ | ✅ | ✅ |
-| Дашборд: каталоги и цены | — | ✅ | ✅ | ✅ | ✅ |
-| Дашборд: аналитика | — | ✅ | ✅ | ✅ | ✅ |
-| Дашборд: система | — | — | — | — | ✅ |
-| Tool: цены и сравнение | — | ✅ | ✅ | ✅ | ✅ |
-| Tool: подписки | — | ✅ | ✅ | ✅ | ✅ |
-| Tool: экспорт данных | — | — | ✅ | ✅ | ✅ |
-| Tool: глубокий AI-анализ | — | — | ✅ | ✅ | ✅ |
-| Tool: управление Collector | — | — | — | — | ✅ |
-| Tool: настройки алертов | — | — | — | — | ✅ |
+```python
+# services/notifications/watcher_notifications.py
 
-Фильтрация по брендам (`brand_id`) через ADOLF Core Middleware.
+class WatcherNotificationService:
+    """Уведомления модуля Watcher."""
+    
+    async def send_alert_notification(
+        self,
+        alert: dict,
+        recipients: List[str]
+    ):
+        """Отправка уведомления об алерте."""
+        
+        title = self._get_alert_title(alert)
+        body = self._get_alert_body(alert)
+        
+        for user_id in recipients:
+            await self.notification_service.send(
+                user_id=user_id,
+                title=title,
+                body=body,
+                data={
+                    "type": "watcher_alert",
+                    "alert_id": alert["id"],
+                    "sku": alert["sku"]
+                },
+                channel="push"  # или "email", "in_app"
+            )
+    
+    def _get_alert_title(self, alert: dict) -> str:
+        titles = {
+            "dumping_detected": "🚨 Демпинг обнаружен!",
+            "price_drop": "📉 Снижение цены конкурента",
+            "price_rise": "📈 Повышение цены",
+            "out_of_stock": "❌ Товар закончился"
+        }
+        return titles.get(alert["alert_type"], "🔔 Watcher Alert")
+    
+    def _get_alert_body(self, alert: dict) -> str:
+        details = alert.get("details", {})
+        
+        if alert["alert_type"] in ["price_drop", "price_rise", "dumping_detected"]:
+            return (
+                f"{alert['sku']}: {details.get('old_price')} → "
+                f"{details.get('new_price')} ₽ "
+                f"({details.get('change_percent'):+.0f}%)"
+            )
+        
+        return f"{alert['sku']} на {alert['marketplace']}"
+```
+
+### Получатели уведомлений
+
+| Тип алерта | Severity | Получатели |
+|------------|----------|------------|
+| `dumping_detected` | critical | Manager (по бренду), Senior, Director |
+| `price_drop` (>20%) | warning | Manager (по бренду), Senior |
+| `price_drop` (<20%) | info | Manager (по бренду) |
+| `out_of_stock` | warning | Manager (по бренду) |
+| `agent_offline` | warning | Admin |
+| `cookies_expired` | warning | Admin |
 
 ---
 
-## 6.10 Конфигурация
+## 6.7 Конфигурация Tools
 
-### Переменные окружения (Analyzer)
+### Файл манифеста
 
-| Переменная | По умолчанию | Описание |
-|------------|:------------:|----------|
-| `WATCHER_COLLECTOR_URL` | `http://10.0.0.2:3002` | URL Collector REST API (через VPN) |
-| `WATCHER_KNOWLEDGE_DIR` | `/data/knowledge/incoming/watcher` | Директория приёма Markdown |
-| `WATCHER_QDRANT_COLLECTION` | `competitive_intelligence` | Коллекция Qdrant |
-| `WATCHER_ALERT_CHECK_INTERVAL` | `3600` | Интервал проверки алертов (секунды) |
-| `WATCHER_ANALYTICS_TTL` | `21600` | TTL кэша аналитики (секунды) |
-| `WATCHER_AI_MODEL_ROUTINE` | `gpt-5-mini` | Модель для рутинной аналитики |
-| `WATCHER_AI_MODEL_DEEP` | `claude-opus-4-5` | Модель для глубокого анализа |
+```json
+// tools/watcher/manifest.json
+{
+    "name": "Watcher Tools",
+    "version": "2.0.0",
+    "description": "Инструменты для мониторинга цен конкурентов",
+    "author": "ADOLF Team",
+    "tools": [
+        {
+            "name": "watcher_get_prices",
+            "file": "watcher_get_prices.py",
+            "enabled": true,
+            "roles": ["manager", "senior", "director", "admin"]
+        },
+        {
+            "name": "watcher_price_history",
+            "file": "watcher_price_history.py",
+            "enabled": true,
+            "roles": ["manager", "senior", "director", "admin"]
+        },
+        {
+            "name": "watcher_compare_competitors",
+            "file": "watcher_compare_competitors.py",
+            "enabled": true,
+            "roles": ["manager", "senior", "director", "admin"]
+        },
+        {
+            "name": "watcher_add_subscription",
+            "file": "watcher_add_subscription.py",
+            "enabled": true,
+            "roles": ["manager", "senior", "director", "admin"]
+        },
+        {
+            "name": "watcher_add_competitor",
+            "file": "watcher_add_competitor.py",
+            "enabled": true,
+            "roles": ["manager", "senior", "director", "admin"]
+        },
+        {
+            "name": "watcher_get_alerts",
+            "file": "watcher_get_alerts.py",
+            "enabled": true,
+            "roles": ["manager", "senior", "director", "admin"]
+        },
+        {
+            "name": "watcher_agent_status",
+            "file": "watcher_agent_status.py",
+            "enabled": true,
+            "roles": ["admin"]
+        },
+        {
+            "name": "watcher_agent_command",
+            "file": "watcher_agent_command.py",
+            "enabled": true,
+            "roles": ["admin"]
+        }
+    ]
+}
+```
 
 ---
 
-**Документ подготовлен:** Февраль 2026  
-**Версия:** 4.3  
-**Статус:** Спецификация (реализация pending)
+## Приложение А: Матрица доступа Tools
+
+| Tool | Staff | Manager | Senior | Director | Admin |
+|------|:-----:|:-------:|:------:|:--------:|:-----:|
+| watcher_get_prices | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_price_history | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_compare_competitors | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_add_subscription | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_add_competitor | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_list_subscriptions | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_get_alerts | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_mark_alert_read | ❌ | ✅ | ✅ | ✅ | ✅ |
+| watcher_agent_status | ❌ | ❌ | ❌ | ❌ | ✅ |
+| watcher_agent_command | ❌ | ❌ | ❌ | ❌ | ✅ |
+| watcher_settings | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+---
+
+## Приложение Б: Контрольные точки Open WebUI
+
+| Критерий | Проверка |
+|----------|----------|
+| Tools загружены | Отображаются в списке инструментов |
+| Pipeline активен | Обрабатывает Watcher-запросы |
+| Авторизация работает | Staff не видит Tools |
+| Фильтрация по бренду | Manager видит только свой бренд |
+| Кнопки работают | Нажатие вызывает action |
+| Графики рендерятся | Отображаются в чате |
+| Уведомления приходят | Push/in-app доставляются |
+
+---
+
+**Документ подготовлен:** Январь 2026  
+**Версия:** 2.0  
+**Статус:** Черновик

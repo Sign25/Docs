@@ -6,8 +6,8 @@ mode: "wide"
 
 # Паттерны компоновки ADOLF
 
-**Версия:** 1.1
-**Дата:** Февраль 2026
+**Версия:** 1.2
+**Дата:** Март 2026
 
 ## Обзор
 
@@ -20,15 +20,13 @@ mode: "wide"
 ```mermaid
 flowchart LR
     SIDEBAR["Sidebar<br/>Выбор модуля"]
-    LAUNCHER["Launcher Page<br/>Баннеры действий"]
-    RESULT["Result Page<br/>Результат"]
+    MODULE["Module Page<br/>Табы + контент"]
 
-    SIDEBAR -->|"Клик"| LAUNCHER
-    LAUNCHER -->|"Выбор действия"| RESULT
-    RESULT -->|"Назад"| LAUNCHER
+    SIDEBAR -->|"Клик"| MODULE
+    MODULE -->|"Табы"| MODULE
 ```
 
-Платформа ADOLF реализует трёхуровневую навигацию: Sidebar → Launcher → Result. Каждый уровень использует свой layout-паттерн.
+Платформа ADOLF реализует двухуровневую навигацию: Sidebar → Module Page. Каждый модуль — отдельная standalone-страница с табами. Навигация внутри модуля через кнопки-табы под хедером.
 
 ## Паттерн 1: Sidebar
 

@@ -38,7 +38,7 @@ mode: "wide"
 
 | Модуль | Lucide Name | React Import | Пакет |
 |:-------|:------------|:-------------|:------|
-| Knowledge | `database-search` | `DatabaseSearch` | lucide |
+| Knowledge | `database` | `Database` | lucide |
 | Content Factory | `shirt` | `Shirt` | lucide |
 | CFO | `chart-candlestick` | `ChartCandlestick` | lucide |
 | Reputation | `thumbs-up` | `ThumbsUp` | lucide |
@@ -56,7 +56,7 @@ mode: "wide"
 
 ```jsx
 import {
-  DatabaseSearch, ChartCandlestick, ThumbsUp,
+  Database, ChartCandlestick, ThumbsUp,
   HatGlasses, Binoculars, Scale,
   Shirt, Target, Truck, Building2, ShoppingCart
 } from 'lucide-react';
@@ -76,7 +76,7 @@ import {
   lucide.createIcons({ attrs: { 'stroke-width': 1.5 } });
 </script>
 
-<i data-lucide="database-search"></i>
+<i data-lucide="database"></i>
 <i data-lucide="chart-candlestick"></i>
 <i data-lucide="thumbs-up"></i>
 <i data-lucide="hat-glasses"></i>
@@ -339,4 +339,4 @@ flowchart TB
 
 ---
 
-**Версия:** 1.2 | **Дата:** Февраль 2026
+**Версия:** 1.3 | **Дата:** Март 2026

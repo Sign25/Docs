@@ -65,16 +65,16 @@ mode: "wide"
 |  |  |
 |:---|:---|
 | **Модуль** | Knowledge — база знаний, RAG |
-| **Lucide name** | `database-search` |
+| **Lucide name** | `database` |
 | **Пакет** | `lucide` (основной) |
-| **React import** | `DatabaseSearch` |
-| **Ссылка** | [lucide.dev/icons/database-search](https://lucide.dev/icons/database-search) |
+| **React import** | `Database` |
+| **Ссылка** | [lucide.dev/icons/database](https://lucide.dev/icons/database) |
 
 ![Knowledge](/ui/icons/knowledge.svg)
 
 
 ```html
-<i data-lucide="database-search" stroke-width="1.5"></i>
+<i data-lucide="database" stroke-width="1.5"></i>
 ```
 
 ### Content Factory
@@ -253,7 +253,7 @@ mode: "wide"
 |:-:|:-----------|:------------|:------|:-----|
 | 1 | Логотип приложения | `bot-message-square` | lucide | `app-logo.svg` |
 | 2 | Новый чат | `message-square-more` | lucide | `new-chat.svg` |
-| 3 | Knowledge | `database-search` | lucide | `knowledge.svg` |
+| 3 | Knowledge | `database` | lucide | `knowledge.svg` |
 | 4 | Content Factory | `shirt` | lucide | `content-factory.svg` |
 | 5 | CFO | `chart-candlestick` | lucide | `cfo.svg` |
 | 6 | Reputation | `thumbs-up` | lucide | `reputation.svg` |
@@ -309,4 +309,4 @@ npm install lucide-react
 
 ---
 
-**Версия:** 1.2 | **Дата:** Февраль 2026
+**Версия:** 1.3 | **Дата:** Март 2026
