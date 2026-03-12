@@ -24,6 +24,19 @@
 
 ## Health
 
+### `GET /`
+
+Информация о сервисе.
+
+**Response 200:**
+```json
+{
+  "service": "AdolfReputationBack",
+  "version": "1.2.4",
+  "docs": "/docs"
+}
+```
+
 ### `GET /health`
 
 Проверка работоспособности сервиса и подключения к БД.
@@ -136,7 +149,7 @@
 
 ### `POST /api/v1/reviews/{item_id}/generate`
 
-Классификация отзыва + генерация ответа через Claude API.
+Классификация отзыва + генерация ответа через Timeweb Cloud AI.
 
 **Что происходит:**
 1. Создаётся `reputation_generations` (status: processing)
@@ -422,6 +435,49 @@
     }
   ],
   "total": 1
+}
+```
+
+### `GET /api/v1/stats/summary`
+
+Агрегированная сводка для дашборда.
+
+**Query Parameters:**
+
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|:---:|----------|
+| marketplace | string | нет | Фильтр по маркетплейсу |
+
+**Response 200:**
+```json
+{
+  "total_items": 155371,
+  "avg_rating": 4.3,
+  "avg_response_time_min": 45,
+  "positive_count": 120000,
+  "published_count": 80000,
+  "marketplaces": [
+    {"marketplace": "wildberries", "total": 100000, "avg_rating": 4.5, "response_pct": 75},
+    {"marketplace": "ozon", "total": 50000, "avg_rating": 4.1, "response_pct": 60}
+  ]
+}
+```
+
+### `POST /api/v1/stats/recompute`
+
+Пересчёт аналитики за последние N дней.
+
+**Query Parameters:**
+
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|:---:|----------|
+| days | int | нет | Количество дней (default: 90, max: 365) |
+
+**Response 200:**
+```json
+{
+  "recomputed_days": 42,
+  "message": "Пересчитано 42 записей за 90 дней"
 }
 ```
 
@@ -718,7 +774,8 @@ DB_PORT=5432
 DB_NAME=...
 DB_USER=...
 DB_PASSWORD=...
-ANTHROPIC_API_KEY=...
+TIMEWEB_API_TOKEN=...
+TIMEWEB_AGENT_ID=...
 WB_API_KEY=...
 YM_API_KEY=...
 YM_BUSINESS_ID=...
