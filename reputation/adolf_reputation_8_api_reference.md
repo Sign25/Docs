@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.11
+> **Версия:** 1.2.16
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -69,6 +69,11 @@
 | `item_type` | string | — | `review`, `question` |
 | `page` | int | `1` | Номер страницы (≥ 1) |
 | `page_size` | int | `20` | Записей на странице (1–100) |
+| `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating`, `wb_created_at` |
+| `order` | string | `desc` | Порядок сортировки: `asc`, `desc` |
+| `search` | string | — | Поиск по тексту отзыва, имени клиента, плюсам и минусам (ILIKE, min 1 символ) |
+
+> **Пагинация:** результаты дополнительно сортируются по `id DESC` для стабильного порядка при одинаковых значениях основного поля сортировки.
 
 **Ответ: `ItemListResponse`**
 
