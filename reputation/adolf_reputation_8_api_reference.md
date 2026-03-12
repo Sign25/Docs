@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.16
+> **Версия:** 1.2.19
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -20,6 +20,7 @@
 10. [Автоматические процессы (Scheduler)](#10-автоматические-процессы-scheduler)
 11. [Схема БД](#11-схема-бд)
 12. [Пайплайн обработки](#12-пайплайн-обработки)
+13. [Миграции](#13-миграции)
 
 ---
 
@@ -34,7 +35,7 @@
 ```json
 {
   "service": "AdolfReputationBack",
-  "version": "1.2.11",
+  "version": "1.2.19",
   "docs": "/docs"
 }
 ```
@@ -48,7 +49,7 @@
 ```json
 {
   "status": "ok",
-  "database": "connected"
+  "db": "connected"
 }
 ```
 
@@ -67,11 +68,11 @@
 | `marketplace` | string | — | `wildberries`, `ozon`, `yandex_market` |
 | `status` | string | — | `new`, `analyzing`, `pending_review`, `approved`, `publishing`, `published`, `answered`, `skipped`, `escalated`, `error` |
 | `item_type` | string | — | `review`, `question` |
-| `page` | int | `1` | Номер страницы (≥ 1) |
-| `page_size` | int | `20` | Записей на странице (1–100) |
 | `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating`, `wb_created_at` |
 | `order` | string | `desc` | Порядок сортировки: `asc`, `desc` |
 | `search` | string | — | Поиск по тексту отзыва, имени клиента, плюсам и минусам (ILIKE, min 1 символ) |
+| `page` | int | `1` | Номер страницы (≥ 1) |
+| `page_size` | int | `20` | Записей на странице (1–100) |
 
 > **Пагинация:** результаты дополнительно сортируются по `id DESC` для стабильного порядка при одинаковых значениях основного поля сортировки.
 
@@ -125,7 +126,8 @@
     "generated_at": "2026-03-10T13:06:00",
     "published_at": null,
     "wb_error": null,
-    "marketplace": "wildberries"
+    "marketplace": "wildberries",
+    "source": "ai"
   }
 }
 ```
@@ -163,6 +165,7 @@
 | `published_at` | datetime? | Дата публикации |
 | `wb_error` | string? | Ошибка от маркетплейса |
 | `marketplace` | string? | Маркетплейс |
+| `source` | string? | Источник ответа: `ai` / `manager` |
 
 **Структура элемента `ai_variants[i]`:**
 
@@ -358,7 +361,7 @@
 | Маркетплейс | Отзывы | Вопросы |
 |-------------|--------|---------|
 | **Wildberries** | `POST feedbacks-api.wildberries.ru/api/v1/feedbacks/answer` | `PATCH feedbacks-api.wildberries.ru/api/v1/questions` |
-| **Яндекс Маркет** | `POST api.partner.market.yandex.ru/.../goods-feedback/comments` | `POST .../goods-questions/answers` |
+| **Яндекс Маркет** | `POST api.partner.market.yandex.ru/v2/businesses/{id}/goods-feedback/comments` | `POST api.partner.market.yandex.ru/v1/businesses/{id}/goods-questions/answers` |
 | **Ozon** | ❌ Не поддерживается (возвращает `not_supported`) | ❌ Не поддерживается |
 
 **Ответ: `PublishResponse`**
@@ -567,17 +570,19 @@
 | `published_count` | int | Опубликовано ответов |
 | `avg_response_time_min` | int? | Среднее время ответа в минутах |
 
-**Дополнительные поля `StatsResponse` (агрегаты):**
+**Дополнительные поля `StatsResponse`:**
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `total` | int | Количество строк в `stats` |
-| `total_items` | int | Агрегат: всего обращений |
-| `avg_rating` | float | Агрегат: средняя оценка |
-| `avg_response_time_min` | int | Агрегат: среднее время ответа |
-| `positive_count` | int | Агрегат: позитивных |
-| `published_count` | int | Агрегат: опубликовано |
-| `marketplaces` | list | Разбивка по маркетплейсам |
+| `total_items` | int | Зарезервировано (всегда `0`) |
+| `avg_rating` | float | Зарезервировано (всегда `0`) |
+| `avg_response_time_min` | int | Зарезервировано (всегда `0`) |
+| `positive_count` | int | Зарезервировано (всегда `0`) |
+| `published_count` | int | Зарезервировано (всегда `0`) |
+| `marketplaces` | list | Зарезервировано (всегда `[]`) |
+
+> **Примечание:** агрегатные поля в `StatsResponse` сейчас не вычисляются и возвращают дефолтные значения. Для агрегированных данных используйте `GET /api/v1/stats/summary`.
 
 ---
 
@@ -708,24 +713,26 @@
 
 ## 10. Автоматические процессы (Scheduler)
 
-Система запускает фоновые задачи по расписанию. Фронту не нужно вызывать их напрямую — это для понимания поведения системы.
+> **Статус (v1.2.19):** Scheduler **отключён** с 2026-03-12. Фоновые задачи (`backfill_analytics` и `APScheduler`) были убраны из `lifespan`, так как блокировали работу приложения. Код scheduler остаётся в `app/services/scheduler.py` и может быть возвращён позже.
+
+Ниже описаны задачи, которые будут работать **после повторного включения** scheduler.
 
 ### При запуске сервера
 
-| Задача | Описание |
-|--------|----------|
-| `backfill_analytics` | Пересчёт аналитики за последние **365 дней** по всем маркетплейсам (фоновый поток) |
-| `create_missing_tables` | Создание новых таблиц в БД (если не существуют) |
+| Задача | Описание | Статус |
+|--------|----------|--------|
+| `backfill_analytics` | Пересчёт аналитики за последние **365 дней** по всем маркетплейсам (фоновый поток) | **Отключено** |
+| `create_missing_tables` | Создание новых таблиц в БД (если не существуют) | **Активно** |
 
 ### Периодические задачи
 
-| Задача | Интервал | Описание |
-|--------|----------|----------|
-| `auto_generate_pending` | Каждые **5 минут** | Берёт до **20** отзывов со статусом `new` (самые старые первыми), классифицирует через AI и генерирует черновик. Статус: `new` → `analyzing` → `pending_review` |
-| `retry_failed_publications` | Каждые **1 час** | Находит до **50** отзывов со статусом `error` (кроме Ozon), у которых есть готовый текст, и повторяет публикацию |
-| `refresh_today_analytics` | Каждые **30 минут** | Пересчитывает статистику за сегодня и вчера по всем 3 маркетплейсам |
+| Задача | Интервал | Описание | Статус |
+|--------|----------|----------|--------|
+| `auto_generate_pending` | Каждые **5 минут** | Берёт до **5** отзывов со статусом `new` (самые старые первыми), классифицирует через AI и генерирует черновик. Статус: `new` → `analyzing` → `pending_review`. Управляется env-переменной `AUTO_GENERATE_ENABLED` (default: `false`) | **Отключено** |
+| `retry_failed_publications` | Каждые **1 час** | Находит до **50** отзывов со статусом `error` (кроме Ozon), у которых есть готовый текст, и повторяет публикацию | **Отключено** |
+| `refresh_today_analytics` | Каждые **30 минут** | Пересчитывает статистику за сегодня и вчера по всем 3 маркетплейсам | **Отключено** |
 
-> **Важно для фронта:** отзывы со статусом `new` автоматически переходят в `pending_review` в течение нескольких минут. Не нужно вызывать `/generate` вручную — система сделает это сама. Ручная генерация нужна только если нужно передать свои `instructions`.
+> **Важно для фронта:** пока scheduler отключён, автоматической генерации ответов **не происходит**. Для генерации ответов нужно вызывать `POST /api/v1/reviews/{item_id}/generate` вручную.
 
 ---
 
@@ -806,6 +813,7 @@ Backward-compatibility слой для AI-вариантов.
 | `published_at` | DATETIME | |
 | `wb_error` | TEXT | Ошибка от маркетплейса |
 | `marketplace` | VARCHAR | |
+| `source` | VARCHAR(20) | Источник ответа: `ai` / `manager` (default: `manager`) |
 
 ---
 
@@ -890,6 +898,8 @@ Immutable черновики ответов.
 | `consecutive_errors` | INTEGER | Ошибки подряд |
 | `circuit_breaker_open` | BOOLEAN | |
 | `circuit_breaker_until` | DATETIME(tz) | |
+| `created_at` | DATETIME(tz) | |
+| `updated_at` | DATETIME(tz) | |
 
 > **UNIQUE:** `(marketplace, item_type)`
 
@@ -933,9 +943,12 @@ Immutable черновики ответов.
 | `status` | VARCHAR(20) | `success` / `error` |
 | `error` | TEXT | |
 | `marketplace` | VARCHAR(30) | |
+| `original_score` | INTEGER | Оценка до обработки (legacy) |
+| `generated_score` | INTEGER | Оценка после обработки (legacy) |
 | `generated_title` | TEXT | Текст ответа |
 | `generated_description` | TEXT | JSON классификации |
 | `generated_seo_tags` | TEXT | Инструкции |
+| `decorative_tags` | TEXT | Декоративные теги (legacy) |
 | `created_at` | DATETIME | |
 
 ---
@@ -961,7 +974,7 @@ Key-value хранилище настроек.
 └─────────────┘     └─────────────┘     └──────────────┘     └──────────┘     └─────┬─────┘
                            │                                                         │
                            │ auto_generate_pending                                   │
-                           │ (каждые 5 мин, до 20 шт)                               ▼
+                           │ (каждые 5 мин, до 5 шт)                                ▼
                            │                                                  ┌───────────┐
                            ▼                                                  │ publishing │
                     ┌─────────────┐                                           └─────┬─────┘
@@ -983,3 +996,13 @@ Key-value хранилище настроек.
 | Generate | `reputation_generations` (INSERT), `reputation_drafts` (INSERT), `reputation_responses` (UPSERT), `auto_process_log` (INSERT), `reputation_items` (UPDATE status) |
 | Approve | `reputation_drafts` (UPDATE), `reputation_responses` (UPDATE), `reputation_items` (UPDATE status) |
 | Publish | `reputation_publications` (INSERT), `reputation_responses` (UPDATE), `reputation_items` (UPDATE status), `auto_process_log` (INSERT) |
+
+---
+
+## 13. Миграции
+
+Файлы миграций хранятся в `migrations/`.
+
+| Файл | Описание |
+|------|----------|
+| `add_response_source.sql` | Добавляет колонку `source` (VARCHAR(20), default `'manager'`) в `reputation_responses`. Backfill: устанавливает `source='ai'` для ответов, у которых `ai_variants` не пустой |
