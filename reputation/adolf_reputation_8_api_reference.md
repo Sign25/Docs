@@ -71,6 +71,8 @@
 | `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating`, `wb_created_at` |
 | `order` | string | `desc` | Порядок сортировки: `asc`, `desc` |
 | `search` | string | — | Поиск по тексту отзыва, имени клиента, плюсам и минусам (ILIKE, min 1 символ) |
+| `date_from` | date | — | Начало периода (`YYYY-MM-DD`). Фильтрует по `created_at` |
+| `date_to` | date | — | Конец периода (`YYYY-MM-DD`). Фильтрует по `created_at` |
 | `page` | int | `1` | Номер страницы (≥ 1) |
 | `page_size` | int | `20` | Записей на странице (1–100) |
 
@@ -515,15 +517,17 @@
 
 ### `GET /api/v1/stats`
 
-Ежедневная статистика с фильтрацией.
+Данные для дашборда: ежедневная статистика + счётчики неотвеченных + агрегированная сводка.
+
+> **Все три блока данных** (`stats`, `counters`, `summary`) фильтруются по `date_from`, `date_to` и `marketplace`. Без параметров — данные за всё время.
 
 **Query-параметры:**
 
 | Параметр | Тип | Формат | Описание |
 |----------|-----|--------|----------|
-| `date_from` | date | `YYYY-MM-DD` | Начало периода |
-| `date_to` | date | `YYYY-MM-DD` | Конец периода |
-| `marketplace` | string | — | Фильтр по маркетплейсу |
+| `date_from` | date | `YYYY-MM-DD` | Начало периода (включительно). Фильтрует по `created_at` |
+| `date_to` | date | `YYYY-MM-DD` | Конец периода (включительно). Фильтрует по `created_at` |
+| `marketplace` | string | — | `wildberries`, `ozon`, `yandex_market` |
 
 **Ответ: `StatsResponse`**
 
@@ -545,14 +549,36 @@
     }
   ],
   "total": 30,
-  "total_items": 0,
-  "avg_rating": 0,
-  "avg_response_time_min": 0,
-  "positive_count": 0,
-  "published_count": 0,
-  "marketplaces": []
+  "counters": {
+    "total_unanswered": 42,
+    "by_marketplace": [
+      {
+        "marketplace": "wildberries",
+        "new_reviews": 12,
+        "new_questions": 5,
+        "pending_review": 8
+      },
+      {
+        "marketplace": "ozon",
+        "new_reviews": 10,
+        "new_questions": 3,
+        "pending_review": 4
+      }
+    ]
+  },
+  "summary": {
+    "total_items": 5000,
+    "avg_rating": 4.3,
+    "published_count": 4200
+  }
 }
 ```
+
+---
+
+#### Блок `stats` — ежедневная разбивка
+
+Из предагрегированной таблицы `reputation_analytics`.
 
 **Поля `StatsItem`:**
 
@@ -570,25 +596,59 @@
 | `published_count` | int | Опубликовано ответов |
 | `avg_response_time_min` | int? | Среднее время ответа в минутах |
 
-**Дополнительные поля `StatsResponse`:**
+---
+
+#### Блок `counters` — неотвеченные обращения
+
+Количество обращений в статусах `new`, `analyzing`, `pending_review` — **в реальном времени** из таблицы `reputation_items`.
+
+**Поля `DashboardCounters`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `total_unanswered` | int | Общее количество неотвеченных обращений |
+| `by_marketplace` | list | Разбивка по маркетплейсам |
+
+**Поля `MarketplaceCounters` (элемент `by_marketplace`):**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
+| `new_reviews` | int | Новые отзывы (статус `new` + `analyzing`) |
+| `new_questions` | int | Новые вопросы (статус `new` + `analyzing`) |
+| `pending_review` | int | Ожидают проверки менеджером |
+
+> При передаче `date_from`/`date_to` считаются только обращения, чей `created_at` попадает в указанный период. При передаче `marketplace` — только по указанному маркетплейсу.
+
+---
+
+#### Блок `summary` — агрегированная сводка
+
+Вычисляется из сырых данных `reputation_items` (не из предагрегированной таблицы).
+
+**Поля `DashboardSummary`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `total_items` | int | Всего обращений за выбранный период |
+| `avg_rating` | float? | Средний рейтинг (null если нет оценок) |
+| `published_count` | int | Количество опубликованных ответов |
+
+> Без `date_from`/`date_to` — данные за всё время. С фильтрами — только за указанный период и маркетплейс.
+
+---
+
+#### Дополнительные поля `StatsResponse`
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `total` | int | Количество строк в `stats` |
-| `total_items` | int | Зарезервировано (всегда `0`) |
-| `avg_rating` | float | Зарезервировано (всегда `0`) |
-| `avg_response_time_min` | int | Зарезервировано (всегда `0`) |
-| `positive_count` | int | Зарезервировано (всегда `0`) |
-| `published_count` | int | Зарезервировано (всегда `0`) |
-| `marketplaces` | list | Зарезервировано (всегда `[]`) |
-
-> **Примечание:** агрегатные поля в `StatsResponse` сейчас не вычисляются и возвращают дефолтные значения. Для агрегированных данных используйте `GET /api/v1/stats/summary`.
 
 ---
 
 ### `GET /api/v1/stats/summary`
 
-Сводка для дашборда (за всё время).
+> **Устаревший endpoint.** Сводка теперь включена в ответ `GET /api/v1/stats` как поле `summary`. Этот endpoint оставлен для обратной совместимости.
 
 **Query-параметры:**
 
@@ -596,57 +656,7 @@
 |----------|-----|----------|
 | `marketplace` | string? | Фильтр по маркетплейсу |
 
-**Ответ: `DashboardSummary`**
-
-```json
-{
-  "total_items": 5000,
-  "avg_rating": 4.3,
-  "avg_response_time_min": 42,
-  "positive_count": 3800,
-  "published_count": 4200,
-  "marketplaces": [
-    {
-      "marketplace": "wildberries",
-      "total": 3000,
-      "avg_rating": 4.4,
-      "response_pct": 85
-    },
-    {
-      "marketplace": "ozon",
-      "total": 1500,
-      "avg_rating": 4.1,
-      "response_pct": 60
-    },
-    {
-      "marketplace": "yandex_market",
-      "total": 500,
-      "avg_rating": 4.5,
-      "response_pct": 90
-    }
-  ]
-}
-```
-
-**Поля `DashboardSummary`:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `total_items` | int | Всего обращений за всё время |
-| `avg_rating` | float | Средняя оценка (округл. до 1 знака) |
-| `avg_response_time_min` | int | Среднее время ответа (минуты) |
-| `positive_count` | int | Отзывы с оценкой ≥ 4 |
-| `published_count` | int | Опубликовано ответов |
-| `marketplaces` | list | По маркетплейсам |
-
-**Поля `MarketplaceSummary`:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `marketplace` | string | Название |
-| `total` | int | Всего обращений |
-| `avg_rating` | float | Средняя оценка |
-| `response_pct` | int | Процент отвеченных: `round(answered × 100 / total)` |
+**Ответ:** `DashboardSummary` (см. описание выше в блоке `summary`)
 
 ---
 
