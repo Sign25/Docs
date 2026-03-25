@@ -5,14 +5,14 @@ mode: "wide"
 
 **Проект:** ADOLF — AI-Driven Operations Layer Framework
 **Модуль:** Content Factory / REST API
-**Версия:** 1.2
-**Дата:** Февраль 2026
+**Версия:** 1.2.24
+**Дата:** Март 2026
 
 ---
 
 ## 9.1 Обзор
 
-Content Factory API — FastAPI-приложение для генерации SEO-контента карточек товаров маркетплейсов с помощью AI (Claude Sonnet 4.5).
+Content Factory API — FastAPI-приложение для генерации SEO-контента карточек товаров маркетплейсов.
 
 | Параметр | Значение |
 |----------|----------|
@@ -27,7 +27,6 @@ Content Factory API — FastAPI-приложение для генерации S
 flowchart LR
     CLIENT["Frontend<br/>(SvelteKit)"] -->|"HTTP :3000"| API["FastAPI<br/>Content Factory"]
     API --> DB[("PostgreSQL<br/>asyncpg")]
-    API --> AI["Claude CLI<br/>(Sonnet 4.5)"]
     API --> WB["WB API"]
     API --> OZON["Ozon API"]
     API --> YM["YM API"]
@@ -71,7 +70,7 @@ flowchart LR
 ```json
 {
   "service": "Content Factory",
-  "version": "1.2.11",
+  "version": "1.2.24",
   "docs": "/docs"
 }
 ```
@@ -126,6 +125,7 @@ GET /api/content/product?sku=203873004&marketplace=wb
 ```json
 {
   "sku": "203873004",
+  "vendor_code": "16378",
   "marketplace": "wb",
   "title": "Носки мужские длинные хлопок",
   "description": "Носки мужские из хлопка...",
@@ -139,20 +139,12 @@ GET /api/content/product?sku=203873004&marketplace=wb
   "products": [
     {
       "sku": "203873004",
-      "title": "Носки мужские длинные хлопок",
-      "description": "Описание...",
-      "media_urls": ["..."],
-      "video_url": null,
-      "color": "Чёрный",
+      "main_photo": "https://basket-12.wbbasket.ru/.../1.webp",
       "vendor_code": "16378"
     },
     {
       "sku": "203873005",
-      "title": "Носки мужские длинные хлопок",
-      "description": "Описание...",
-      "media_urls": ["..."],
-      "video_url": null,
-      "color": "Белый",
+      "main_photo": "https://basket-12.wbbasket.ru/.../1.webp",
       "vendor_code": "16379"
     }
   ],
@@ -161,7 +153,7 @@ GET /api/content/product?sku=203873004&marketplace=wb
     "issues": [
       {
         "field": "description",
-        "message": "Описание слишком короткое (минимум 1000 символов)",
+        "message": "Описание слишком короткое (минимум 500 символов)",
         "severity": "error"
       }
     ]
@@ -184,7 +176,7 @@ GET /api/content/product?sku=203873004&marketplace=wb
         "max_score": 100,
         "status": "error",
         "details": "Описание слишком короткое",
-        "issues": [...]
+        "issues": []
       },
       "foreign_words": {
         "name": "Иностранные слова",
@@ -199,10 +191,30 @@ GET /api/content/product?sku=203873004&marketplace=wb
 }
 ```
 
-**Поля склейки:**
-- `imt_id` — ID группы товаров на маркетплейсе (`null` если товар не в склейке)
-- `group_count` — количество товаров в склейке (1 если без склейки)
-- `products` — массив всех товаров в склейке с фото, видео и цветом
+**Поля ответа:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `sku` | string | Артикул товара (nmID) |
+| `vendor_code` | string \| null | Артикул продавца |
+| `marketplace` | string | Маркетплейс товара |
+| `title` | string \| null | Оригинальное название |
+| `description` | string \| null | Оригинальное описание |
+| `media_urls` | list[string] | Фото товара |
+| `video_url` | string \| null | Видео товара |
+| `imt_id` | int \| null | ID склейки (`null` если не в группе) |
+| `group_count` | int | Количество товаров в склейке (1 если без склейки) |
+| `products` | list[ProductItem] | Все товары в склейке |
+| `validation` | ValidationResult \| null | Валидация текущего контента |
+| `analysis` | ContentAnalysis \| null | SEO-анализ текущего контента |
+
+**ProductItem (товар в склейке):**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `sku` | string | Артикул товара |
+| `main_photo` | string \| null | Главное фото |
+| `vendor_code` | string \| null | Артикул продавца |
 
 ---
 
@@ -219,7 +231,7 @@ GET /api/content/product?sku=203873004&marketplace=wb
 
 #### POST /api/content/generate
 
-Генерация SEO-оптимизированного названия и описания для товара с помощью AI.
+Генерация SEO-оптимизированного названия и описания для товара.
 
 **Доступ:** Senior+
 
@@ -249,6 +261,7 @@ GET /api/content/product?sku=203873004&marketplace=wb
 {
   "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "sku": "203873004",
+  "vendor_code": "16378",
   "marketplace": "wb",
   "title": "Носки мужские высокие хлопковые комплект набор для спорта и повседневной носки",
   "description": "Мужские носки из натурального хлопка обеспечивают комфорт в течение всего дня...",
@@ -288,8 +301,8 @@ GET /api/content/product?sku=203873004&marketplace=wb
 
 | Маркетплейс | Формат `seo_tags` | Куда отправляются при публикации |
 |:-----------:|-------------------|:-------------------------------:|
-| **WB** | Поисковые фразы, 10-15 штук<br/>`"Футболка женская"`, `"футболка хлопок"` | Поле «Комплектация» |
-| **Ozon** | Хештеги через `_`, 5-10 штук<br/>`"халат_женский_ohana"`, `"халат_велюровый_ohana"` | Поле `keywords` |
+| **WB** | Поисковые фразы, 10-15 штук | Поле «Комплектация» |
+| **Ozon** | Хештеги через `_`, 5-10 штук | Поле `keywords` |
 | **YM** | Не генерируются | — |
 
 > **Ozon:** SEO-теги генерируются как хештеги — слова через нижнее подчёркивание, без символа `#`, всё строчными, максимум 30 символов каждый. К каждому хештегу автоматически добавляется бренд товара. При публикации отправляются в поле `keywords` через `POST /v1/product/import-by-sku`.
@@ -307,9 +320,9 @@ GET /api/content/product?sku=203873004&marketplace=wb
 flowchart TD
     A[Запрос /generate] --> B[Получить товар из БД]
     B --> C[Создать запись в content_generations]
-    C --> D[Вызвать Claude AI]
+    C --> D[Генерация контента]
     D --> E{Валидация}
-    E -->|Ошибки| F[Автоисправление AI]
+    E -->|Ошибки| F[Автоисправление]
     F --> G{Повторная валидация}
     G -->|OK| H[Сохранить черновик]
     G -->|Ошибки| H
@@ -338,7 +351,7 @@ flowchart TD
 | Поле | Тип | Обязателен | Описание |
 |------|-----|:----------:|----------|
 | `draft_id` | UUID | да | ID предыдущего черновика |
-| `manager_notes` | string | нет | Пожелания менеджера для AI |
+| `manager_notes` | string | нет | Пожелания менеджера |
 | `generate_for_group` | bool | нет | Генерация для склейки. По умолчанию `false` |
 
 **Ответ:** аналогичен `/generate` (новый `draft_id`, предыдущий черновик не трогается).
@@ -380,7 +393,7 @@ flowchart TD
 
 | Поле | Тип | Обязателен | Описание |
 |------|-----|:----------:|----------|
-| `title` | string | да | Финальное название (может отличаться от AI-черновика) |
+| `title` | string | да | Финальное название (может отличаться от черновика) |
 | `description` | string | да | Финальное описание |
 | `seo_tags` | list[string] | нет | SEO-теги (WB → «Комплектация», Ozon → `keywords`, YM → не отправляются) |
 | `update_all_in_group` | bool | нет | Обновить все карточки в склейке. По умолчанию `false` |
@@ -403,6 +416,7 @@ flowchart TD
 {
   "success": true,
   "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "vendor_code": "16378",
   "message": "Карточка успешно обновлена на Wildberries",
   "updated_nm_ids": [203873004]
 }
@@ -414,6 +428,7 @@ flowchart TD
 {
   "success": true,
   "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "vendor_code": "16378",
   "message": "Обновлены 3 карточки в склейке на Wildberries",
   "updated_nm_ids": [203873004, 203873005, 203873006]
 }
@@ -431,9 +446,9 @@ flowchart TD
 | Таблица | Операция |
 |---------|----------|
 | `content_publications` | INSERT (финальные данные менеджера) |
-| `content_drafts` | UPDATE (только status → `approved`, AI-оригинал не трогаем) |
+| `content_drafts` | UPDATE (только status → `approved`, оригинал не трогаем) |
 
-**Важно:** AI-оригинал в `content_drafts` **не изменяется** при approve. Финальные данные менеджера сохраняются отдельно в `content_publications`.
+**Важно:** Оригинал в `content_drafts` **не изменяется** при approve. Финальные данные менеджера сохраняются отдельно в `content_publications`.
 
 **Флоу:**
 
@@ -490,6 +505,7 @@ GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=
     {
       "id": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
       "sku": "203873004",
+      "vendor_code": "16378",
       "marketplace": "wb",
       "title": "Носки мужские высокие хлопковые комплект",
       "description": "Мужские носки из натурального хлопка...",
@@ -501,6 +517,7 @@ GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=
     {
       "id": "a9b8c7d6-e5f4-3210-fedc-ba0987654321",
       "sku": "198765432",
+      "vendor_code": "22451",
       "marketplace": "wb",
       "title": "Футболка женская оверсайз хлопок",
       "description": "Стильная женская футболка свободного кроя...",
@@ -519,10 +536,11 @@ GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=
 |------|-----|----------|
 | `id` | UUID | ID записи публикации |
 | `sku` | string | Артикул товара (nmID) |
+| `vendor_code` | string \| null | Артикул продавца |
 | `marketplace` | string | Маркетплейс |
 | `title` | string | Опубликованное название |
 | `description` | string | Опубликованное описание |
-| `current_score` | int | Скор качества контента (0–100) |
+| `current_score` | int | Скор качества контента (0-100) |
 | `status` | string | `success` или `failed` |
 | `source` | string | `auto` (авто-обработка) или `manual` (ручная генерация) |
 | `published_at` | datetime \| null | Дата публикации |
@@ -717,7 +735,7 @@ GET /api/content/wb/errors
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `auto_check_threshold` | int | Порог скора для авто-проверки (0–100) |
+| `auto_check_threshold` | int | Порог скора для авто-проверки (0-100) |
 | `auto_check_interval` | string | Частота: `daily`, `every_2_days`, `weekly`, `every_2_weeks`, `monthly` |
 | `auto_check_enabled` | bool | Включить/выключить авто-проверку |
 | `tag_scheduler_enabled` | bool | Включить/выключить планировщик тегов |
@@ -792,9 +810,9 @@ GET /api/content/wb/errors
 
 | Маркетплейс | Title max | Description min | Description max |
 |:-----------:|:---------:|:---------------:|:---------------:|
-| wb | 60 | 900 | 2000 |
+| wb | 60 | 500 | 2000 |
 | ozon | 200 | 100 | 6000 |
-| ym | 256 | 500 | 6000 |
+| ym | 150 | 500 | 6000 |
 
 ### Проверки Title
 
@@ -833,12 +851,12 @@ GET /api/content/wb/errors
 
 ### Автоисправление
 
-При генерации, если AI создал текст с ошибками валидации, система вызывает AI повторно (до 1 раза):
+При генерации, если контент содержит ошибки валидации, система выполняет автоисправление (до 1 попытки):
 
 ```mermaid
 flowchart LR
-    GEN[AI генерация] --> VAL{Валидация}
-    VAL -->|Ошибки| FIX[AI автоисправление]
+    GEN[Генерация] --> VAL{Валидация}
+    VAL -->|Ошибки| FIX[Автоисправление]
     FIX --> VAL2{Повторная валидация}
     VAL2 -->|OK| OK[Возврат результата]
     VAL2 -->|Ошибки| FAIL[Возврат с is_valid=false]
@@ -858,7 +876,7 @@ flowchart LR
     },
     {
       "field": "description",
-      "message": "Описание слишком короткое (минимум 1000 символов)",
+      "message": "Описание слишком короткое (минимум 500 символов)",
       "severity": "warning"
     }
   ]
@@ -878,6 +896,7 @@ flowchart LR
 |------|-----|----------|
 | `draft_id` | UUID | ID черновика |
 | `sku` | string | Артикул товара |
+| `vendor_code` | string \| null | Артикул продавца |
 | `marketplace` | string | `wb` / `ozon` / `ym` |
 | `title` | string | Сгенерированное название |
 | `description` | string | Сгенерированное описание |
@@ -892,11 +911,21 @@ flowchart LR
 | `comparison` | AnalysisComparison \| null | Сравнение до/после |
 | `created_at` | datetime | Время создания |
 
+### ApproveResponse
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `success` | bool | Успешность операции |
+| `draft_id` | UUID | ID утверждённого черновика |
+| `vendor_code` | string \| null | Артикул продавца |
+| `message` | string | Сообщение о результате |
+| `updated_nm_ids` | list[int] | Обновлённые nmID |
+
 ### ContentAnalysis
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `total_score` | int | Общий скор (0–100) |
+| `total_score` | int | Общий скор (0-100) |
 | `is_valid` | bool | Нет ошибок уровня error |
 | `metrics` | dict | 3 метрики: `title_quality`, `description_quality`, `foreign_words` |
 
@@ -905,7 +934,7 @@ flowchart LR
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `name` | string | Название метрики |
-| `score` | int | Скор (0–100) |
+| `score` | int | Скор (0-100) |
 | `max_score` | int | Максимум (100) |
 | `status` | string | `good` / `warning` / `error` |
 | `details` | string | Описание |
