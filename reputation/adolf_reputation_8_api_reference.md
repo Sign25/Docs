@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.33
+> **Версия:** 1.2.50
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -17,10 +17,11 @@
 7. [Polling (сбор отзывов)](#7-polling-сбор-отзывов)
 8. [Statistics (аналитика)](#8-statistics-аналитика)
 9. [Settings (настройки)](#9-settings-настройки)
-10. [Автоматические процессы (Scheduler)](#10-автоматические-процессы-scheduler)
-11. [Схема БД](#11-схема-бд)
-12. [Пайплайн обработки](#12-пайплайн-обработки)
-13. [Миграции](#13-миграции)
+10. [Prompt Management (промт генерации)](#10-prompt-management-промт-генерации)
+11. [Автоматические процессы (Scheduler)](#11-автоматические-процессы-scheduler)
+12. [Схема БД](#12-схема-бд)
+13. [Пайплайн обработки](#13-пайплайн-обработки)
+14. [Миграции](#14-миграции)
 
 ---
 
@@ -35,7 +36,7 @@
 ```json
 {
   "service": "AdolfReputationBack",
-  "version": "1.2.33",
+  "version": "1.2.50",
   "docs": "/docs"
 }
 ```
@@ -91,15 +92,13 @@
 | `status` | string | — | `new`, `analyzing`, `pending_review`, `approved`, `publishing`, `published`, `answered`, `skipped`, `escalated`, `error`, `manual_required` |
 | `item_type` | string | — | `review`, `question` |
 | `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating`, `wb_created_at` |
-| `order` | string | `desc` | Порядок сортировки: `asc`, `desc` |
+| `order` | string | `desc` | Порядок: `asc`, `desc` |
 | `rating` | int | — | Фильтр по оценке (1–5) |
-| `search` | string | — | Поиск по тексту отзыва, имени клиента, плюсам, минусам и артикулу (ILIKE, min 1 символ) |
-| `date_from` | date | — | Начало периода (`YYYY-MM-DD`). Фильтрует по `wb_created_at` |
-| `date_to` | date | — | Конец периода (`YYYY-MM-DD`). Фильтрует по `wb_created_at` |
+| `search` | string | — | Поиск по тексту, имени клиента, плюсам, минусам, артикулу (ILIKE) |
+| `date_from` | date | — | Начало периода (`YYYY-MM-DD`), фильтр по `wb_created_at` |
+| `date_to` | date | — | Конец периода (`YYYY-MM-DD`), фильтр по `wb_created_at` |
 | `page` | int | `1` | Номер страницы (≥ 1) |
 | `page_size` | int | `20` | Записей на странице (1–100) |
-
-> **Пагинация:** результаты дополнительно сортируются по `id DESC` для стабильного порядка при одинаковых значениях основного поля сортировки.
 
 **Ответ: `ItemListResponse`**
 
@@ -111,6 +110,8 @@
   "page_size": 20
 }
 ```
+
+---
 
 ### `GET /api/v1/reviews/{item_id}`
 
@@ -171,7 +172,7 @@
 | `rating` | int? | Оценка 1–5 (null для вопросов) |
 | `status` | string | Текущий статус обработки |
 | `product_id` | int? | ID товара на маркетплейсе |
-| `vendor_code` | string? | Артикул продавца (из `reputation_products`) |
+| `vendor_code` | string? | Артикул продавца |
 | `pros` | string? | Достоинства |
 | `cons` | string? | Недостатки |
 | `wb_created_at` | datetime? | Дата создания на маркетплейсе |
@@ -185,24 +186,14 @@
 |------|-----|----------|
 | `id` | int | ID ответа |
 | `ai_variants` | list? | Массив сгенерированных вариантов (макс. 5) |
-| `final_text` | string? | Одобренный текст (может отличаться от сгенерированного) |
+| `final_text` | string? | Одобренный текст |
 | `status` | string? | `draft` / `approved` / `published` / `failed` |
 | `manager_notes` | string? | Заметки менеджера |
 | `generated_at` | datetime? | Дата первой генерации |
 | `published_at` | datetime? | Дата публикации |
 | `wb_error` | string? | Ошибка от маркетплейса |
 | `marketplace` | string? | Маркетплейс |
-| `source` | string? | Источник ответа: `ai` / `manager` |
-
-**Структура элемента `ai_variants[i]`:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `text` | string | Текст ответа |
-| `classification` | object | Результат классификации |
-| `generated_at` | string | ISO-дата генерации |
-| `generation_id` | string | UUID генерации |
-| `draft_id` | string | UUID черновика |
+| `source` | string? | `ai` / `manager` |
 
 ---
 
@@ -210,7 +201,7 @@
 
 ### `POST /api/v1/reviews/{item_id}/generate`
 
-Классификация отзыва + генерация черновика ответа.
+Классификация отзыва + генерация черновика.
 
 **Тело запроса (необязательно):**
 
@@ -220,99 +211,60 @@
 }
 ```
 
-| Поле | Тип | Обязательно | Описание |
-|------|-----|-------------|----------|
-| `instructions` | string | Нет | Дополнительные инструкции для генерации |
-
 **Что происходит:**
+1. Статус → `analyzing`
+2. Создаётся `ReputationGeneration`
+3. Отзыв классифицируется → sentiment, tags, scenario
+4. Генерируется ответ (50–700 символов, до 3 попыток с валидацией)
+5. Создаётся `ReputationDraft`
+6. Статус → `pending_review`
 
-1. Статус отзыва → `analyzing`
-2. Создаётся `ReputationGeneration` (status=`processing`)
-3. Отзыв **классифицируется** → sentiment, tags, category, scenario
-4. **Генерируется** ответ (50–600 символов, до 3 попыток с валидацией)
-5. Создаётся `ReputationDraft` (immutable черновик)
-6. Обновляется `ReputationResponse.ai_variants` (backward compat)
-7. Логируется в `AutoProcessLog`
-8. Статус отзыва → `pending_review`
+**Правила валидации:**
+
+| Правило | Условие |
+|---------|---------|
+| Длина | 50–700 символов |
+| Запрещённые слова | конкуренты, сторонние сайты |
+| Извинение для негатива | При rating ≤ 3 обязательно: «сожалеем» / «извин» / «жаль» |
+| Чужой маркетплейс | Нельзя упоминать другие площадки |
 
 **Ответ: `GenerateResponse`**
 
 ```json
 {
   "item_id": 1,
-  "generation_id": "550e8400-e29b-41d4-a716-446655440000",
-  "draft_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+  "generation_id": "uuid",
+  "draft_id": "uuid",
   "draft_text": "Добрый день, Анна! Благодарим за тёплый отзыв...",
-  "ai_variants": [
-    {
-      "text": "Добрый день, Анна! Благодарим за тёплый отзыв...",
-      "classification": { "sentiment": "positive", "scenario": "five_stars" },
-      "generated_at": "2026-03-10T13:06:00",
-      "generation_id": "uuid",
-      "draft_id": "uuid"
-    }
-  ]
+  "ai_variants": [...]
 }
 ```
-
-**Правила валидации ответа:**
-
-| Правило | Условие |
-|---------|---------|
-| Минимальная длина | ≥ 50 символов |
-| Максимальная длина | ≤ 600 символов |
-| Запрещённые слова | `конкурент`, `ламода`, `lamoda` |
-| Извинение для негатива | При rating ≤ 3 обязательно: «сожалеем» / «извин» / «жаль» |
-| Чужой маркетплейс | Нельзя упоминать другие маркетплейсы |
 
 ---
 
 ### `POST /api/v1/reviews/{item_id}/regenerate`
 
-Генерация нового варианта ответа. **Максимум 5 вариантов на один отзыв.**
+Генерация нового варианта. **Максимум 5 вариантов на один отзыв.**
 
 **Тело запроса (обязательно):**
 
 ```json
 {
-  "instructions": "Сделай ответ короче и добавь про бесплатную доставку"
+  "instructions": "Сделай ответ короче"
 }
 ```
 
-| Поле | Тип | Обязательно | Описание |
-|------|-----|-------------|----------|
-| `instructions` | string | **Да** | Инструкции для нового варианта |
+**Предусловия:** сначала вызвать `/generate`, количество черновиков < 5.
 
-**Предусловия:**
-- Должен существовать хотя бы один ответ (сначала вызвать `/generate`)
-- Количество черновиков < 5
-
-**Отличия от `/generate`:**
-- Не проводит классификацию заново — использует результат предыдущей генерации
-- Новый вариант **добавляется** в массив `ai_variants`
-
-**Ответ:** `GenerateResponse` (тот же формат)
-
-**Ошибки:**
-- `400` — `No response exists yet. Use /generate first.`
-- `400` — `Regeneration limit exceeded (max 5)`
+**Ошибки:** `400` — лимит превышен или нет базового ответа.
 
 ---
 
 ### `POST /api/v1/reviews/bulk-regenerate`
 
-Массовая перегенерация черновиков для всех неопубликованных items с обновлённым контекстом товара.
+Массовая перегенерация для всех неопубликованных items.
 
-**Query-параметры:**
-
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `item_type` | string? | Фильтр по типу: `review` / `question` |
-| `marketplace` | string? | Фильтр по маркетплейсу: `wildberries` / `ozon` / `yandex_market` |
-
-**Что происходит:**
-- Берёт все items со статусом `pending_review` или `draft`
-- Для каждого: классифицирует заново, генерирует новый текст, обновляет последний черновик и последний вариант в `ai_variants`
+**Query-параметры:** `item_type`, `marketplace` (необязательны).
 
 **Ответ:**
 
@@ -325,20 +277,11 @@
 }
 ```
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `updated` | int | Успешно перегенерировано |
-| `errors` | int | Ошибки при генерации |
-| `total` | int | Всего items для обработки |
-| `message` | string | Человекочитаемое сообщение |
-
 ---
 
 ## 4. Reviews — Модерация
 
 ### `POST /api/v1/reviews/{item_id}/approve`
-
-> **Статус:** endpoint временно отключён (503).
 
 Одобрение последнего черновика.
 
@@ -346,31 +289,17 @@
 
 ```json
 {
-  "final_text": "Мой отредактированный текст ответа"
+  "final_text": "Мой отредактированный текст"
 }
 ```
 
-| Поле | Тип | Обязательно | Описание |
-|------|-----|-------------|----------|
-| `final_text` | string | Нет | Текст для ручной правки (замещает сгенерированный вариант) |
+**Приоритет текста:** `final_text` из тела → текст черновика → последний вариант `ai_variants`.
 
-**Приоритет выбора текста:**
-1. `body.final_text` (если передан) — ручная правка менеджера
-2. `latest_draft.response_text` — текст последнего черновика
-3. `ai_variants[-1].text` — fallback на последний вариант
-
-**Результат:**
-- Черновик → `approved`
-- Ответ → `approved`
-- Отзыв → `approved`
-
-**Ответ:** `ItemResponse`
+**Результат:** черновик, ответ и отзыв → `approved`. **Ответ:** `ItemResponse`.
 
 ---
 
 ### `POST /api/v1/reviews/bulk-approve`
-
-> **Статус:** endpoint временно отключён (503).
 
 Массовое одобрение.
 
@@ -378,38 +307,28 @@
 
 ```json
 {
-  "item_ids": [1, 2, 3, 5, 8]
+  "item_ids": [1, 2, 3]
 }
 ```
 
-**Ответ: `BulkApproveResponse`**
+**Ответ:**
 
 ```json
 {
-  "approved_count": 5,
-  "item_ids": [1, 2, 3, 5, 8]
+  "approved_count": 3,
+  "item_ids": [1, 2, 3]
 }
 ```
-
-> Отзывы без ответов молча пропускаются (не попадут в `item_ids`).
 
 ---
 
 ### `POST /api/v1/reviews/{item_id}/skip`
 
-Пропустить отзыв (не отвечать).
-
-**Результат:** статус → `skipped`
-**Ответ:** `ItemResponse`
-
----
+Пропустить отзыв. Статус → `skipped`. **Ответ:** `ItemResponse`.
 
 ### `POST /api/v1/reviews/{item_id}/escalate`
 
-Эскалация (требует внимания руководства).
-
-**Результат:** статус → `escalated`
-**Ответ:** `ItemResponse`
+Эскалация. Статус → `escalated`. **Ответ:** `ItemResponse`.
 
 ---
 
@@ -417,20 +336,17 @@
 
 ### `POST /api/v1/reviews/{item_id}/publish`
 
-> **Статус:** endpoint временно отключён (503).
-
 Отправка одобренного ответа на маркетплейс.
 
-**Предусловия:**
-- `response.status` должен быть `approved` или `failed` (повторная попытка)
+**Предусловия:** `response.status` — `approved` или `failed`.
 
 **Маркетплейсы и API:**
 
 | Маркетплейс | Отзывы | Вопросы |
 |-------------|--------|---------|
-| **Wildberries** | `POST feedbacks-api.wildberries.ru/api/v1/feedbacks/answer` | `PATCH feedbacks-api.wildberries.ru/api/v1/questions` |
-| **Яндекс Маркет** | `POST api.partner.market.yandex.ru/v2/businesses/{id}/goods-feedback/comments` | `POST api.partner.market.yandex.ru/v1/businesses/{id}/goods-questions/answers` |
-| **Ozon** | ❌ Не поддерживается (возвращает `not_supported`) | ❌ Не поддерживается |
+| **Wildberries** | `POST /api/v1/feedbacks/answer` | `PATCH /api/v1/questions` |
+| **Яндекс Маркет** | `POST /v2/businesses/{id}/goods-feedback/comments` | `POST /v1/businesses/{id}/goods-questions/answers` |
+| **Ozon** | `POST /v1/review/comment/create` | `POST /v1/question/answer/create` |
 
 **Ответ: `PublishResponse`**
 
@@ -443,15 +359,10 @@
 }
 ```
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `item_id` | int | ID отзыва |
-| `publication_id` | string? | UUID записи публикации |
-| `status` | string | `published` / `failed` / `not_supported` |
-| `error` | string? | Текст ошибки |
-
-**При успехе:** отзыв → `answered`, ответ → `published`
-**При ошибке:** отзыв → `error`, ответ → `failed` (система попробует повторить автоматически)
+| `status` | Описание |
+|----------|----------|
+| `published` | Успешно, отзыв → `answered` |
+| `failed` | Ошибка, отзыв → `error` (автоповтор раз в час) |
 
 ---
 
@@ -459,7 +370,7 @@
 
 ### `GET /api/v1/reviews/{item_id}/history`
 
-Полная история обработки отзыва: генерации, черновики, публикации.
+Полная история: генерации, черновики, публикации.
 
 **Ответ:**
 
@@ -470,15 +381,7 @@
     {
       "id": "uuid",
       "status": "completed",
-      "error_message": null,
-      "analysis_result": {
-        "sentiment": "positive",
-        "sentiment_score": 0.95,
-        "tags": ["качество", "внешний_вид"],
-        "category": "quality",
-        "key_points": ["хвалит ткань"],
-        "scenario": "five_stars"
-      },
+      "analysis_result": { "sentiment": "positive", "scenario": "five_stars" },
       "created_at": "2026-03-10T13:05:30",
       "completed_at": "2026-03-10T13:05:35"
     }
@@ -487,11 +390,9 @@
     {
       "id": "uuid",
       "generation_id": "uuid",
-      "response_text": "Добрый день, Анна! Благодарим...",
-      "classification": { "sentiment": "positive" },
+      "response_text": "Добрый день, Анна!...",
       "is_valid": true,
       "status": "approved",
-      "manager_notes": null,
       "created_at": "2026-03-10T13:05:36"
     }
   ],
@@ -499,11 +400,9 @@
     {
       "id": "uuid",
       "draft_id": "uuid",
-      "published_text": "Добрый день, Анна! Благодарим...",
+      "published_text": "Добрый день, Анна!...",
       "status": "success",
-      "error_message": null,
-      "published_at": "2026-03-10T14:00:00",
-      "source": "manual"
+      "published_at": "2026-03-10T14:00:00"
     }
   ]
 }
@@ -515,19 +414,9 @@
 
 ### `POST /api/v1/polling/{marketplace}/trigger`
 
-Ручной запуск сбора отзывов с маркетплейса.
+Ручной запуск сбора. `marketplace`: `wildberries`, `ozon`, `yandex_market`.
 
-**Path-параметры:**
-
-| Параметр | Значения |
-|----------|----------|
-| `marketplace` | `wildberries`, `ozon`, `yandex_market` |
-
-**Query-параметры:**
-
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `item_type` | string? | `review` / `question`. Если не указан — оба типа |
+**Query:** `item_type` (`review` / `question`). Если не указан — оба типа.
 
 **Ответ:**
 
@@ -546,10 +435,7 @@
 }
 ```
 
-**Особенности:**
-- Загружает только **неотвеченные** отзывы/вопросы с маркетплейса
-- Дедупликация по `(marketplace, wb_id)` — дубликаты пропускаются
-- Circuit breaker: 5 ошибок подряд → пауза 60 секунд
+**Особенности:** дедупликация по `(marketplace, wb_id)`. Circuit breaker: 5 ошибок → пауза 60 сек.
 
 ---
 
@@ -567,9 +453,7 @@
       "item_type": "review",
       "last_poll_time": "2026-03-10T13:00:00+00:00",
       "last_poll_status": "success",
-      "last_poll_error": null,
       "items_fetched_total": 1500,
-      "items_fetched_last": 45,
       "consecutive_errors": 0,
       "circuit_breaker_open": false
     }
@@ -583,41 +467,21 @@
 
 ### `GET /api/v1/stats`
 
-Данные для дашборда: ежедневная статистика + счётчики неотвеченных + агрегированная сводка.
-
-> **Все три блока данных** (`stats`, `counters`, `summary`) фильтруются по `date_from`, `date_to` и `marketplace`. Без параметров — данные за всё время.
+Ежедневная статистика + счётчики неотвеченных + агрегированная сводка.
 
 **Query-параметры:**
 
-| Параметр | Тип | Формат | Описание |
-|----------|-----|--------|----------|
-| `date_from` | date | `YYYY-MM-DD` | Начало периода (включительно). Фильтрует по `created_at` |
-| `date_to` | date | `YYYY-MM-DD` | Конец периода (включительно). Фильтрует по `created_at` |
-| `marketplace` | string | — | `wildberries`, `ozon`, `yandex_market` |
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `date_from` | date | `YYYY-MM-DD`, фильтр по `created_at` |
+| `date_to` | date | `YYYY-MM-DD`, фильтр по `created_at` |
+| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
 
 **Ответ: `StatsResponse`**
 
 ```json
 {
-  "stats": [
-    {
-      "date": "2026-03-10",
-      "marketplace": "wildberries",
-      "total_items": 25,
-      "reviews_count": 20,
-      "questions_count": 5,
-      "positive_count": 15,
-      "neutral_count": 3,
-      "negative_count": 2,
-      "avg_rating": 4.10,
-      "published_count": 18,
-      "avg_response_time_min": 45,
-      "our_published_count": 12,
-      "seller_published_count": 6,
-      "our_avg_response_time_min": 30,
-      "seller_avg_response_time_min": 120
-    }
-  ],
+  "stats": [StatsItem],
   "total": 30,
   "counters": {
     "total_unanswered": 42,
@@ -627,44 +491,12 @@
         "new_reviews": 12,
         "new_questions": 5,
         "pending_review": 8
-      },
-      {
-        "marketplace": "ozon",
-        "new_reviews": 10,
-        "new_questions": 3,
-        "pending_review": 4
       }
     ]
   },
-  "summary": {
-    "total_items": 5000,
-    "avg_rating": 4.3,
-    "avg_response_time_min": 45,
-    "positive_count": 3500,
-    "published_count": 4200,
-    "our_published_count": 3000,
-    "seller_published_count": 1200,
-    "our_avg_response_time_min": 30,
-    "seller_avg_response_time_min": 120,
-    "marketplaces": [
-      {
-        "marketplace": "wildberries",
-        "total": 3000,
-        "avg_rating": 4.5,
-        "response_pct": 85,
-        "our_response_pct": 60,
-        "seller_response_pct": 25
-      }
-    ]
-  }
+  "summary": { ... }
 }
 ```
-
----
-
-#### Блок `stats` — ежедневная разбивка
-
-Из предагрегированной таблицы `reputation_analytics`.
 
 **Поля `StatsItem`:**
 
@@ -672,99 +504,47 @@
 |------|-----|----------|
 | `date` | date | Дата |
 | `marketplace` | string | Маркетплейс |
-| `total_items` | int | Всего отзывов + вопросов за день |
+| `total_items` | int | Всего отзывов + вопросов |
 | `reviews_count` | int | Только отзывы |
 | `questions_count` | int | Только вопросы |
 | `positive_count` | int | rating ≥ 4 |
 | `neutral_count` | int | rating = 3 |
 | `negative_count` | int | rating ≤ 2 |
-| `avg_rating` | float? | Средняя оценка (null если нет данных) |
-| `published_count` | int | Опубликовано ответов (всего) |
-| `avg_response_time_min` | int? | Среднее время ответа в минутах (всего) |
-| `our_published_count` | int | Опубликовано нами (через систему) |
-| `seller_published_count` | int | Опубликовано продавцом (вручную) |
+| `avg_rating` | float? | Средняя оценка |
+| `published_count` | int | Опубликовано (всего) |
+| `our_published_count` | int | Опубликовано нами |
+| `seller_published_count` | int | Опубликовано продавцом |
 | `our_avg_response_time_min` | int? | Среднее время ответа — наши |
-| `seller_avg_response_time_min` | int? | Среднее время ответа — продавец |
-
----
-
-#### Блок `counters` — неотвеченные обращения
-
-Количество обращений в статусах `new`, `analyzing`, `pending_review` — **в реальном времени** из таблицы `reputation_items`.
-
-**Поля `DashboardCounters`:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `total_unanswered` | int | Общее количество неотвеченных обращений |
-| `by_marketplace` | list | Разбивка по маркетплейсам |
-
-**Поля `MarketplaceCounters` (элемент `by_marketplace`):**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
-| `new_reviews` | int | Новые отзывы (статус `new` + `analyzing`) |
-| `new_questions` | int | Новые вопросы (статус `new` + `analyzing`) |
-| `pending_review` | int | Ожидают проверки менеджером |
-
-> При передаче `date_from`/`date_to` считаются только обращения, чей `created_at` попадает в указанный период. При передаче `marketplace` — только по указанному маркетплейсу.
-
----
-
-#### Блок `summary` — агрегированная сводка
-
-Вычисляется из сырых данных `reputation_items` (не из предагрегированной таблицы).
-
-**Поля `DashboardSummary`:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `total_items` | int | Всего обращений за выбранный период |
-| `avg_rating` | float | Средний рейтинг (0 если нет оценок) |
-| `avg_response_time_min` | int? | Среднее время ответа в минутах (всего) |
-| `positive_count` | int | Количество с рейтингом ≥ 4 |
-| `published_count` | int | Опубликовано ответов (всего) |
-| `our_published_count` | int | Опубликовано нами (через систему) |
-| `seller_published_count` | int | Опубликовано продавцом (вручную) |
-| `our_avg_response_time_min` | int? | Среднее время ответа — наши |
-| `seller_avg_response_time_min` | int? | Среднее время ответа — продавец |
-| `marketplaces` | list[MarketplaceSummary] | Разбивка по маркетплейсам |
-
-**Поля `MarketplaceSummary` (элемент `marketplaces`):**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
-| `total` | int | Всего обращений |
-| `avg_rating` | float? | Средний рейтинг |
-| `response_pct` | int | Процент отвеченных (всего) |
-| `our_response_pct` | int | Процент отвеченных нами |
-| `seller_response_pct` | int | Процент отвеченных продавцом |
-
-> Без `date_from`/`date_to` — данные за всё время. С фильтрами — только за указанный период и маркетплейс.
-
----
-
-#### Дополнительные поля `StatsResponse`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `total` | int | Количество строк в `stats` |
 
 ---
 
 ### `GET /api/v1/stats/summary`
 
-> **Устаревший endpoint.** Сводка теперь включена в ответ `GET /api/v1/stats` как поле `summary`. Этот endpoint оставлен для обратной совместимости.
+Агрегированные метрики для дашборда.
 
-**Query-параметры:**
+**Query:** `marketplace` (необязательно).
 
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `marketplace` | string? | Фильтр по маркетплейсу |
+**Ответ: `DashboardSummary`**
 
-**Ответ:** `DashboardSummary` (см. описание выше в блоке `summary`)
+```json
+{
+  "total_items": 5000,
+  "avg_rating": 4.3,
+  "positive_count": 3500,
+  "published_count": 4200,
+  "our_published_count": 3000,
+  "our_avg_response_time_min": 30,
+  "marketplaces": [
+    {
+      "marketplace": "wildberries",
+      "total": 3000,
+      "avg_rating": 4.5,
+      "response_pct": 85,
+      "our_response_pct": 60
+    }
+  ]
+}
+```
 
 ---
 
@@ -772,13 +552,9 @@
 
 Пересчёт аналитики за последние N дней.
 
-**Query-параметры:**
+**Query:** `days` (int, по умолчанию `90`, максимум `365`).
 
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|----------|
-| `days` | int | `90` | Количество дней (1–365) |
-
-**Ответ: `RecomputeResponse`**
+**Ответ:**
 
 ```json
 {
@@ -793,15 +569,11 @@
 
 ### `GET /api/v1/settings`
 
-Все настройки.
-
-**Ответ:** `list[SettingResponse]`
+Все настройки. **Ответ:** `list[SettingResponse]`.
 
 ### `GET /api/v1/settings/{key}`
 
-Одна настройка по ключу.
-
-**Ответ: `SettingResponse`**
+Одна настройка. **Ответ:**
 
 ```json
 {
@@ -811,75 +583,100 @@
 }
 ```
 
-**Ошибки:** `404` — `Setting '{key}' not found`
+**Ошибки:** `404` — ключ не найден.
 
 ### `PUT /api/v1/settings/{key}`
 
-Создать или обновить настройку.
+Создать или обновить. **Тело:** `{"value": "true"}`. **Ответ:** `SettingResponse`.
 
-**Тело запроса:**
+---
+
+## 10. Prompt Management (промт генерации)
+
+Менеджер может просматривать и редактировать системный промт AI-генерации без деплоя. Дефолтное значение захардкожено в `ai_prompts.py`; кастомное хранится в `app_settings` и имеет приоритет.
+
+Менеджер пишет свободный текст (тон, правила, стиль) — данные по отзыву и товару код всегда добавляет сам.
+
+### `GET /api/v1/prompts`
+
+Получить текущий промт.
+
+**Ответ:**
 
 ```json
 {
-  "value": "true"
+  "current_value": "Ты вежливый менеджер...",
+  "default_value": "Ты представитель бренда...",
+  "is_customized": true,
+  "updated_at": "2026-03-30T12:00:00"
 }
 ```
 
-**Ответ:** `SettingResponse`
+| Поле | Описание |
+|------|----------|
+| `current_value` | Что реально используется при генерации |
+| `default_value` | Дефолт из кода — для кнопки «Посмотреть оригинал» |
+| `is_customized` | Менеджер изменял промт — для бейджа «изменён» и кнопки «Сбросить» |
+| `updated_at` | Дата последнего изменения, `null` если не менял |
 
 ---
 
-## 10. Автоматические процессы (Scheduler)
+### `PUT /api/v1/prompts`
 
-> **Статус (v1.2.33):** Scheduler **активен**. Запускается при старте сервера в `lifespan`. Backfill analytics убран из автозапуска — для исторических данных используйте `POST /stats/recompute`.
+Сохранить кастомный промт.
 
-### При запуске сервера
+**Тело:** `{"value": "Новый текст..."}`. Пустая строка → `400`.
 
-| Задача | Описание | Статус |
-|--------|----------|--------|
-| `create_missing_tables` | Создание новых таблиц в БД (если не существуют) | **Активно** |
-| `start_scheduler` | Запуск фоновых задач (APScheduler) | **Активно** |
+**Ответ:** тот же объект с `is_customized: true`.
+
+---
+
+### `DELETE /api/v1/prompts`
+
+Сбросить к дефолту (удаляет запись из `app_settings`).
+
+**Ответ:** тот же объект с `is_customized: false`, `current_value == default_value`, `updated_at: null`.
+
+---
+
+## 11. Автоматические процессы (Scheduler)
+
+Scheduler активен с v1.2.50. Запускается при старте сервера. Backfill убран из автозапуска — для исторических данных: `POST /stats/recompute`.
 
 ### Периодические задачи
 
-| Задача | Интервал | Описание | Статус |
-|--------|----------|----------|--------|
-| `auto_generate_pending` | Каждые **5 минут** | Берёт до **5** отзывов со статусом `new` (самые старые первыми), классифицирует и генерирует черновик. Статус: `new` → `analyzing` → `pending_review`. Управляется настройкой `auto_generate_enabled` в **`app_settings`** (БД). По умолчанию: включено | **Активно** |
-| `retry_failed_publications` | Каждые **1 час** | Находит до **50** отзывов со статусом `error` (кроме Ozon и других `not_supported`), у которых есть готовый текст, и повторяет публикацию | **Активно** |
-| `refresh_today_analytics` | Каждые **30 минут** | Пересчитывает статистику за сегодня и вчера по всем 3 маркетплейсам | **Активно** |
+| Задача | Интервал | Описание |
+|--------|----------|----------|
+| `auto_generate_pending` | Каждые 5 минут | Берёт до 5 отзывов со статусом `new`, классифицирует и генерирует черновик. Управляется настройкой `auto_generate_enabled` в `app_settings` |
+| `retry_failed_publications` | Каждый час | Повторяет публикацию для отзывов со статусом `error` (до 50 шт.) |
+| `refresh_today_analytics` | Каждые 30 минут | Пересчитывает статистику за сегодня и вчера |
 
-> **Управление авто-генерацией:** настройка `auto_generate_enabled` хранится в таблице `app_settings` (не env-переменная). Можно менять через `PUT /api/v1/settings/auto_generate_enabled`.
+> Управление авто-генерацией: `PUT /api/v1/settings/auto_generate_enabled` со значением `"true"` / `"false"`.
 
 ---
 
-## 11. Схема БД
+## 12. Схема БД
 
 ### `reputation_products`
-
 Данные о товарах (заполняются из AdolfDataSync).
 
-| Поле | Тип | PK | Описание |
-|------|-----|-----|----------|
-| `external_id` | BIGINT | ✅ | ID товара на маркетплейсе |
-| `marketplace` | VARCHAR | ✅ | `wildberries` / `ozon` / `yandex_market` |
-| `vendor_code` | VARCHAR | | Артикул |
-| `brand_tag` | VARCHAR | | Бренд |
-| `title` | TEXT | | Название |
-| `description` | TEXT | | Описание |
-| `composition` | TEXT | | Состав |
-| `size_measurements` | JSONB | | Размеры |
-| `media_urls` | JSONB | | Фото |
-| `attributes` | JSONB | | Характеристики |
-| `video_url` | TEXT | | Видео |
-| `imt_id` | BIGINT | | ID склейки |
-| `updated_at` | DATETIME | | Дата обновления |
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `external_id` | BIGINT (PK) | ID товара на маркетплейсе |
+| `marketplace` | VARCHAR (PK) | `wildberries` / `ozon` / `yandex_market` |
+| `vendor_code` | VARCHAR | Артикул |
+| `title` | TEXT | Название |
+| `description` | TEXT | Описание |
+| `composition` | TEXT | Состав |
+| `size_measurements` | JSONB | Размеры |
+| `media_urls` | JSONB | Фото |
+| `attributes` | JSONB | Характеристики |
 
-> **Composite PK:** `(external_id, marketplace)`
+> Composite PK: `(external_id, marketplace)`
 
 ---
 
 ### `reputation_items`
-
 Отзывы и вопросы.
 
 | Поле | Тип | Описание |
@@ -895,11 +692,9 @@
 | `product_id` | BIGINT | → `reputation_products.external_id` |
 | `pros` | TEXT | Достоинства |
 | `cons` | TEXT | Недостатки |
-| `photos` | JSONB | Фото покупателя |
-| `video` | JSONB | Видео покупателя |
-| `wb_created_at` | DATETIME | Дата на маркетплейсе |
-| `is_viewed` | BOOLEAN | Просмотрен |
+| `wb_created_at` | DATETIME | Дата создания на маркетплейсе |
 | `created_at` | DATETIME | Дата загрузки в систему |
+| `is_viewed` | BOOLEAN | Просмотрен |
 
 **Статусы:**
 
@@ -908,14 +703,12 @@ new → analyzing → pending_review → approved → publishing → answered
                                                           └→ error (retry)
 new → skipped
 new → escalated
-new → manual_required
 ```
 
 ---
 
 ### `reputation_responses`
-
-Backward-compatibility слой для вариантов ответов.
+Backward-compatibility слой.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -924,38 +717,31 @@ Backward-compatibility слой для вариантов ответов.
 | `ai_variants` | JSONB | Массив вариантов |
 | `final_text` | TEXT | Одобренный текст |
 | `status` | VARCHAR | `draft` / `approved` / `published` / `failed` |
-| `manager_notes` | TEXT | Заметки менеджера |
-| `approved_by_id` | INTEGER | |
+| `manager_notes` | TEXT | |
 | `generated_at` | DATETIME | |
 | `published_at` | DATETIME | |
 | `wb_error` | TEXT | Ошибка от маркетплейса |
-| `marketplace` | VARCHAR | |
-| `source` | VARCHAR(20) | Источник ответа: `ai` / `manager` (default: `manager`) |
+| `source` | VARCHAR(20) | `ai` / `manager` |
 
 ---
 
 ### `reputation_generations`
-
 Аудит вызовов генерации.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `id` | UUID (PK) | |
 | `item_id` | INTEGER (FK) | → `reputation_items.id` |
-| `marketplace` | VARCHAR(30) | |
-| `product_id` | BIGINT | |
-| `context` | JSONB | `{client_text, pros, cons, product_context, instructions, rating, item_type}` |
-| `user_id` | UUID | |
 | `status` | VARCHAR(20) | `pending` / `processing` / `completed` / `failed` |
-| `error_message` | TEXT | |
+| `context` | JSONB | `{client_text, pros, cons, product_context, instructions, rating, item_type}` |
 | `analysis_result` | JSONB | `{sentiment, sentiment_score, tags, category, key_points, scenario}` |
+| `error_message` | TEXT | |
 | `created_at` | DATETIME | |
 | `completed_at` | DATETIME | |
 
 ---
 
 ### `reputation_drafts`
-
 Immutable черновики ответов.
 
 | Поле | Тип | Описание |
@@ -963,72 +749,54 @@ Immutable черновики ответов.
 | `id` | UUID (PK) | |
 | `generation_id` | UUID (FK) | → `reputation_generations.id` |
 | `item_id` | INTEGER (FK) | → `reputation_items.id` |
-| `marketplace` | VARCHAR(30) | |
 | `response_text` | TEXT | Текст ответа |
 | `classification` | JSONB | Классификация |
-| `validation_result` | JSONB | `{is_valid: bool, issues: [str]}` |
 | `is_valid` | BOOLEAN | Прошёл валидацию |
 | `status` | VARCHAR(20) | `draft` / `approved` / `rejected` |
 | `manager_notes` | TEXT | |
-| `approved_by` | UUID | |
 | `created_at` | DATETIME | |
-| `updated_at` | DATETIME | |
 
 ---
 
 ### `reputation_publications`
-
-Записи публикаций на маркетплейсы.
+Записи публикаций.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `id` | UUID (PK) | |
 | `draft_id` | UUID (FK) | → `reputation_drafts.id` |
 | `item_id` | INTEGER (FK) | → `reputation_items.id` |
-| `marketplace` | VARCHAR(30) | |
-| `external_id` | VARCHAR | ID на маркетплейсе |
 | `published_text` | TEXT | Опубликованный текст |
 | `status` | VARCHAR(20) | `success` / `failed` |
-| `error_code` | VARCHAR(50) | |
 | `error_message` | TEXT | |
-| `api_response` | JSONB | Полный ответ API |
-| `published_by` | UUID | |
+| `api_response` | JSONB | Полный ответ API маркетплейса |
 | `published_at` | DATETIME | |
 | `source` | VARCHAR(20) | `manual` / `auto` / `scheduler` |
 
 ---
 
 ### `polling_state`
-
-Состояние поллинга по маркетплейсам.
+Состояние поллинга.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `id` | INTEGER (PK) | |
 | `marketplace` | VARCHAR(30) | |
 | `item_type` | VARCHAR(20) | `review` / `question` |
 | `last_poll_time` | DATETIME(tz) | |
 | `last_poll_status` | VARCHAR(20) | `success` / `error` / `circuit_breaker` |
-| `last_poll_error` | TEXT | |
 | `items_fetched_total` | INTEGER | Накопительный итог |
-| `items_fetched_last` | INTEGER | За последний раз |
 | `consecutive_errors` | INTEGER | Ошибки подряд |
 | `circuit_breaker_open` | BOOLEAN | |
-| `circuit_breaker_until` | DATETIME(tz) | |
-| `created_at` | DATETIME(tz) | |
-| `updated_at` | DATETIME(tz) | |
 
-> **UNIQUE:** `(marketplace, item_type)`
+> UNIQUE: `(marketplace, item_type)`
 
 ---
 
 ### `reputation_analytics`
-
 Ежедневная агрегация.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `id` | INTEGER (PK) | |
 | `date` | DATE | |
 | `marketplace` | VARCHAR(30) | |
 | `total_items` | INTEGER | |
@@ -1038,92 +806,54 @@ Immutable черновики ответов.
 | `neutral_count` | INTEGER | rating = 3 |
 | `negative_count` | INTEGER | rating ≤ 2 |
 | `avg_rating` | NUMERIC(3,2) | |
-| `published_count` | INTEGER | Всего опубликовано |
-| `avg_response_time_min` | INTEGER | Среднее время ответа (всего) |
-| `our_published_count` | INTEGER | Опубликовано нами |
-| `seller_published_count` | INTEGER | Опубликовано продавцом |
-| `our_avg_response_time_min` | INTEGER | Среднее время ответа — наши |
-| `seller_avg_response_time_min` | INTEGER | Среднее время ответа — продавец |
-| `calculated_at` | DATETIME(tz) | |
+| `published_count` | INTEGER | |
+| `our_published_count` | INTEGER | |
+| `our_avg_response_time_min` | INTEGER | |
 
-> **UNIQUE:** `(date, marketplace)`
-
----
-
-### `auto_process_log`
-
-Аудит автоматических операций.
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `id` | SERIAL (PK) | |
-| `run_id` | VARCHAR(36) | UUID батча |
-| `process_type` | VARCHAR(30) | `reputation_generate` / `reputation_auto_generate` / `reputation_publish` |
-| `external_id` | BIGINT | product_id |
-| `action` | VARCHAR(100) | `generate:success`, `regenerate:success`, `auto_generate:success`, `publish:{marketplace}` |
-| `status` | VARCHAR(20) | `success` / `error` |
-| `error` | TEXT | |
-| `marketplace` | VARCHAR(30) | |
-| `original_score` | INTEGER | Оценка до обработки (legacy) |
-| `generated_score` | INTEGER | Оценка после обработки (legacy) |
-| `generated_title` | TEXT | Текст ответа |
-| `generated_description` | TEXT | JSON классификации |
-| `generated_seo_tags` | TEXT | Инструкции |
-| `decorative_tags` | TEXT | Декоративные теги (legacy) |
-| `created_at` | DATETIME | |
+> UNIQUE: `(date, marketplace)`
 
 ---
 
 ### `app_settings`
-
-Key-value хранилище настроек.
+Key-value хранилище настроек и промтов.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `key` | VARCHAR(100) (PK) | Ключ настройки |
+| `key` | VARCHAR(100) (PK) | Ключ |
 | `value` | TEXT | Значение |
 | `updated_at` | DATETIME | |
 
+**Используемые ключи:**
+
+| Ключ | Описание |
+|------|----------|
+| `auto_generate_enabled` | `"true"` / `"false"` — управление авто-генерацией |
+| `generation_system_prompt` | Кастомный системный промт (если задан менеджером) |
+
 ---
 
-## 12. Пайплайн обработки
+## 13. Пайплайн обработки
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌──────────────┐     ┌──────────┐     ┌───────────┐
-│   Polling    │ ──▶ │   new       │ ──▶ │  analyzing   │ ──▶ │ pending_ │ ──▶ │ approved  │
-│ (маркетплейс)│     │ (в базе)    │     │ (генерация)  │     │ review   │     │           │
-└─────────────┘     └─────────────┘     └──────────────┘     └──────────┘     └─────┬─────┘
-                           │                                                         │
-                           │ auto_generate_pending                                   │
-                           │ (каждые 5 мин, до 5 шт)                                ▼
-                           │                                                  ┌───────────┐
-                           ▼                                                  │ publishing │
-                    ┌─────────────┐                                           └─────┬─────┘
-                    │  skipped /  │                                                  │
-                    │  escalated  │                                           ┌──────┴──────┐
-                    └─────────────┘                                           ▼             ▼
-                                                                       ┌──────────┐  ┌─────────┐
-                                                                       │ answered │  │  error   │
-                                                                       │ (успех)  │  │ (повтор) │
-                                                                       └──────────┘  └─────────┘
-                                                                                      retry: каждый час
+Polling → new → analyzing → pending_review → approved → publishing → answered
+                                                                   └→ error (retry hourly)
+               → skipped
+               → escalated
 ```
 
-**Таблицы, затрагиваемые на каждом этапе:**
+**Таблицы по этапам:**
 
 | Этап | Таблицы |
 |------|---------|
 | Polling | `reputation_items` (INSERT), `polling_state` (UPDATE) |
-| Generate | `reputation_generations` (INSERT), `reputation_drafts` (INSERT), `reputation_responses` (UPSERT), `auto_process_log` (INSERT), `reputation_items` (UPDATE status) |
-| Approve | `reputation_drafts` (UPDATE), `reputation_responses` (UPDATE), `reputation_items` (UPDATE status) |
-| Publish | `reputation_publications` (INSERT), `reputation_responses` (UPDATE), `reputation_items` (UPDATE status), `auto_process_log` (INSERT) |
+| Generate | `reputation_generations`, `reputation_drafts`, `reputation_responses`, `auto_process_log`, `reputation_items` |
+| Approve | `reputation_drafts`, `reputation_responses`, `reputation_items` |
+| Publish | `reputation_publications`, `reputation_responses`, `reputation_items`, `auto_process_log` |
 
 ---
 
-## 13. Миграции
-
-Файлы миграций хранятся в `migrations/`.
+## 14. Миграции
 
 | Файл | Описание |
 |------|----------|
-| `add_response_source.sql` | Добавляет колонку `source` (VARCHAR(20), default `'manager'`) в `reputation_responses`. Backfill: устанавливает `source='ai'` для ответов, у которых `ai_variants` не пустой |
+| `add_response_source.sql` | Добавляет колонку `source` (VARCHAR(20), default `'manager'`) в `reputation_responses`. Backfill: `source='ai'` для ответов с непустым `ai_variants` |
