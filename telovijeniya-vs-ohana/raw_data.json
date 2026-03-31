@@ -1,0 +1,79 @@
+{
+  "collected_date": "2026-03-31",
+  "ohana_market": {
+    "legal_name": "ООО Охана маркет",
+    "inn": "5501191676",
+    "location": "Омск",
+    "founded": "2018-09-25",
+    "director": "Луцик Сауле Жунусовна",
+    "founder": "Шевалье Оксана Адольфовна",
+    "wb_brand": "Ohana market",
+    "wb_start": "2021",
+    "financials_2024": {
+      "revenue_rub": 2612379000,
+      "profit_rub": 222899000,
+      "margin_pct": 8.5
+    },
+    "wb_data_90d": {
+      "total_sales": 77280,
+      "returns": 2723,
+      "return_rate_pct": 3.4,
+      "order_cancel_rate_pct": 27.1,
+      "unique_skus": 511,
+      "revenue_rub": 56574715,
+      "paid_to_supplier_rub": 37084068,
+      "avg_check_rub": 732,
+      "top_categories": [
+        "Брюки",
+        "Халаты домашние",
+        "Пижамы",
+        "Футболки",
+        "Туники",
+        "Ночные сорочки"
+      ]
+    },
+    "wb_commission": "38% (Брюки)"
+  },
+  "telovijeniya": {
+    "legal_name": "ООО СКВТ",
+    "inn": "6453160814",
+    "location": "Энгельс, Саратовская обл.",
+    "founded": "2019-08-13",
+    "director": "Крылова Татьяна Валерьевна",
+    "founders": [
+      "Крылова Татьяна Валерьевна 33.54%",
+      "Сафаров Владимир Рафаэльевич 33.23%",
+      "Анасов Руслан Султанович 33.23%"
+    ],
+    "wb_brand": "Телодвижения",
+    "wb_start": "~2020",
+    "financials": {
+      "revenue_2022_rub": 356600000,
+      "profit_2022_rub": 43900000,
+      "profit_2024_rub": 630509000,
+      "revenue_growth_2022": "251%",
+      "profit_growth_2022": "751%"
+    },
+    "wb_ranking": {
+      "2022_q4": "170",
+      "2023_q4": "22"
+    },
+    "production": {
+      "factories": 4,
+      "locations": [
+        "Саратов",
+        "Энгельс",
+        "Петровск",
+        "Красноармейск"
+      ],
+      "own_production": true
+    },
+    "products": [
+      "Худи",
+      "Спортивные брюки",
+      "Свитшоты",
+      "Футболки"
+    ],
+    "segment": "спортивная одежда"
+  }
+}
