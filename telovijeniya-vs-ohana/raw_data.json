@@ -1,79 +1,124 @@
 {
   "collected_date": "2026-03-31",
-  "ohana_market": {
-    "legal_name": "ООО Охана маркет",
-    "inn": "5501191676",
-    "location": "Омск",
-    "founded": "2018-09-25",
-    "director": "Луцик Сауле Жунусовна",
-    "founder": "Шевалье Оксана Адольфовна",
-    "wb_brand": "Ohana market",
-    "wb_start": "2021",
-    "financials_2024": {
-      "revenue_rub": 2612379000,
-      "profit_rub": 222899000,
-      "margin_pct": 8.5
-    },
-    "wb_data_90d": {
-      "total_sales": 77280,
-      "returns": 2723,
-      "return_rate_pct": 3.4,
-      "order_cancel_rate_pct": 27.1,
-      "unique_skus": 511,
-      "revenue_rub": 56574715,
-      "paid_to_supplier_rub": 37084068,
-      "avg_check_rub": 732,
-      "top_categories": [
-        "Брюки",
-        "Халаты домашние",
-        "Пижамы",
-        "Футболки",
-        "Туники",
-        "Ночные сорочки"
-      ]
-    },
-    "wb_commission": "38% (Брюки)"
-  },
   "telovijeniya": {
-    "legal_name": "ООО СКВТ",
-    "inn": "6453160814",
-    "location": "Энгельс, Саратовская обл.",
-    "founded": "2019-08-13",
-    "director": "Крылова Татьяна Валерьевна",
-    "founders": [
-      "Крылова Татьяна Валерьевна 33.54%",
-      "Сафаров Владимир Рафаэльевич 33.23%",
-      "Анасов Руслан Султанович 33.23%"
+    "monthly_sales": {
+      "2026-01": {
+        "sales_units": 1257579,
+        "revenue_rub": 1765993457,
+        "skus": 4452,
+        "avg_daily_sales": 40567,
+        "avg_daily_revenue": 56967531
+      },
+      "2026-02": {
+        "sales_units": 1577166,
+        "revenue_rub": 2031024608,
+        "skus": 4990,
+        "avg_daily_sales": 56328,
+        "avg_daily_revenue": 72536593
+      },
+      "2026-03": {
+        "sales_units": 1759953,
+        "revenue_rub": 2872649334,
+        "skus": 5534,
+        "avg_daily_sales": 58665,
+        "avg_daily_revenue": 95754978
+      }
+    },
+    "avg_check_rub": 1403,
+    "q1_2026_revenue": 6669667399,
+    "top_skus": [
+      {
+        "id": 221519598,
+        "sales_30d": 20032,
+        "avg_price": 814,
+        "rating": 5,
+        "reviews": 62349
+      },
+      {
+        "id": 766217208,
+        "sales_30d": 5545,
+        "avg_price": 2904,
+        "rating": 5,
+        "reviews": 403
+      },
+      {
+        "id": 766217177,
+        "sales_30d": 5210,
+        "avg_price": 3107,
+        "rating": 5,
+        "reviews": 403
+      },
+      {
+        "id": 723079548,
+        "sales_30d": 4103,
+        "avg_price": 4903,
+        "rating": 5,
+        "reviews": 2358
+      },
+      {
+        "id": 732418234,
+        "sales_30d": 2899,
+        "avg_price": 6135,
+        "rating": 5,
+        "reviews": 22
+      }
     ],
-    "wb_brand": "Телодвижения",
-    "wb_start": "~2020",
-    "financials": {
-      "revenue_2022_rub": 356600000,
-      "profit_2022_rub": 43900000,
-      "profit_2024_rub": 630509000,
-      "revenue_growth_2022": "251%",
-      "profit_growth_2022": "751%"
-    },
-    "wb_ranking": {
-      "2022_q4": "170",
-      "2023_q4": "22"
-    },
     "production": {
-      "factories": 4,
-      "locations": [
-        "Саратов",
-        "Энгельс",
-        "Петровск",
-        "Красноармейск"
-      ],
-      "own_production": true
-    },
-    "products": [
-      "Худи",
-      "Спортивные брюки",
-      "Свитшоты",
-      "Футболки"
+      "factories": 16,
+      "daily_output": 40000,
+      "employees": 2500
+    }
+  },
+  "ohana_market": {
+    "wb_jan_2026_estimated_sales": 69117,
+    "avg_check_rub": 732,
+    "top_skus": [
+      {
+        "id": 367511803,
+        "sales_30d": 2081,
+        "avg_price": 462,
+        "rating": 5,
+        "reviews": 1511
+      },
+      {
+        "id": 316537255,
+        "sales_30d": 751,
+        "avg_price": 573,
+        "rating": 5,
+        "reviews": 1824
+      },
+      {
+        "id": 437634873,
+        "sales_30d": 620,
+        "avg_price": 949,
+        "rating": 5,
+        "reviews": 1994
+      },
+      {
+        "id": 94402995,
+        "sales_30d": 609,
+        "avg_price": 678,
+        "rating": 5,
+        "reviews": 5926
+      },
+      {
+        "id": 293797327,
+        "sales_30d": 543,
+        "avg_price": 540,
+        "rating": 5,
+        "reviews": 2982
+      }
     ],
-    "segment": "спортивная одежда"
+    "production": {
+      "factories": 0,
+      "own_production": false
+    }
+  },
+  "gap_analysis": {
+    "units_multiplier": "18x (Телодвижения vs Охана на WB)",
+    "revenue_multiplier": "~35x (на WB)",
+    "avg_check_ratio": "1403/732 = 1.9x",
+    "best_sku_sales_ratio": "20032/2081 = 9.6x",
+    "top_sku_reviews_ratio": "62349/5926 = 10.5x"
   }
 }
