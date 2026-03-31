@@ -1,0 +1,86 @@
+{
+  "period": "10.02.2026 — 11.03.2026 (MPStats)",
+  "source": "MPStats API + WB API + Открытые данные + Загруженные файлы",
+  "telovijeniya": {
+    "total_skus_wb": 5181,
+    "top100_revenue": 634542001,
+    "top100_sales": 385348,
+    "avg_check": 1647,
+    "avg_sku_price": 2567,
+    "total_reviews_top100": 4092590,
+    "price_distribution": {
+      "500-1000": "23%",
+      "1000-2000": "24%",
+      "2000-3500": "33%",
+      "3500+": "20%"
+    },
+    "top_categories": [
+      "Худи",
+      "Лонгсливы",
+      "Джинсы",
+      "Футболки",
+      "Верхняя одежда",
+      "Пальто"
+    ],
+    "production": {
+      "factories": 16,
+      "daily_output": 40000,
+      "employees": 2500
+    },
+    "monthly_wb": {
+      "2026-01": {
+        "units": 1257579,
+        "revenue": 1765993457
+      },
+      "2026-02": {
+        "units": 1577166,
+        "revenue": 2031024608
+      },
+      "2026-03": {
+        "units": 1759953,
+        "revenue": 2872649334
+      }
+    },
+    "financials": {
+      "profit_2024": 630509000,
+      "revenue_2022": 356600000
+    }
+  },
+  "ohana_market": {
+    "total_skus_wb": 769,
+    "top100_revenue": 123451182,
+    "top100_sales": 174901,
+    "avg_check": 706,
+    "avg_sku_price": 777,
+    "total_reviews_top100": 241440,
+    "price_distribution": {
+      "до 500": "5%",
+      "500-1000": "71%",
+      "1000-2000": "24%",
+      "2000+": "0%"
+    },
+    "top_categories": [
+      "Халаты",
+      "Шорты",
+      "Футболки",
+      "Брюки",
+      "Жилеты"
+    ],
+    "production": {
+      "own_factories": 0
+    },
+    "financials": {
+      "revenue_2024": 2612379000,
+      "profit_2024": 222899000,
+      "margin": "8.5%"
+    }
+  },
+  "comparison": {
+    "revenue_ratio_top100": "5.1x (Телодвижения / Охана)",
+    "units_ratio_top100": "2.2x",
+    "avg_check_ratio": "2.3x (1647 vs 706 ₽)",
+    "sku_count_ratio": "6.7x (5181 vs 769)",
+    "reviews_ratio": "17x (4.09M vs 241k)",
+    "price_segment": "Телодвижения — средний/выше среднего; Охана — бюджетный (71% SKU в 500-1000₽)"
+  }
+}
