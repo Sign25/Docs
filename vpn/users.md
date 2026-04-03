@@ -35,3 +35,4 @@
 | Шевченюк Александр | VYSJY3 | `https://vpn.adolf.su:24355/sub/VllTSlkzLDE3NzQwMDY5NDAXwHrIdKNq_` |
 | Шевалье Глеб | 2C5G6j | `https://vpn.adolf.su:24355/sub/MkM1RzZqLDE3NzQzNjE5ODkMWMG6Urw1c` |
 | Войтикова Юлия | IDhcaW | `https://vpn.adolf.su:24355/sub/SURoY2FXLDE3NzQyNjk5NDII_wqiG8UiY` |
+| Анастасия Короткова | lqf43ajf | https://vpn.adolf.su:24355/sub/bHFmNDNhamYsMTc3NTIwNjMzOQxWqwLnZ-VJ |
