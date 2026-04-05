@@ -58,6 +58,7 @@ GET /api/content/product?marketplace=wb&sku=ABC-001
 ```json
 {
   "sku": "123456789",
+  "vendor_code": "ABC-001",
   "title": "Оригинальное название",
   "description": "Оригинальное описание",
   "media_urls": ["https://basket-01.wb.ru/vol123/part456/123456789/images/big/1.webp"],
@@ -68,13 +69,13 @@ GET /api/content/product?marketplace=wb&sku=ABC-001
   "products": [
     {
       "sku": "123456789",
-      "main_photo": "https://basket-01.wb.ru/.../1.webp",
-      "vendor_code": "ABC-001"
+      "vendor_code": "ABC-001",
+      "main_photo": "https://basket-01.wb.ru/.../1.webp"
     },
     {
       "sku": "123456790",
-      "main_photo": "https://basket-01.wb.ru/.../1.webp",
-      "vendor_code": "ABC-002"
+      "vendor_code": "ABC-002",
+      "main_photo": "https://basket-01.wb.ru/.../1.webp"
     }
   ],
 

@@ -107,6 +107,7 @@ GET /api/content/product?marketplace=wb&sku=ABC-001
 ```json
 {
   "sku": "123456789",
+  "vendor_code": "ABC-001",
   "title": "Оригинальное название",
   "description": "Оригинальное описание",
   "media_urls": ["url1.jpg", "url2.jpg"],
@@ -116,15 +117,16 @@ GET /api/content/product?marketplace=wb&sku=ABC-001
   "products": [
     {
       "sku": "123456789",
+      "vendor_code": "ABC-001",
       "title": "Название варианта 1",
       "description": "Описание",
       "media_urls": ["url1.jpg"],
       "video_url": null,
-      "color": "Красный",
-      "vendor_code": "ABC-001"
+      "color": "Красный"
     },
     {
       "sku": "123456790",
+      "vendor_code": "ABC-002",
       "title": "Название варианта 2",
       "description": "Описание",
       "media_urls": ["url2.jpg"],
