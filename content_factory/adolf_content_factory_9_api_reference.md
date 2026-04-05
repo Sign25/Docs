@@ -1,21 +1,21 @@
-# ADOLF Content Factory REST API Reference (v1.2)
+# ADOLF Content Factory REST API Справочник (v1.2)
 
-## Overview
+## Обзор
 
-The Content Factory is a FastAPI-based service designed to generate SEO-optimized marketplace product card content using Claude Sonnet 4.5. It supports Wildberries, Ozon, and Яндекс Маркет integrations.
+Content Factory — это FastAPI-сервис, предназначенный для генерации SEO-оптимизированного контента карточек товаров маркетплейсов с помощью Claude Sonnet 4.5. Поддерживает интеграции с Wildberries, Ozon и Яндекс Маркет.
 
 **Base URL:** `http://<host>:3000`
 **Swagger UI:** `GET /docs`
 
 ---
 
-## Service Information
+## Информация о сервисе
 
 ### `GET /`
 
-Service details and current version.
+Описание сервиса и текущая версия.
 
-**Response:**
+**Ответ:**
 ```json
 {
   "service": "Content Factory",
@@ -26,30 +26,30 @@ Service details and current version.
 
 ### `GET /health`
 
-System status check.
+Проверка статуса системы.
 
 ### `GET /ready`
 
-Readiness check (including database connectivity).
+Проверка готовности (включая подключение к БД).
 
 ---
 
-## Product Data
+## Данные товаров
 
 ### `GET /api/content/product`
 
-Retrieve original product data from DB with validation and SEO analysis.
+Получить оригинальные данные товара из БД с валидацией и SEO-анализом.
 
-**Query Parameters:**
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `url` | string | One of url/sku | Marketplace product URL |
-| `sku` | string | One of url/sku | Product SKU (nmID) |
-| `marketplace` | string | No | `wb` / `ozon` / `ym` (auto-detected from URL) |
+**Query параметры:**
+| Параметр | Тип | Обязательно | Описание |
+|----------|-----|------------|---------|
+| `url` | string | Один из (url/sku) | URL товара на маркетплейсе |
+| `sku` | string | Один из (url/sku) | SKU товара (nmID) |
+| `marketplace` | string | Нет | `wb` / `ozon` / `ym` (автоопределяется из URL) |
 
-**Response:** Product data including `products[]` (all items in group/склейка), `validation`, `analysis` scores, `imt_id`, `group_count`.
+**Ответ:** Данные товара, включая `products[]` (все товары в группе/склейке), `validation`, `analysis` оценки, `imt_id`, `group_count`.
 
-**Поддержка склеек:** If a product belongs to a group (several colors/variants), returns data for all products sharing the same `imt_id`.
+**Поддержка склеек:** Если товар входит в группу (несколько цветов/вариантов), возвращает данные всех товаров с одинаковым `imt_id`.
 
 ### `GET /api/content/search`
 
@@ -128,13 +128,13 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 
 ---
 
-## Content Generation
+## Генерация контента
 
 ### `POST /api/content/generate`
 
-Generate AI-powered SEO title, description, and tags for a product.
+Генерация SEO-названия, описания и тегов для товара с помощью AI.
 
-**Request:**
+**Запрос:**
 ```json
 {
   "url": "https://www.wildberries.ru/catalog/123456789/detail.aspx",
@@ -143,7 +143,7 @@ Generate AI-powered SEO title, description, and tags for a product.
 }
 ```
 
-**Response:**
+**Ответ:**
 ```json
 {
   "draft_id": "uuid",
@@ -159,7 +159,7 @@ Generate AI-powered SEO title, description, and tags for a product.
     "is_valid": true,
     "issues": []
   },
-  "analysis": { "...": "SEO score metrics" },
+  "analysis": { "...": "SEO оценки" },
   "is_valid": true,
   "created_at": "2024-01-01T00:00:00Z"
 }
@@ -177,9 +177,9 @@ Generate AI-powered SEO title, description, and tags for a product.
 
 ### `POST /api/content/regenerate`
 
-Regenerate content with manager feedback and/or previous context.
+Перегенерация контента с учётом обратной связи менеджера и/или предыдущего контекста.
 
-**Request:**
+**Запрос:**
 ```json
 {
   "draft_id": "uuid",
@@ -187,17 +187,17 @@ Regenerate content with manager feedback and/or previous context.
 }
 ```
 
-**Response:** Same structure as `/generate` (new `draft_id`).
+**Ответ:** Такая же структура как `/generate` (новый `draft_id`).
 
 ---
 
-## Publishing
+## Публикация
 
 ### `POST /api/content/drafts/{draft_id}/approve`
 
-Approve a draft and publish to marketplace.
+Утвердить черновик и опубликовать на маркетплейс.
 
-**Request:**
+**Запрос:**
 ```json
 {
   "title": "Финальное название",
@@ -208,15 +208,15 @@ Approve a draft and publish to marketplace.
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | Yes | Final title |
-| `description` | string | Yes | Final description |
-| `seo_tags` | string[] | No | SEO tags (WB → «Комплектация», Ozon → `keywords`, YM → ignored) |
-| `update_all_in_group` | bool | No | Update all cards in group (default: false) |
-| `source` | string | No | `manual` (default) or `auto` |
+| Поле | Тип | Обязательно | Описание |
+|------|-----|------------|---------|
+| `title` | string | Да | Финальное название |
+| `description` | string | Да | Финальное описание |
+| `seo_tags` | string[] | Нет | SEO теги (WB → «Комплектация», Ozon → `keywords`, YM → игнорируется) |
+| `update_all_in_group` | bool | Нет | Обновить все карточки в группе (по умолчанию: false) |
+| `source` | string | Нет | `manual` (по умолчанию) или `auto` |
 
-**Response:**
+**Ответ:**
 ```json
 {
   "success": true,
@@ -228,65 +228,65 @@ Approve a draft and publish to marketplace.
 
 ---
 
-## Monitoring
+## Мониторинг
 
 ### `GET /api/content/approvals/history`
 
-Publication history with filtering.
+История публикаций с фильтрацией.
 
-**Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `marketplace` | string | — | Filter by marketplace (`wb` / `ozon` / `ym`) |
-| `source` | string | — | Filter by source (`manual` / `auto`) |
-| `limit` | int | 50 | Max results |
-| `offset` | int | 0 | Pagination offset |
+**Query параметры:**
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|------------|---------|
+| `marketplace` | string | — | Фильтр по маркетплейсу (`wb` / `ozon` / `ym`) |
+| `source` | string | — | Фильтр по источнику (`manual` / `auto`) |
+| `limit` | int | 50 | Максимум результатов |
+| `offset` | int | 0 | Смещение для пагинации |
 
 ### `GET /api/content/{marketplace}/errors`
 
-Moderation errors by marketplace.
+Ошибки модерации по маркетплейсам.
 
-**Path:** `marketplace` — `wb`, `ozon`, or `ym`
-**Query:** `?sku=203873004` (optional)
+**Path:** `marketplace` — `wb`, `ozon` или `ym`
+**Query:** `?sku=203873004` (опционально)
 
 ### `GET /api/auto-process/content/preview`
 
-Preview low-scoring product candidates for auto-processing.
+Предпросмотр товаров с низкими оценками для автоматической обработки.
 
-**Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `marketplace` | string | `wb` | Target marketplace |
-| `limit` | int | 50 | Max results |
-| `offset` | int | 0 | Pagination offset |
+**Query параметры:**
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|------------|---------|
+| `marketplace` | string | `wb` | Целевой маркетплейс |
+| `limit` | int | 50 | Максимум результатов |
+| `offset` | int | 0 | Смещение для пагинации |
 
 ---
 
-## Marketplace Card Endpoints
+## Эндпоинты маркетплейсов
 
 ### `GET /api/content/{marketplace}/card/{sku}`
 
-Get current card state from marketplace API.
+Получить текущее состояние карточки из API маркетплейса.
 
-**Path:** `marketplace` — `wb`, `ozon`, or `ym`; `sku` — product SKU
+**Path:** `marketplace` — `wb`, `ozon` или `ym`; `sku` — SKU товара
 
 ### `GET /api/content/wb/card-by-vendor/{vendor_code}`
 
-Get WB card by seller's vendor code.
+Получить карточку WB по артикулу продавца.
 
 ### `GET /api/content/wb/my-cards`
 
-List all seller's WB cards (for diagnostics). **Query:** `?limit=50`
+Список всех карточек продавца на WB (для диагностики). **Query:** `?limit=50`
 
 ---
 
-## Settings & Token Monitoring
+## Настройки и мониторинг токенов
 
 ### `GET /api/settings`
 
-Get current application settings including **marketplace token status monitoring**.
+Получить текущие настройки приложения, включая **мониторинг статуса токенов маркетплейсов**.
 
-**Response:**
+**Ответ:**
 ```json
 {
   "auto_check_threshold": 98,
@@ -332,39 +332,39 @@ Get current application settings including **marketplace token status monitoring
 }
 ```
 
-All token values are **masked** in responses (first 4 chars + `***`).
+Все значения токенов **скрыты** в ответах (первые 4 символа + `***`).
 
-#### Token Monitoring
+#### Мониторинг токенов
 
-The `tokens_status` field is populated by a background scheduler that runs every **12 hours**. On app startup, the first check occurs after ~10 seconds.
+Поле `tokens_status` заполняется фоновым планировщиком, запускаемым каждые **12 часов**. При запуске приложения первая проверка происходит через ~10 секунд.
 
-**How each token is checked:**
+**Как проверяется каждый токен:**
 
-| Marketplace | Method | Expiration |
-|-------------|--------|------------|
-| **WB** | JWT decode (`exp` claim from payload) | 180 days from creation |
-| **Ozon** | Test API call (`POST /v3/product/list` with limit=1) | Indefinite (until deleted) |
-| **YM** | Test API call (`POST /businesses/{id}/offer-mappings` with limit=1) | Indefinite (until deleted) |
+| Маркетплейс | Метод | Срок действия |
+|-------------|-------|--------------|
+| **WB** | Декодирование JWT (параметр `exp`) | 180 дней с момента создания |
+| **Ozon** | Тестовый вызов API (`POST /v3/product/list` с limit=1) | Неограниченный (до удаления) |
+| **YM** | Тестовый вызов API (`POST /businesses/{id}/offer-mappings` с limit=1) | Неограниченный (до удаления) |
 
-**Token status values:**
+**Значения статуса токена:**
 
-| Status | Description |
-|--------|-------------|
-| `active` | Token is valid and working |
-| `expiring_soon` | WB only: less than 30 days remaining |
-| `critical` | WB only: less than 7 days remaining |
-| `expired` | WB only: JWT `exp` is in the past |
-| `invalid` | Token exists but API returned 401/403 |
-| `error` | Token exists but API call failed (network/timeout) |
-| `not_configured` | Token is empty or missing |
+| Статус | Описание |
+|--------|---------|
+| `active` | Токен активен и работает |
+| `expiring_soon` | Только WB: менее 30 дней осталось |
+| `critical` | Только WB: менее 7 дней осталось |
+| `expired` | Только WB: параметр JWT `exp` в прошлом |
+| `invalid` | Токен существует, но API вернул 401/403 |
+| `error` | Токен существует, но вызов API не удался (сеть/таймаут) |
+| `not_configured` | Токен отсутствует или пуст |
 
-If `tokens_status` is `null`, the first background check hasn't completed yet (app just started).
+Если `tokens_status` равен `null`, первая фоновая проверка ещё не завершена (приложение только что запущилось).
 
 ### `PUT /api/settings`
 
-Update application settings (partial updates supported).
+Обновить настройки приложения (поддерживаются частичные обновления).
 
-**Request:**
+**Запрос:**
 ```json
 {
   "auto_check_threshold": 95,
@@ -374,62 +374,62 @@ Update application settings (partial updates supported).
 }
 ```
 
-All fields are optional. Masked values (containing `***`) are automatically skipped to prevent overwriting real tokens.
+Все поля опциональны. Скрытые значения (содержащие `***`) автоматически пропускаются, чтобы не перезаписывать реальные токены.
 
-**Configurable fields:**
+**Настраиваемые поля:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `auto_check_threshold` | int (0-100) | Quality score threshold for auto-check |
+| Поле | Тип | Описание |
+|------|-----|---------|
+| `auto_check_threshold` | int (0-100) | Порог качества для автоматической проверки |
 | `auto_check_interval` | string | `daily`, `every_2_days`, `weekly`, `every_2_weeks`, `monthly` |
-| `auto_check_enabled` | bool | Enable/disable auto content check |
-| `tag_scheduler_enabled` | bool | Enable/disable seasonal tag scheduler |
-| `wb_token` | string | Wildberries API token |
+| `auto_check_enabled` | bool | Включить/отключить автоматическую проверку контента |
+| `tag_scheduler_enabled` | bool | Включить/отключить сезонный планировщик тегов |
+| `wb_token` | string | API токен Wildberries |
 | `ozon_client_id` | string | Ozon Seller Client ID |
 | `ozon_api_key` | string | Ozon Seller API Key |
-| `ym_api_key` | string | Yandex Market API Key |
-| `ym_business_id` | string | Yandex Market Business ID |
+| `ym_api_key` | string | Яндекс Маркет API Key |
+| `ym_business_id` | string | Яндекс Маркет Business ID |
 
 ---
 
-## Key Concepts
+## Ключевые концепции
 
-### Validation Framework
+### Фреймворк валидации
 
-Content undergoes automated checking for:
-- Character limits per marketplace (title max, description min/max)
-- Forbidden terms (superlatives, guarantees, marketing words)
-- URLs, domains, emails, phone numbers, Telegram links
-- HTML tags
-- Repetition/spam patterns (word > 4% of text)
+Контент проверяется автоматически на:
+- Ограничения по символам для каждого маркетплейса (максимум названия, минимум/максимум описания)
+- Запрещённые слова (превосходные степени, гарантии, маркетинговые слова)
+- URL, домены, email адреса, телефоны, ссылки на Telegram
+- HTML теги
+- Паттерны повтора/спама (слово > 4% текста)
 
-Auto-correction: if AI generates content with validation errors, the system retries once automatically.
+Автокоррекция: если AI генерирует контент с ошибками валидации, система автоматически повторяет попытку один раз.
 
-### Marketplace Limits
+### Ограничения маркетплейсов
 
-| Marketplace | Title max | Description min | Description max |
-|-------------|-----------|-----------------|-----------------|
-| WB | 60 chars | 1,000 chars | 5,000 chars |
-| Ozon | 255 chars | 100 chars | 6,000 chars |
-| YM | 150 chars | 100 chars | 3,000 chars |
+| Маркетплейс | Максимум названия | Минимум описания | Максимум описания |
+|-------------|------------------|-----------------|------------------|
+| WB | 60 символов | 1,000 символов | 5,000 символов |
+| Ozon | 255 символов | 100 символов | 6,000 символов |
+| YM | 150 символов | 100 символов | 3,000 символов |
 
-### Group Handling (Склейки)
+### Обработка групп (Склейки)
 
-Products in a "склейка" (bundled group sharing `imt_id`) can be processed:
-- **Individually:** Generate/approve for one SKU
-- **As a group:** Set `update_all_in_group: true` in approve to update all cards in the group
+Товары в "склейке" (группе товаров с одинаковым `imt_id`) можно обрабатывать:
+- **Отдельно:** Генерировать/утверждать для одного SKU
+- **Как группу:** Установить `update_all_in_group: true` при утверждении, чтобы обновить все карточки в группе
 
-### Publication Tracking
+### Отслеживание публикаций
 
-The `source` field distinguishes between:
-- `manual` — manager-reviewed and approved
-- `auto` — scheduled/automated approval
+Поле `source` различает между:
+- `manual` — проверено менеджером и утверждено
+- `auto` — автоматическое/запланированное утверждение
 
-### SEO Analysis
+### SEO-анализ
 
-Generation responses include `analysis` with three metrics:
-- **Title quality** — keyword relevance, length optimization
-- **Description quality** — completeness, keyword density
-- **Foreign words** — detection of non-Russian terms
+Ответы генерации включают `analysis` с тремя метриками:
+- **Качество названия** — релевантность ключевых слов, оптимизация длины
+- **Качество описания** — полнота, плотность ключевых слов
+- **Иностранные слова** — обнаружение не-русских терминов
 
-Each metric has a score (0-100) and the response includes `total_score` for overall quality.
+Каждая метрика имеет оценку (0-100), ответ включает `total_score` для общей оценки качества.
