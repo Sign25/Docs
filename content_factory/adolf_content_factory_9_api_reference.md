@@ -53,30 +53,30 @@ Retrieve original product data from DB with validation and SEO analysis.
 
 ### `GET /api/content/search`
 
-Search for products by article number (SKU or vendor_code) across all or specific marketplaces.
+Поиск товаров по артикулу (SKU или vendor_code) в одном или всех маркетплейсах.
 
-**Supports two scenarios:**
-1. **Search across all marketplaces** — returns products from WB, Ozon, Яндекс Маркет
-2. **Search within a specific marketplace** — returns products only from specified MP
+**Поддерживает два сценария:**
+1. **Поиск по всем маркетплейсам** — возвращает товары из WB, Ozon, Яндекс Маркета
+2. **Поиск в конкретном маркетплейсе** — возвращает товары только из указанного МП
 
-**Query Parameters:**
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `query` | string | Yes | — | SKU or vendor_code to search (1-50 chars) |
-| `marketplace` | string | No | — | Filter by marketplace: `wb` / `ozon` / `ym`. Omit to search all. |
-| `limit` | integer | No | 50 | Results per page (1-500) |
-| `offset` | integer | No | 0 | Pagination offset |
+**Query параметры:**
+| Параметр | Тип | Обязательно | По умолчанию | Описание |
+|----------|-----|------------|-------------|---------|
+| `query` | string | Да | — | Артикул для поиска: SKU или vendor_code (1-50 символов) |
+| `marketplace` | string | Нет | — | Фильтр по маркетплейсу: `wb` / `ozon` / `ym`. Без параметра — ищет по всем. |
+| `limit` | integer | Нет | 50 | Товаров на странице (1-500) |
+| `offset` | integer | Нет | 0 | Смещение для пагинации |
 
-**Example Requests:**
+**Примеры запросов:**
 ```
-# Search all marketplaces
+# Поиск по всем маркетплейсам
 GET /api/content/search?query=203873004
 
-# Search specific marketplace with pagination
+# Поиск в конкретном МП с пагинацией
 GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 ```
 
-**Response:**
+**Ответ:**
 ```json
 {
   "query": "203873004",
@@ -98,33 +98,33 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 }
 ```
 
-**Product Fields:**
-| Field | Type | Description |
-|-------|------|-------------|
-| `external_id` | string | Marketplace SKU (nmID for WB) |
-| `vendor_code` | string / null | Seller's article number |
-| `marketplace` | string | Marketplace code: `wb`, `ozon`, `ym` |
-| `title` | string | Product title |
-| `brand_tag` | string / null | Brand name |
-| `imt_id` | int / null | Group ID if product belongs to склейка (group) |
-| `updated_at` | datetime | Last update time in DB |
+**Поля товара в результатах:**
+| Поле | Тип | Описание |
+|------|-----|---------|
+| `external_id` | string | SKU товара на маркетплейсе (nmID для WB) |
+| `vendor_code` | string / null | Артикул продавца |
+| `marketplace` | string | Код маркетплейса: `wb`, `ozon`, `ym` |
+| `title` | string | Название товара |
+| `brand_tag` | string / null | Бренд товара |
+| `imt_id` | int / null | ID группы, если товар в склейке (group) |
+| `updated_at` | datetime | Дата последнего обновления в БД |
 
-**Search Algorithm:**
-1. Searches by `external_id::TEXT LIKE '%query%'` OR `vendor_code LIKE '%query%'`
-2. Prioritizes exact matches (shows them first)
-3. Applies marketplace filter if specified
-4. Returns results with pagination (LIMIT/OFFSET)
+**Алгоритм поиска:**
+1. Ищет по `external_id::TEXT LIKE '%query%'` ИЛИ `vendor_code LIKE '%query%'`
+2. Приоритет точным совпадениям (показывает их в начале)
+3. Применяет фильтр по маркетплейсу (если указан)
+4. Возвращает результаты с пагинацией (LIMIT/OFFSET)
 
-**Status Codes:**
-- `200 OK` — Search completed (even if no results)
-- `400 Bad Request` — Invalid marketplace or query > 50 chars
-- `422 Unprocessable Entity` — Validation error (limit > 500, offset < 0)
+**HTTP статус коды:**
+- `200 OK` — Поиск выполнен успешно (даже если ничего не найдено)
+- `400 Bad Request` — Неверный маркетплейс или query > 50 символов
+- `422 Unprocessable Entity` — Ошибка валидации (limit > 500, offset < 0)
 
-**Notes:**
-- Empty results return `total_count: 0` and `products: []` (no error)
-- Search is case-insensitive (SQL LIKE query)
-- Supports partial matching (e.g., query="203" finds all products starting with "203")
-- When searching specific marketplace and no results found, returns empty array
+**Особенности:**
+- Пустой результат возвращает `total_count: 0` и `products: []` (это не ошибка)
+- Поиск регистронечувствителен (SQL LIKE)
+- Поддерживает частичное совпадение (например, query="203" найдёт все товары, начинающиеся с "203")
+- Если ничего не найдено в выбранном МП, возвращается пустой массив
 
 ---
 
