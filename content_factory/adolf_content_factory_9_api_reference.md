@@ -1,647 +1,303 @@
----
-title: "Раздел 9: REST API Reference"
-mode: "wide"
----
+# ADOLF Content Factory REST API Reference (v1.2)
 
-**Проект:** ADOLF — AI-Driven Operations Layer Framework
-**Модуль:** Content Factory / REST API
-**Версия:** 1.2.24
-**Дата:** Март 2026
+## Overview
 
----
+The Content Factory is a FastAPI-based service designed to generate SEO-optimized marketplace product card content using Claude Sonnet 4.5. It supports Wildberries, Ozon, and Яндекс Маркет integrations.
 
-## 9.1 Обзор
-
-Content Factory API — FastAPI-приложение для генерации SEO-контента карточек товаров маркетплейсов.
-
-| Параметр | Значение |
-|----------|----------|
-| Фреймворк | FastAPI (Python 3.11+) |
-| Формат | JSON |
-| Base URL | `http://localhost:3000` |
-| Swagger UI | `/docs` |
-| Аутентификация | Нет (внутренний сервис) |
-| Пагинация | offset-based (`?offset=0&limit=50`) |
-
-```mermaid
-flowchart LR
-    CLIENT["Frontend<br/>(SvelteKit)"] -->|"HTTP :3000"| API["FastAPI<br/>Content Factory"]
-    API --> DB[("PostgreSQL<br/>asyncpg")]
-    API --> WB["WB API"]
-    API --> OZON["Ozon API"]
-    API --> YM["YM API"]
-```
-
-### Поддерживаемые маркетплейсы
-
-| Код | Маркетплейс | Статус |
-|-----|-------------|--------|
-| `wb` | Wildberries | Полная поддержка |
-| `ozon` | Ozon | Полная поддержка |
-| `ym` | Яндекс Маркет | Полная поддержка |
-
-### Коды ответов
-
-| Код | Ситуация |
-|:---:|----------|
-| 200 | Успех |
-| 400 | Ошибка валидации / некорректный запрос |
-| 404 | Товар или черновик не найден |
-| 500 | Внутренняя ошибка |
-| 502 | Ошибка API маркетплейса |
+**Base URL:** `http://<host>:3000`
+**Swagger UI:** `GET /docs`
 
 ---
 
-## 9.2 Health & Service Info
+## Service Information
 
-| Метод | Путь | Описание |
-|:-----:|------|----------|
-| GET | `/` | Информация о сервисе |
-| GET | `/health` | Health check |
+### `GET /`
 
-#### GET /
+Service details and current version.
 
-Корневой эндпоинт с информацией о сервисе.
-
-**Доступ:** Публичный
-
-**Ответ:**
-
+**Response:**
 ```json
 {
   "service": "Content Factory",
-  "version": "1.2.24",
-  "docs": "/docs"
+  "version": "1.2.20",
+  "status": "running"
 }
 ```
 
----
+### `GET /health`
 
-#### GET /health
+System status check.
 
-Проверка работоспособности сервиса.
+### `GET /ready`
 
-**Доступ:** Публичный
-
-**Ответ:**
-
-```json
-{
-  "status": "ok",
-  "service": "content-factory"
-}
-```
+Readiness check (including database connectivity).
 
 ---
 
-## 9.3 Данные товара
+## Product Data
 
-#### GET /api/content/product
+### `GET /api/content/product`
 
-Получить данные товара из БД, включая все товары в склейке (группе), валидацию текущего контента и SEO-анализ.
+Retrieve original product data from DB with validation and SEO analysis.
 
-**Доступ:** Senior+
+**Query Parameters:**
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | One of url/sku | Marketplace product URL |
+| `sku` | string | One of url/sku | Product SKU (nmID) |
+| `marketplace` | string | No | `wb` / `ozon` / `ym` (auto-detected from URL) |
 
-**Query параметры:**
+**Response:** Product data including `products[]` (all items in group/склейка), `validation`, `analysis` scores, `imt_id`, `group_count`.
 
-| Параметр | Тип | Обязателен | Описание |
-|----------|-----|:----------:|----------|
-| `url` | string | нет* | URL товара на маркетплейсе |
-| `sku` | string | нет* | Артикул товара (nmID) |
-| `marketplace` | string | нет | Маркетплейс (`wb`, `ozon`, `ym`). Используется только для парсинга SKU из URL |
+**Поддержка склеек:** If a product belongs to a group (several colors/variants), returns data for all products sharing the same `imt_id`.
 
-\* Необходимо указать `url` или `sku` (хотя бы один).
+### `GET /api/content/search`
 
-> **Важно:** Маркетплейс для валидации и анализа берётся из БД (поле `marketplace` в `reputation_products`), а не из параметра запроса. Даже если указать `marketplace=wb` для товара Ozon — валидация пройдёт по лимитам Ozon.
+Search for products by article number (SKU or vendor_code) across all or specific marketplaces.
 
-**Пример запроса:**
+**Supports two scenarios:**
+1. **Search across all marketplaces** — returns products from WB, Ozon, Яндекс Маркет
+2. **Search within a specific marketplace** — returns products only from specified MP
 
+**Query Parameters:**
+| Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `query` | string | Yes | — | SKU or vendor_code to search (1-50 chars) |
+| `marketplace` | string | No | — | Filter by marketplace: `wb` / `ozon` / `ym`. Omit to search all. |
+| `limit` | integer | No | 50 | Results per page (1-500) |
+| `offset` | integer | No | 0 | Pagination offset |
+
+**Example Requests:**
 ```
-GET /api/content/product?sku=203873004&marketplace=wb
+# Search all marketplaces
+GET /api/content/search?query=203873004
+
+# Search specific marketplace with pagination
+GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 ```
 
-**Пример ответа:**
-
+**Response:**
 ```json
 {
-  "sku": "203873004",
-  "vendor_code": "16378",
+  "query": "203873004",
   "marketplace": "wb",
-  "title": "Носки мужские длинные хлопок",
-  "description": "Носки мужские из хлопка...",
-  "media_urls": [
-    "https://basket-12.wbbasket.ru/vol1234/part12345/203873004/images/big/1.webp",
-    "https://basket-12.wbbasket.ru/vol1234/part12345/203873004/images/big/2.webp"
-  ],
-  "video_url": null,
-  "imt_id": 98765432,
-  "group_count": 3,
+  "total_count": 1,
+  "limit": 50,
+  "offset": 0,
   "products": [
     {
-      "sku": "203873004",
-      "main_photo": "https://basket-12.wbbasket.ru/.../1.webp",
-      "vendor_code": "16378"
-    },
-    {
-      "sku": "203873005",
-      "main_photo": "https://basket-12.wbbasket.ru/.../1.webp",
-      "vendor_code": "16379"
-    }
-  ],
-  "validation": {
-    "is_valid": false,
-    "issues": [
-      {
-        "field": "description",
-        "message": "Описание слишком короткое (минимум 500 символов)",
-        "severity": "error"
-      }
-    ]
-  },
-  "analysis": {
-    "total_score": 45,
-    "is_valid": false,
-    "metrics": {
-      "title_quality": {
-        "name": "Качество заголовка",
-        "score": 60,
-        "max_score": 100,
-        "status": "warning",
-        "details": "Заголовок короткий",
-        "issues": []
-      },
-      "description_quality": {
-        "name": "Качество описания",
-        "score": 30,
-        "max_score": 100,
-        "status": "error",
-        "details": "Описание слишком короткое",
-        "issues": []
-      },
-      "foreign_words": {
-        "name": "Иностранные слова",
-        "score": 100,
-        "max_score": 100,
-        "status": "good",
-        "details": "Иностранных слов не найдено",
-        "issues": []
-      }
-    }
-  }
-}
-```
-
-**Поля ответа:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `sku` | string | Артикул товара (nmID) |
-| `vendor_code` | string \| null | Артикул продавца |
-| `marketplace` | string | Маркетплейс товара |
-| `title` | string \| null | Оригинальное название |
-| `description` | string \| null | Оригинальное описание |
-| `media_urls` | list[string] | Фото товара |
-| `video_url` | string \| null | Видео товара |
-| `imt_id` | int \| null | ID склейки (`null` если не в группе) |
-| `group_count` | int | Количество товаров в склейке (1 если без склейки) |
-| `products` | list[ProductItem] | Все товары в склейке |
-| `validation` | ValidationResult \| null | Валидация текущего контента |
-| `analysis` | ContentAnalysis \| null | SEO-анализ текущего контента |
-
-**ProductItem (товар в склейке):**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `sku` | string | Артикул товара |
-| `main_photo` | string \| null | Главное фото |
-| `vendor_code` | string \| null | Артикул продавца |
-
----
-
-## 9.4 Генерация контента
-
-### Таблица эндпоинтов
-
-| Метод | Путь | Описание |
-|:-----:|------|----------|
-| POST | `/api/content/generate` | Генерация SEO-контента |
-| POST | `/api/content/regenerate` | Перегенерация с заметками менеджера |
-
----
-
-#### POST /api/content/generate
-
-Генерация SEO-оптимизированного названия и описания для товара.
-
-**Доступ:** Senior+
-
-**Request body:**
-
-```json
-{
-  "url": "https://www.wildberries.ru/catalog/203873004/detail.aspx",
-  "sku": "203873004",
-  "marketplace": "wb",
-  "generate_for_group": false
-}
-```
-
-| Поле | Тип | Обязателен | Описание |
-|------|-----|:----------:|----------|
-| `url` | string | нет* | URL товара |
-| `sku` | string | нет* | Артикул (nmID) |
-| `marketplace` | string | нет | `wb` / `ozon` / `ym`. По умолчанию `wb` |
-| `generate_for_group` | bool | нет | Генерация для всей склейки. По умолчанию `false` |
-
-\* Необходимо указать `url` или `sku`.
-
-**Пример ответа:**
-
-```json
-{
-  "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "sku": "203873004",
-  "vendor_code": "16378",
-  "marketplace": "wb",
-  "title": "Носки мужские высокие хлопковые комплект набор для спорта и повседневной носки",
-  "description": "Мужские носки из натурального хлопка обеспечивают комфорт в течение всего дня...",
-  "seo_tags": ["носки мужские", "хлопок", "комплект"],
-  "imt_id": 98765432,
-  "group_nm_ids": [203873004, 203873005, 203873006],
-  "generated_for_group": false,
-  "validation": {
-    "is_valid": true,
-    "issues": []
-  },
-  "is_valid": true,
-  "validation_fixes": null,
-  "analysis": {
-    "total_score": 95,
-    "is_valid": true,
-    "metrics": {
-      "title_quality": { "score": 90, "status": "good", "..." : "..." },
-      "description_quality": { "score": 95, "status": "good", "..." : "..." },
-      "foreign_words": { "score": 100, "status": "good", "..." : "..." }
-    }
-  },
-  "comparison": {
-    "total_before": 45,
-    "total_after": 95,
-    "improvements": [
-      { "metric": "title_quality", "before": 60, "after": 90, "diff": 30 },
-      { "metric": "description_quality", "before": 30, "after": 95, "diff": 65 }
-    ],
-    "fixed_errors": ["Описание слишком короткое"]
-  },
-  "created_at": "2026-02-24T12:00:00Z"
-}
-```
-
-#### SEO-теги по маркетплейсам
-
-| Маркетплейс | Формат `seo_tags` | Куда отправляются при публикации |
-|:-----------:|-------------------|:-------------------------------:|
-| **WB** | Поисковые фразы, 10-15 штук | Поле «Комплектация» |
-| **Ozon** | Хештеги через `_`, 5-10 штук | Поле `keywords` |
-| **YM** | Не генерируются | — |
-
-> **Ozon:** SEO-теги генерируются как хештеги — слова через нижнее подчёркивание, без символа `#`, всё строчными, максимум 30 символов каждый. К каждому хештегу автоматически добавляется бренд товара. При публикации отправляются в поле `keywords` через `POST /v1/product/import-by-sku`.
-
-**Записи в БД:**
-
-| Таблица | Операция |
-|---------|----------|
-| `content_generations` | INSERT (pending) → UPDATE (processing) → UPDATE (completed) |
-| `content_drafts` | INSERT (status=`draft`) |
-
-**Флоу:**
-
-```mermaid
-flowchart TD
-    A[Запрос /generate] --> B[Получить товар из БД]
-    B --> C[Создать запись в content_generations]
-    C --> D[Генерация контента]
-    D --> E{Валидация}
-    E -->|Ошибки| F[Автоисправление]
-    F --> G{Повторная валидация}
-    G -->|OK| H[Сохранить черновик]
-    G -->|Ошибки| H
-    E -->|OK| H
-    H --> I[Вернуть результат]
-```
-
----
-
-#### POST /api/content/regenerate
-
-Перегенерация контента с учётом предыдущего результата и пожеланий менеджера.
-
-**Доступ:** Senior+
-
-**Request body:**
-
-```json
-{
-  "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "manager_notes": "Сделай описание с акцентом на натуральность материала",
-  "generate_for_group": false
-}
-```
-
-| Поле | Тип | Обязателен | Описание |
-|------|-----|:----------:|----------|
-| `draft_id` | UUID | да | ID предыдущего черновика |
-| `manager_notes` | string | нет | Пожелания менеджера |
-| `generate_for_group` | bool | нет | Генерация для склейки. По умолчанию `false` |
-
-**Ответ:** аналогичен `/generate` (новый `draft_id`, предыдущий черновик не трогается).
-
-**Записи в БД:**
-
-| Таблица | Операция |
-|---------|----------|
-| `content_generations` | INSERT (новая запись) |
-| `content_drafts` | INSERT (новый черновик) |
-
----
-
-## 9.5 Утверждение и публикация
-
-#### POST /api/content/drafts/\{draft_id\}/approve
-
-Утвердить черновик и опубликовать финальные данные на маркетплейс.
-
-**Доступ:** Senior+
-
-**Path параметры:**
-
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `draft_id` | UUID | ID утверждаемого черновика |
-
-**Request body:**
-
-```json
-{
-  "title": "Носки мужские высокие хлопковые комплект набор для спорта",
-  "description": "Мужские носки из натурального хлопка обеспечивают комфорт...",
-  "seo_tags": ["носки мужские", "хлопок", "комплект"],
-  "update_all_in_group": false,
-  "source": "manual"
-}
-```
-
-| Поле | Тип | Обязателен | Описание |
-|------|-----|:----------:|----------|
-| `title` | string | да | Финальное название (может отличаться от черновика) |
-| `description` | string | да | Финальное описание |
-| `seo_tags` | list[string] | нет | SEO-теги (WB → «Комплектация», Ozon → `keywords`, YM → не отправляются) |
-| `update_all_in_group` | bool | нет | Обновить все карточки в склейке. По умолчанию `false` |
-| `source` | string | нет | Тип обработки: `manual` или `auto`. По умолчанию `manual` |
-
-**Логика поля `source`:**
-
-| Сценарий | Кто вызывает | `source` |
-|----------|-------------|:--------:|
-| Менеджер утвердил вручную | Фронт → `POST /approve` | `manual` (по умолчанию) |
-| Менеджер нажал "авто" возле SKU | Фронт → `POST /approve` с `source: "auto"` | `auto` |
-| Scheduler / авто-обработка | `auto_content_service` → `approve_draft()` | `auto` (передаётся в коде) |
-
-- **`manual`** — менеджер просмотрел и/или отредактировал контент перед публикацией
-- **`auto`** — контент опубликован без ручной проверки (авто-кнопка или планировщик)
-
-**Пример ответа (успех):**
-
-```json
-{
-  "success": true,
-  "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "vendor_code": "16378",
-  "message": "Карточка успешно обновлена на Wildberries",
-  "updated_nm_ids": [203873004]
-}
-```
-
-**Пример ответа (склейка, `update_all_in_group: true`):**
-
-```json
-{
-  "success": true,
-  "draft_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "vendor_code": "16378",
-  "message": "Обновлены 3 карточки в склейке на Wildberries",
-  "updated_nm_ids": [203873004, 203873005, 203873006]
-}
-```
-
-**Коды ошибок:**
-
-| Код | Ситуация |
-|:---:|----------|
-| 404 | Черновик не найден |
-| 502 | Ошибка API маркетплейса |
-
-**Записи в БД:**
-
-| Таблица | Операция |
-|---------|----------|
-| `content_publications` | INSERT (финальные данные менеджера) |
-| `content_drafts` | UPDATE (только status → `approved`, оригинал не трогаем) |
-
-**Важно:** Оригинал в `content_drafts` **не изменяется** при approve. Финальные данные менеджера сохраняются отдельно в `content_publications`.
-
-**Флоу:**
-
-```mermaid
-flowchart TD
-    A[POST /approve] --> B[Получить черновик]
-    B --> C[Получить товар + карточку с маркетплейса]
-    C --> D{update_all_in_group?}
-    D -->|Да| E[Обновить все карточки в склейке]
-    D -->|Нет| F[Обновить одну карточку]
-    E --> G[Сохранить в content_publications]
-    F --> G
-    G --> H[Обновить статус черновика → approved]
-    H --> I[Вернуть результат]
-```
-
----
-
-## 9.6 История публикаций
-
-#### GET /api/content/approvals/history
-
-История всех публикаций контента с фильтрацией по источнику (авто/ручной).
-
-> Показываются только записи начиная с 26.02.2026.
-
-**Доступ:** Senior+
-
-**Query параметры:**
-
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|:------------:|----------|
-| `marketplace` | string | — | Фильтр: `wb`, `ozon`, `ym` |
-| `source` | string | — | Фильтр: `auto` (авто-обработка) или `manual` (ручная) |
-| `status` | string | — | Фильтр: `success` или `failed` |
-| `limit` | int | 50 | Записей на страницу (макс. 500) |
-| `offset` | int | 0 | Смещение для пагинации |
-
-**Пример запроса:**
-
-```
-GET /api/content/approvals/history?marketplace=wb&source=manual&limit=20&offset=0
-```
-
-**Пример ответа:**
-
-```json
-{
-  "total": 142,
-  "limit": 20,
-  "offset": 0,
-  "has_more": true,
-  "items": [
-    {
-      "id": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
-      "sku": "203873004",
+      "external_id": "203873004",
       "vendor_code": "16378",
       "marketplace": "wb",
-      "title": "Носки мужские высокие хлопковые комплект",
-      "description": "Мужские носки из натурального хлопка...",
-      "current_score": 95,
-      "status": "success",
-      "source": "manual",
-      "published_at": "2026-02-24T12:30:00Z"
-    },
-    {
-      "id": "a9b8c7d6-e5f4-3210-fedc-ba0987654321",
-      "sku": "198765432",
-      "vendor_code": "22451",
-      "marketplace": "wb",
-      "title": "Футболка женская оверсайз хлопок",
-      "description": "Стильная женская футболка свободного кроя...",
-      "current_score": 88,
-      "status": "success",
-      "source": "auto",
-      "published_at": "2026-02-24T10:15:00Z"
+      "title": "Синие носки мужские набор 5 пар хлопок",
+      "brand_tag": "MyBrand",
+      "imt_id": 12345678,
+      "updated_at": "2026-02-12T15:30:00Z"
     }
   ]
 }
 ```
 
-**Поля элемента:**
+**Product Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `external_id` | string | Marketplace SKU (nmID for WB) |
+| `vendor_code` | string / null | Seller's article number |
+| `marketplace` | string | Marketplace code: `wb`, `ozon`, `ym` |
+| `title` | string | Product title |
+| `brand_tag` | string / null | Brand name |
+| `imt_id` | int / null | Group ID if product belongs to склейка (group) |
+| `updated_at` | datetime | Last update time in DB |
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `id` | UUID | ID записи публикации |
-| `sku` | string | Артикул товара (nmID) |
-| `vendor_code` | string \| null | Артикул продавца |
-| `marketplace` | string | Маркетплейс |
-| `title` | string | Опубликованное название |
-| `description` | string | Опубликованное описание |
-| `current_score` | int | Скор качества контента (0-100) |
-| `status` | string | `success` или `failed` |
-| `source` | string | `auto` (авто-обработка) или `manual` (ручная генерация) |
-| `published_at` | datetime \| null | Дата публикации |
+**Search Algorithm:**
+1. Searches by `external_id::TEXT LIKE '%query%'` OR `vendor_code LIKE '%query%'`
+2. Prioritizes exact matches (shows them first)
+3. Applies marketplace filter if specified
+4. Returns results with pagination (LIMIT/OFFSET)
+
+**Status Codes:**
+- `200 OK` — Search completed (even if no results)
+- `400 Bad Request` — Invalid marketplace or query > 50 chars
+- `422 Unprocessable Entity` — Validation error (limit > 500, offset < 0)
+
+**Notes:**
+- Empty results return `total_count: 0` and `products: []` (no error)
+- Search is case-insensitive (SQL LIKE query)
+- Supports partial matching (e.g., query="203" finds all products starting with "203")
+- When searching specific marketplace and no results found, returns empty array
 
 ---
 
-## 9.7 Ошибки модерации маркетплейса
+## Content Generation
 
-#### GET /api/content/\{marketplace\}/errors
+### `POST /api/content/generate`
 
-Получить список карточек с ошибками модерации на маркетплейсе.
+Generate AI-powered SEO title, description, and tags for a product.
 
-**Доступ:** Senior+
-
-**Path параметры:**
-
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `marketplace` | string | `wb`, `ozon` или `ym` |
-
-**Query параметры:**
-
-| Параметр | Тип | Обязателен | Описание |
-|----------|-----|:----------:|----------|
-| `sku` | string | нет | Фильтр по конкретному SKU |
-
-**Пример запроса:**
-
-```
-GET /api/content/wb/errors?sku=203873004
-```
-
-**Пример ответа:**
-
+**Request:**
 ```json
 {
-  "sku": 203873004,
-  "errors_count": 1,
-  "errors": [
-    {
-      "nmID": 203873004,
-      "vendorCode": "16378",
-      "error": "Заголовок содержит запрещённое слово",
-      "batchUUID": null,
-      "updatedAt": "2026-02-24T08:00:00Z"
-    }
-  ],
-  "has_errors": true
+  "url": "https://www.wildberries.ru/catalog/123456789/detail.aspx",
+  "sku": "123456789",
+  "marketplace": "wb"
 }
 ```
 
-**Пример ответа (без фильтра, все ошибки):**
-
-```
-GET /api/content/wb/errors
-```
-
+**Response:**
 ```json
 {
-  "sku": null,
-  "errors_count": 5,
-  "errors": [
-    { "nmID": 203873004, "vendorCode": "16378", "error": "...", "..." : "..." },
-    { "nmID": 198765432, "vendorCode": "22451", "error": "...", "..." : "..." }
-  ],
-  "has_errors": true
+  "draft_id": "uuid",
+  "sku": "123456789",
+  "marketplace": "wb",
+  "title": "SEO-название",
+  "description": "SEO-описание",
+  "seo_tags": ["тег1", "тег2"],
+  "model": "claude-sonnet-4-5-20250929",
+  "imt_id": 12345678,
+  "group_nm_ids": [123456789, 123456790],
+  "validation": {
+    "is_valid": true,
+    "issues": []
+  },
+  "analysis": { "...": "SEO score metrics" },
+  "is_valid": true,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**SEO-теги по маркетплейсам:**
+
+| Маркетплейс | Формат SEO-тегов | Куда отправляются при публикации |
+|-------------|------------------|--------------------------------|
+| **WB** | Поисковые фразы, 10-15 штук (напр. `"Футболка женская"`) | Поле «Комплектация» на карточке WB |
+| **Ozon** | Хештеги через `_`, 5-10 штук (напр. `"халат_женский_ohana"`) | Поле `keywords` через Ozon Seller API |
+| **YM** | Не генерируются (YM не поддерживает кастомные теги) | — |
+
+> **Ozon:** SEO-теги генерируются как хештеги — слова через нижнее подчёркивание, без `#`, строчные, максимум 30 символов каждый. К каждому тегу автоматически добавляется бренд товара. При публикации теги отправляются в поле `keywords` карточки через `POST /v1/product/import-by-sku`.
+
+### `POST /api/content/regenerate`
+
+Regenerate content with manager feedback and/or previous context.
+
+**Request:**
+```json
+{
+  "draft_id": "uuid",
+  "manager_notes": "Сделай описание с акцентом на натуральность"
+}
+```
+
+**Response:** Same structure as `/generate` (new `draft_id`).
+
+---
+
+## Publishing
+
+### `POST /api/content/drafts/{draft_id}/approve`
+
+Approve a draft and publish to marketplace.
+
+**Request:**
+```json
+{
+  "title": "Финальное название",
+  "description": "Финальное описание",
+  "seo_tags": ["тег1", "тег2"],
+  "update_all_in_group": false,
+  "source": "manual"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Final title |
+| `description` | string | Yes | Final description |
+| `seo_tags` | string[] | No | SEO tags (WB → «Комплектация», Ozon → `keywords`, YM → ignored) |
+| `update_all_in_group` | bool | No | Update all cards in group (default: false) |
+| `source` | string | No | `manual` (default) or `auto` |
+
+**Response:**
+```json
+{
+  "success": true,
+  "draft_id": "uuid",
+  "message": "Карточка успешно обновлена",
+  "updated_nm_ids": [123456789]
 }
 ```
 
 ---
 
-## 9.8 Настройки
+## Monitoring
 
-### Таблица эндпоинтов
+### `GET /api/content/approvals/history`
 
-| Метод | Путь | Описание |
-|:-----:|------|----------|
-| GET | `/api/settings` | Получить все настройки |
-| PUT | `/api/settings` | Обновить настройки (partial update) |
+Publication history with filtering.
+
+**Query Parameters:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `marketplace` | string | — | Filter by marketplace (`wb` / `ozon` / `ym`) |
+| `source` | string | — | Filter by source (`manual` / `auto`) |
+| `limit` | int | 50 | Max results |
+| `offset` | int | 0 | Pagination offset |
+
+### `GET /api/content/{marketplace}/errors`
+
+Moderation errors by marketplace.
+
+**Path:** `marketplace` — `wb`, `ozon`, or `ym`
+**Query:** `?sku=203873004` (optional)
+
+### `GET /api/auto-process/content/preview`
+
+Preview low-scoring product candidates for auto-processing.
+
+**Query Parameters:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `marketplace` | string | `wb` | Target marketplace |
+| `limit` | int | 50 | Max results |
+| `offset` | int | 0 | Pagination offset |
 
 ---
 
-#### GET /api/settings
+## Marketplace Card Endpoints
 
-Получить текущие настройки приложения.
+### `GET /api/content/{marketplace}/card/{sku}`
 
-**Доступ:** Senior+
+Get current card state from marketplace API.
 
-**Пример ответа:**
+**Path:** `marketplace` — `wb`, `ozon`, or `ym`; `sku` — product SKU
 
+### `GET /api/content/wb/card-by-vendor/{vendor_code}`
+
+Get WB card by seller's vendor code.
+
+### `GET /api/content/wb/my-cards`
+
+List all seller's WB cards (for diagnostics). **Query:** `?limit=50`
+
+---
+
+## Settings & Token Monitoring
+
+### `GET /api/settings`
+
+Get current application settings including **marketplace token status monitoring**.
+
+**Response:**
 ```json
 {
   "auto_check_threshold": 98,
   "auto_check_interval": "weekly",
-  "auto_check_enabled": true,
-  "tag_scheduler_enabled": true,
-  "wb_token": "eyJh***",
+  "auto_check_enabled": false,
+  "tag_scheduler_enabled": false,
+  "wb_token": "abc1***",
   "ozon_client_id": "1234***",
   "ozon_api_key": "abcd***",
   "ym_api_key": "ACMA***",
-  "ym_business_id": "12345678",
+  "ym_business_id": "123456",
   "tokens_status": {
     "wb": {
       "marketplace": "wb",
@@ -676,406 +332,104 @@ GET /api/content/wb/errors
 }
 ```
 
-**Примечание:** Токены и ключи возвращаются замаскированными (первые 4 символа + `***`).
+All token values are **masked** in responses (first 4 chars + `***`).
 
-#### Мониторинг токенов (`tokens_status`)
+#### Token Monitoring
 
-Поле `tokens_status` заполняется фоновым планировщиком, который проверяет токены каждые **12 часов**. Первая проверка — через ~10 секунд после старта приложения. Если приложение только запустилось и проверка ещё не прошла, поле = `null`.
+The `tokens_status` field is populated by a background scheduler that runs every **12 hours**. On app startup, the first check occurs after ~10 seconds.
 
-**Как проверяется каждый маркетплейс:**
+**How each token is checked:**
 
-| Маркетплейс | Метод проверки | Срок действия токена |
-|:-----------:|----------------|:-------------------:|
-| WB | Декодирование JWT (`exp` claim из payload) | 180 дней от создания |
-| Ozon | Тестовый API-вызов (`POST /v3/product/list`, limit=1) | Бессрочный |
-| YM | Тестовый API-вызов (`POST /businesses/{id}/offer-mappings`, limit=1) | Бессрочный |
+| Marketplace | Method | Expiration |
+|-------------|--------|------------|
+| **WB** | JWT decode (`exp` claim from payload) | 180 days from creation |
+| **Ozon** | Test API call (`POST /v3/product/list` with limit=1) | Indefinite (until deleted) |
+| **YM** | Test API call (`POST /businesses/{id}/offer-mappings` with limit=1) | Indefinite (until deleted) |
 
-**Возможные статусы:**
+**Token status values:**
 
-| Статус | Описание |
-|:------:|----------|
-| `active` | Токен валиден и работает |
-| `expiring_soon` | Только WB: осталось менее 30 дней |
-| `critical` | Только WB: осталось менее 7 дней |
-| `expired` | Только WB: JWT `exp` в прошлом |
-| `invalid` | Токен есть, но API вернул 401/403 |
-| `error` | Токен есть, но API-вызов упал (сеть/таймаут) |
-| `not_configured` | Токен пустой или не задан |
+| Status | Description |
+|--------|-------------|
+| `active` | Token is valid and working |
+| `expiring_soon` | WB only: less than 30 days remaining |
+| `critical` | WB only: less than 7 days remaining |
+| `expired` | WB only: JWT `exp` is in the past |
+| `invalid` | Token exists but API returned 401/403 |
+| `error` | Token exists but API call failed (network/timeout) |
+| `not_configured` | Token is empty or missing |
 
-**Поля для WB:**
-- `expires_at` — дата истечения (ISO 8601)
-- `days_remaining` — количество дней до истечения
+If `tokens_status` is `null`, the first background check hasn't completed yet (app just started).
 
-**Поля для Ozon/YM:**
-- `expires_at` = `null` (бессрочные токены)
-- `days_remaining` = `null`
+### `PUT /api/settings`
 
-**Логирование предупреждений:**
-Планировщик автоматически логирует:
-- `ERROR` — для `expired`, `critical`, `invalid`
-- `WARNING` — для `expiring_soon`
+Update application settings (partial updates supported).
 
----
-
-#### PUT /api/settings
-
-Обновить настройки (partial update — передавать только изменяемые поля).
-
-**Доступ:** Director+
-
-**Request body (пример):**
-
+**Request:**
 ```json
 {
   "auto_check_threshold": 95,
-  "auto_check_interval": "daily",
-  "auto_check_enabled": true
+  "wb_token": "new_token_value",
+  "ozon_client_id": "new_client_id",
+  "ozon_api_key": "new_api_key"
 }
 ```
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `auto_check_threshold` | int | Порог скора для авто-проверки (0-100) |
-| `auto_check_interval` | string | Частота: `daily`, `every_2_days`, `weekly`, `every_2_weeks`, `monthly` |
-| `auto_check_enabled` | bool | Включить/выключить авто-проверку |
-| `tag_scheduler_enabled` | bool | Включить/выключить планировщик тегов |
-| `wb_token` | string | WB API токен (полное значение, маскированные игнорируются) |
-| `ozon_client_id` | string | Ozon Client ID |
-| `ozon_api_key` | string | Ozon API Key |
-| `ym_api_key` | string | Яндекс Маркет API Key |
-| `ym_business_id` | string | Яндекс Маркет Business ID |
+All fields are optional. Masked values (containing `***`) are automatically skipped to prevent overwriting real tokens.
 
-**Ответ:** обновлённые настройки (формат как в GET).
+**Configurable fields:**
 
-**Коды ошибок:**
-
-| Код | Ситуация |
-|:---:|----------|
-| 400 | Недопустимое значение `auto_check_interval` или не переданы поля |
+| Field | Type | Description |
+|-------|------|-------------|
+| `auto_check_threshold` | int (0-100) | Quality score threshold for auto-check |
+| `auto_check_interval` | string | `daily`, `every_2_days`, `weekly`, `every_2_weeks`, `monthly` |
+| `auto_check_enabled` | bool | Enable/disable auto content check |
+| `tag_scheduler_enabled` | bool | Enable/disable seasonal tag scheduler |
+| `wb_token` | string | Wildberries API token |
+| `ozon_client_id` | string | Ozon Seller Client ID |
+| `ozon_api_key` | string | Ozon Seller API Key |
+| `ym_api_key` | string | Yandex Market API Key |
+| `ym_business_id` | string | Yandex Market Business ID |
 
 ---
 
-## 9.9 Авто-обработка контента
+## Key Concepts
 
-#### GET /api/auto-process/content/preview
+### Validation Framework
 
-Превью кандидатов на автоматическую генерацию (dry-run). Показывает товары с низким скором качества контента.
+Content undergoes automated checking for:
+- Character limits per marketplace (title max, description min/max)
+- Forbidden terms (superlatives, guarantees, marketing words)
+- URLs, domains, emails, phone numbers, Telegram links
+- HTML tags
+- Repetition/spam patterns (word > 4% of text)
 
-**Доступ:** Senior+
+Auto-correction: if AI generates content with validation errors, the system retries once automatically.
 
-**Query параметры:**
+### Marketplace Limits
 
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|:------------:|----------|
-| `marketplace` | string | — | Фильтр: `wb`, `ozon`, `ym`. Без параметра — все |
-| `limit` | int | 50 | Записей на страницу (макс. 500) |
-| `offset` | int | 0 | Смещение для пагинации |
+| Marketplace | Title max | Description min | Description max |
+|-------------|-----------|-----------------|-----------------|
+| WB | 60 chars | 1,000 chars | 5,000 chars |
+| Ozon | 255 chars | 100 chars | 6,000 chars |
+| YM | 150 chars | 100 chars | 3,000 chars |
 
-**Пример ответа:**
+### Group Handling (Склейки)
 
-```json
-{
-  "total": 28,
-  "limit": 50,
-  "offset": 0,
-  "has_more": false,
-  "items": [
-    {
-      "sku": "203873004",
-      "marketplace": "wb",
-      "title": "Носки мужские",
-      "description": "Короткое описание...",
-      "total_score": 35
-    },
-    {
-      "sku": "198765432",
-      "marketplace": "wb",
-      "title": "Футболка",
-      "description": "Описание товара...",
-      "total_score": 52
-    }
-  ]
-}
-```
+Products in a "склейка" (bundled group sharing `imt_id`) can be processed:
+- **Individually:** Generate/approve for one SKU
+- **As a group:** Set `update_all_in_group: true` in approve to update all cards in the group
 
-Товары отсортированы по `total_score` (от худшего к лучшему). Показываются только товары с `total_score < threshold` (настройка `auto_check_threshold`).
+### Publication Tracking
 
----
+The `source` field distinguishes between:
+- `manual` — manager-reviewed and approved
+- `auto` — scheduled/automated approval
 
-## 9.10 Валидация контента
+### SEO Analysis
 
-Валидация применяется автоматически при генерации и при получении данных товара.
+Generation responses include `analysis` with three metrics:
+- **Title quality** — keyword relevance, length optimization
+- **Description quality** — completeness, keyword density
+- **Foreign words** — detection of non-Russian terms
 
-### Лимиты по маркетплейсам
-
-| Маркетплейс | Title max | Description min | Description max |
-|:-----------:|:---------:|:---------------:|:---------------:|
-| wb | 60 | 500 | 2000 |
-| ozon | 200 | 100 | 6000 |
-| ym | 150 | 500 | 6000 |
-
-### Проверки Title
-
-| Проверка | Severity | Примечание |
-|----------|:--------:|-----------|
-| Длина > макс. лимита | error | |
-| Длина < 10 символов | warning | |
-| Запятая | error | Только WB |
-| Спецсимволы | error | WB: `/!#&*@\|\\`; Ozon: `[]=#*@\|\\™©`; YM: `!#&*@\|\\` |
-| Слова в CAPS LOCK (3+ буквы) | warning | |
-| Повторяющиеся слова | warning | WB: -10 балл; Ozon/YM: -5 баллов |
-
-### Проверки Description
-
-| Проверка | Severity | Примечание |
-|----------|:--------:|-----------|
-| Длина > макс. лимита | error | |
-| Длина < мин. лимита | warning | |
-| Домены (`.ru`, `.com`, `.net`, `.io`, `.org`, `.рф`, `.su`, `.info`, `.biz`, `.me`) | error | |
-| URL (`http://`, `https://`, `www.`) | error | |
-| Email (паттерн `xxx@xxx.xx`) | error | |
-| Телефоны (`+7...`, `8-xxx-xxx-xx-xx`) | error | |
-| Telegram (`t.me/`, `@username`, слово `telegram`) | error | |
-| HTML-теги | error / разрешены | WB: все HTML запрещены; Ozon: HTML разрешён; YM: только `<br>` и `<p>` |
-| Переспам (слово > 4% текста) | warning | |
-
-### Запрещённые слова в промтах AI
-
-AI-инструкции запрещают использовать следующие слова — они вызывают пессимизацию или отклонение модерацией маркетплейсов:
-
-**Превосходные степени:** лучший, самый, идеальный, единственный, наивысочайший
-
-**Гарантии и абсолюты:** гарантированно, 100%, абсолютно, навсегда, вечный
-
-**Рейтинги:** номер 1, #1, №1
-
-**Маркетинговые:** топ, хит продаж, бестселлер, распродажа, акция, скидка, модный, трендовый, эксклюзивный, премиум, люкс
-
-**Пессимизация WB (с осени 2025):** шок-цена, ликвидация, выгодно, дешево, бесплатно, новинка, подарок
-
-**Ozon (запрещены модерацией):** реплика, копия, дубликат, клон, подделка
-
-**YM:** аналог, низкие цены
-
-**Разрешённые альтернативы:** качественный, отличный, превосходный, надёжный, практичный, удобный.
-
-### Автоисправление
-
-При генерации, если контент содержит ошибки валидации, система выполняет автоисправление (до 1 попытки):
-
-```mermaid
-flowchart LR
-    GEN[Генерация] --> VAL{Валидация}
-    VAL -->|Ошибки| FIX[Автоисправление]
-    FIX --> VAL2{Повторная валидация}
-    VAL2 -->|OK| OK[Возврат результата]
-    VAL2 -->|Ошибки| FAIL[Возврат с is_valid=false]
-    VAL -->|OK| OK
-```
-
-### Формат результата валидации
-
-```json
-{
-  "is_valid": false,
-  "issues": [
-    {
-      "field": "title",
-      "message": "Название содержит запрещённый символ: '/'",
-      "severity": "error"
-    },
-    {
-      "field": "description",
-      "message": "Описание слишком короткое (минимум 500 символов)",
-      "severity": "warning"
-    }
-  ]
-}
-```
-
-- `is_valid: true` — нет ошибок (severity=error), могут быть warnings
-- `is_valid: false` — есть хотя бы одна ошибка
-
----
-
-## 9.11 Кастомизация промтов AI
-
-Менеджеры могут просматривать и переопределять промты AI через API без деплоя кода. Кастомные значения хранятся в таблице `app_settings` (KV-хранилище) с префиксом `content_`.
-
-> **Важно:** Менеджер пишет только свободный текст (тон, стиль, правила). Данные товара всегда добавляет код — плейсхолдеры в промтах не нужны и не работают.
-
-### Таблица эндпоинтов
-
-| Метод | Путь | Описание |
-|:-----:|------|----------|
-| GET | `/api/content/prompts` | Получить все 7 промтов с текущими значениями |
-| PUT | `/api/content/prompts/{key}` | Сохранить кастомный промт |
-| DELETE | `/api/content/prompts/{key}` | Сбросить промт к значению по умолчанию |
-
-### Доступные ключи промтов
-
-| Ключ | Что управляет |
-|------|--------------|
-| `content_system_prompt` | Системный промт — роль и базовые правила AI |
-| `content_generation_instructions` | Инструкции к описанию при первичной генерации |
-| `content_group_generation_instructions` | Инструкции к описанию при генерации для склейки |
-| `content_regeneration_instructions` | Инструкции при перегенерации (без заметок менеджера) |
-| `content_group_regeneration_instructions` | Инструкции при перегенерации для склейки |
-| `content_fix_validation_instructions` | Правила автоисправления ошибок валидации |
-| `content_improve_score_instructions` | Правила улучшения слабых метрик |
-
-> **Не кастомизируются:** инструкции для названия и SEO-тегов (зависят от маркетплейса — всегда генерируются кодом).
-
----
-
-#### GET /api/content/prompts
-
-Получить все 7 промтов с текущими значениями.
-
-**Доступ:** Senior+
-
-**Пример ответа:**
-
-```json
-[
-  {
-    "key": "content_system_prompt",
-    "label": "Системный промт",
-    "current_value": "Ты — опытный копирайтер...",
-    "default_value": "Ты — опытный копирайтер...",
-    "is_customized": false,
-    "updated_at": null
-  },
-  {
-    "key": "content_generation_instructions",
-    "label": "Инструкции для описания (генерация)",
-    "current_value": "Пиши СПЛОШНЫМ ТЕКСТОМ без переносов строк...",
-    "default_value": "Пиши СПЛОШНЫМ ТЕКСТОМ без переносов строк...",
-    "is_customized": false,
-    "updated_at": null
-  }
-]
-```
-
-**Поля элемента:**
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `key` | string | Ключ промта |
-| `label` | string | Человекочитаемое название |
-| `current_value` | string | Текущее значение (кастомное или дефолт) |
-| `default_value` | string | Дефолтное значение из кода |
-| `is_customized` | bool | `true` если сохранено кастомное значение |
-| `updated_at` | datetime \| null | Время последнего изменения |
-
----
-
-#### PUT /api/content/prompts/\{key\}
-
-Сохранить кастомное значение промта.
-
-**Доступ:** Director+
-
-**Path параметры:**
-
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `key` | string | Ключ из таблицы выше |
-
-**Request body:**
-
-```json
-{
-  "value": "Пиши описания в дружелюбном тоне, без канцелярита. Текст должен быть живым и читаемым."
-}
-```
-
-**Ответ:** обновлённый объект промта (формат как в GET, `is_customized: true`).
-
-**Коды ошибок:**
-
-| Код | Ситуация |
-|:---:|----------|
-| 400 | Пустое значение |
-| 404 | Неизвестный ключ промта |
-
----
-
-#### DELETE /api/content/prompts/\{key\}
-
-Сбросить промт к дефолтному значению (удаляет кастомную запись из `app_settings`).
-
-**Доступ:** Director+
-
-**Ответ:** объект промта с `is_customized: false`, `current_value == default_value`, `updated_at: null`.
-
-**Коды ошибок:**
-
-| Код | Ситуация |
-|:---:|----------|
-| 404 | Неизвестный ключ промта |
-
----
-
-## 9.12 Модели данных
-
-### GenerateResponse
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `draft_id` | UUID | ID черновика |
-| `sku` | string | Артикул товара |
-| `vendor_code` | string \| null | Артикул продавца |
-| `marketplace` | string | `wb` / `ozon` / `ym` |
-| `title` | string | Сгенерированное название |
-| `description` | string | Сгенерированное описание |
-| `seo_tags` | list[string] | SEO-теги (WB — поисковые фразы, Ozon — хештеги, YM — пусто) |
-| `imt_id` | int \| null | ID склейки |
-| `group_nm_ids` | list[int] | Все nmID в склейке |
-| `generated_for_group` | bool | Генерация для всей склейки |
-| `validation` | ValidationResult | Результат валидации |
-| `is_valid` | bool | Прошёл ли валидацию |
-| `validation_fixes` | ValidationFix \| null | Автоисправления |
-| `analysis` | ContentAnalysis | SEO-анализ (3 метрики) |
-| `comparison` | AnalysisComparison \| null | Сравнение до/после |
-| `created_at` | datetime | Время создания |
-
-### ApproveResponse
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `success` | bool | Успешность операции |
-| `draft_id` | UUID | ID утверждённого черновика |
-| `vendor_code` | string \| null | Артикул продавца |
-| `message` | string | Сообщение о результате |
-| `updated_nm_ids` | list[int] | Обновлённые nmID |
-
-### ContentAnalysis
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `total_score` | int | Общий скор (0-100) |
-| `is_valid` | bool | Нет ошибок уровня error |
-| `metrics` | dict | 3 метрики: `title_quality`, `description_quality`, `foreign_words` |
-
-### MetricScore
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `name` | string | Название метрики |
-| `score` | int | Скор (0-100) |
-| `max_score` | int | Максимум (100) |
-| `status` | string | `good` / `warning` / `error` |
-| `details` | string | Описание |
-| `issues` | list | Связанные ошибки валидации |
-
-### PromptInfo
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `key` | string | Ключ промта |
-| `label` | string | Человекочитаемое название |
-| `current_value` | string | Текущее значение (кастомное или дефолт) |
-| `default_value` | string | Дефолтное значение из кода |
-| `is_customized` | bool | Есть ли кастомное значение |
-| `updated_at` | datetime \| null | Время последнего изменения |
+Each metric has a score (0-100) and the response includes `total_score` for overall quality.
