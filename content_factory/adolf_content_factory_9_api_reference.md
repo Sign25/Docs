@@ -1,4 +1,4 @@
-# ADOLF Content Factory REST API Справочник (v1.3)
+# ADOLF Content Factory REST API Справочник (v1.4)
 
 ## Обзор
 
@@ -13,6 +13,7 @@ Content Factory — это FastAPI-сервис, предназначенный 
 
 | Версия | Дата | Изменения |
 |--------|------|----------|
+| **v1.4** | 2026-04-08 | ✨ Реализованы эндпоинты сертификатов (`/api/certificates`), управление правилами тегов (`/api/tag-rules`). Правила сезонных/праздничных тегов теперь настраиваются через API. |
 | **v1.3** | 2026-04-07 | ✨ Добавлены эндпоинты медиафайлов, шаблонов и сертификатов. Новые параметры `generate_for_group` и `selected_skus`. Поле `vendor_code` во всех ответах. |
 | **v1.2** | 2026-02-27 | Полный переводом на русский, мониторинг токенов маркетплейсов |
 | **v1.1** | 2026-01-15 | Добавлена поддержка Ozon и Яндекс Маркета |
@@ -29,10 +30,11 @@ Content Factory — это FastAPI-сервис, предназначенный 
 5. [Управление медиафайлами](#управление-медиафайлами)
 6. [Шаблоны фотографий](#шаблоны-фотографий)
 7. [Сертификаты товаров](#сертификаты-товаров)
-8. [Мониторинг](#мониторинг)
-9. [Эндпоинты маркетплейсов](#эндпоинты-маркетплейсов)
-10. [Настройки и мониторинг токенов](#настройки-и-мониторинг-токенов)
-11. [Ключевые концепции](#ключевые-концепции)
+8. [Управление правилами тегов](#управление-правилами-тегов)
+9. [Мониторинг](#мониторинг)
+10. [Эндпоинты маркетплейсов](#эндпоинты-маркетплейсов)
+11. [Настройки и мониторинг токенов](#настройки-и-мониторинг-токенов)
+12. [Ключевые концепции](#ключевые-концепции)
 
 ---
 
@@ -44,7 +46,7 @@ Content Factory — это FastAPI-сервис, предназначенный 
 ```json
 {
   "service": "Content Factory",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "status": "running"
 }
 ```
@@ -589,63 +591,72 @@ DELETE /api/media/203873004/media/uuid?marketplace=wb
 
 ## Сертификаты товаров
 
-### `GET /api/content/{sku}/certificate`
+### `GET /api/certificates/{external_id}`
 
-Получить информацию о сертификате товара.
+Проверить наличие сертификата у товара. Возвращает `has_certificate: true/false` (не 404).
 
 **Path параметры:**
 | Параметр | Описание |
 |----------|---------|
-| `sku` | SKU товара |
+| `external_id` | SKU товара (nmID) |
 
 **Query параметры:**
-| Параметр | Тип | Описание |
-|----------|-----|---------|
-| `marketplace` | string | `wb`, `ozon`, `ym` |
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|---------|
+| `marketplace` | string | `wb` | `wb`, `ozon`, `ym` |
 
-**Ответ:**
+**Пример запроса:**
+```
+GET /api/certificates/203873004?marketplace=wb
+```
+
+**Ответ (сертификат есть):**
 ```json
 {
+  "external_id": 203873004,
+  "marketplace": "wb",
   "has_certificate": true,
   "certificate_name": "ГОСТ 123-456",
-  "certificate_url": "https://api.example.com/certs/uuid.pdf",
   "expire_date": "2026-12-31",
-  "applied_to_group": true,
-  "group_count": 3
+  "file_url": "/api/certificates/203873004/file?marketplace=wb"
 }
 ```
 
-или (если нет сертификата):
+**Ответ (сертификата нет):**
 ```json
 {
+  "external_id": 203873004,
+  "marketplace": "wb",
   "has_certificate": false,
-  "message": "Сертификаты не найдены"
+  "certificate_name": null,
+  "expire_date": null,
+  "file_url": null
 }
 ```
 
 ---
 
-### `POST /api/content/{sku}/certificate`
+### `POST /api/certificates/{external_id}`
 
-Загрузить или обновить сертификат товара.
+Загрузить сертификат (PDF) для товара. При `apply_to_group=true` применяется ко всей склейке.
 
 **Path параметры:**
 | Параметр | Описание |
 |----------|---------|
-| `sku` | SKU товара |
+| `external_id` | SKU товара |
 
-**Form параметры:**
-| Параметр | Тип | Обязательно | Описание |
-|----------|-----|------------|---------|
-| `file` | file | Да | PDF файл сертификата |
-| `certificate_name` | string | Да | Название сертификата (например, "ГОСТ") |
-| `expire_date` | date | Нет | Дата истечения (формат: YYYY-MM-DD) |
-| `marketplace` | string | Да | `wb`, `ozon`, `ym` |
-| `apply_to_group` | bool | Нет | Применить сертификат ко всей склейке |
+**Form параметры (multipart/form-data):**
+| Параметр | Тип | Обязательно | По умолчанию | Описание |
+|----------|-----|------------|-------------|---------|
+| `file` | file | Да | — | PDF файл сертификата (макс. 10 МБ) |
+| `certificate_name` | string | Да | — | Название сертификата |
+| `marketplace` | string | Нет | `wb` | `wb`, `ozon`, `ym` |
+| `expire_date` | string | Нет | — | Дата истечения (YYYY-MM-DD) |
+| `apply_to_group` | bool | Нет | `false` | Применить ко всей склейке |
 
 **Пример запроса:**
 ```bash
-curl -X POST http://localhost:3000/api/content/203873004/certificate \
+curl -X POST http://localhost:3000/api/certificates/203873004 \
   -F "file=@gost_certificate.pdf" \
   -F "certificate_name=ГОСТ 123-456" \
   -F "expire_date=2027-12-31" \
@@ -657,47 +668,199 @@ curl -X POST http://localhost:3000/api/content/203873004/certificate \
 ```json
 {
   "success": true,
-  "sku": 203873004,
-  "marketplace": "wb",
-  "certificate_name": "ГОСТ 123-456",
-  "certificate_url": "https://api.example.com/certs/uuid.pdf",
-  "expire_date": "2027-12-31",
-  "applied_to_group": true,
-  "applied_to_skus": [203873004, 203873005, 203873006],
-  "message": "Сертификат загружен и применён для 3 товаров в группе"
+  "certificate_id": "uuid",
+  "message": "Сертификат загружен для 3 товар(ов)",
+  "applied_to": [203873004, 203873005, 203873006]
 }
 ```
 
 ---
 
-### `DELETE /api/content/{sku}/certificate`
+### `DELETE /api/certificates/{external_id}`
 
-Удалить сертификат товара.
+Удалить сертификат товара (soft-delete). Файл удаляется с диска, если нет других ссылок.
 
 **Path параметры:**
 | Параметр | Описание |
 |----------|---------|
-| `sku` | SKU товара |
+| `external_id` | SKU товара |
 
 **Query параметры:**
-| Параметр | Тип | Описание |
-|----------|-----|---------|
-| `marketplace` | string | `wb`, `ozon`, `ym` |
-| `from_group` | bool | Удалить сертификат от всей группы |
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|---------|
+| `marketplace` | string | `wb` | `wb`, `ozon`, `ym` |
+| `apply_to_group` | bool | `false` | Удалить у всей склейки |
 
 **Пример запроса:**
 ```
-DELETE /api/content/203873004/certificate?marketplace=wb&from_group=true
+DELETE /api/certificates/203873004?marketplace=wb&apply_to_group=true
 ```
 
 **Ответ:**
 ```json
 {
   "success": true,
-  "sku": 203873004,
-  "marketplace": "wb",
-  "message": "Сертификат удалён",
-  "deleted_from_skus": [203873004, 203873005, 203873006]
+  "message": "Сертификат удалён у 3 товар(ов)",
+  "deleted_from": [203873004, 203873005, 203873006]
+}
+```
+
+---
+
+### `GET /api/certificates/{external_id}/file`
+
+Отдать PDF-файл сертификата для просмотра в браузере (`Content-Disposition: inline`).
+
+**Path параметры:**
+| Параметр | Описание |
+|----------|---------|
+| `external_id` | SKU товара |
+
+**Query параметры:**
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|---------|
+| `marketplace` | string | `wb` | `wb`, `ozon`, `ym` |
+
+**Пример:** Открыть в браузере: `http://localhost:3000/api/certificates/203873004/file?marketplace=wb`
+
+**Ответ:** PDF-файл с `Content-Type: application/pdf`
+
+**HTTP статус коды:**
+- `200 OK` — PDF файл
+- `404 Not Found` — Сертификат не найден
+
+---
+
+## Управление правилами тегов
+
+Менеджер настраивает правила сезонных и праздничных тегов ("Декоративные элементы" на WB) через API. Правила хранятся в БД и применяются автоматически планировщиком (если включён в настройках).
+
+### `GET /api/tag-rules`
+
+Получить все правила тегов с флагом `is_active_today`.
+
+**Ответ:**
+```json
+{
+  "rules": [
+    {
+      "id": "uuid",
+      "tags": ["23 февраля"],
+      "gender": ["Мужской"],
+      "activate": {"month": 2, "day": 9},
+      "deactivate": {"month": 2, "day": 24},
+      "managed_variants": [],
+      "is_active_today": false
+    },
+    {
+      "id": "uuid",
+      "tags": ["зимние"],
+      "gender": null,
+      "activate": {"month": 11, "day": 15},
+      "deactivate": {"month": 2, "day": 15},
+      "managed_variants": ["зимний", "зимняя"],
+      "is_active_today": true
+    }
+  ],
+  "managed_tags": ["23 февраля", "зимние", "зимний", "зимняя", "..."]
+}
+```
+
+**Поля правила:**
+| Поле | Тип | Описание |
+|------|-----|---------|
+| `id` | string | UUID правила (генерируется автоматически) |
+| `tags` | string[] | Теги для применения |
+| `gender` | string[] / null | Фильтр по полу (`["Мужской"]`, `["Женский"]`, `null` = все) |
+| `activate` | object | Дата начала: `{month, day}` |
+| `deactivate` | object | Дата окончания: `{month, day}` |
+| `managed_variants` | string[] | Дополнительные формы тегов для очистки |
+| `is_active_today` | bool | Активно ли правило сегодня |
+
+**`managed_tags`** — полный список тегов, которыми управляет система (вычисляется автоматически из всех `tags` + `managed_variants`).
+
+---
+
+### `POST /api/tag-rules`
+
+Создать новое правило тегов.
+
+**Запрос:**
+```json
+{
+  "tags": ["День влюблённых"],
+  "gender": null,
+  "activate": {"month": 2, "day": 1},
+  "deactivate": {"month": 2, "day": 15},
+  "managed_variants": []
+}
+```
+
+**Ответ:** Созданное правило с `id` и `is_active_today` (HTTP 201).
+
+---
+
+### `PUT /api/tag-rules/{rule_id}`
+
+Обновить правило по UUID.
+
+**Path:** `rule_id` — UUID правила
+
+**Запрос:** Такой же как POST.
+
+**Ответ:** Обновлённое правило.
+
+**HTTP 404** если правило не найдено.
+
+---
+
+### `DELETE /api/tag-rules/{rule_id}`
+
+Удалить правило по UUID.
+
+**Ответ:**
+```json
+{
+  "ok": true,
+  "message": "Правило uuid удалено"
+}
+```
+
+---
+
+### `POST /api/tag-rules/preview`
+
+Превью изменений тегов на указанную дату (dry-run, без обращений к WB API).
+
+**Query параметры:**
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|---------|
+| `target_date` | string | Сегодня | Дата в формате ISO (YYYY-MM-DD) |
+
+**Пример запроса:**
+```
+POST /api/tag-rules/preview?target_date=2026-03-08
+```
+
+**Ответ:**
+```json
+{
+  "date": "2026-03-08",
+  "active_rules": ["8 марта", "весенние"],
+  "total_products": 834,
+  "products_with_gender": 791,
+  "changes_needed": 45,
+  "changes": [
+    {
+      "sku": 203873004,
+      "title": "Носки женские...",
+      "gender": "Женский",
+      "current_tags": ["для дома"],
+      "new_tags": ["для дома", "8 марта", "весенние"],
+      "add": ["8 марта", "весенние"],
+      "remove": []
+    }
+  ]
 }
 ```
 
@@ -957,8 +1120,21 @@ DELETE /api/content/203873004/certificate?marketplace=wb&from_group=true
 
 Управление сертификатами товаров (ГОСТ, ISO и т.д.):
 
-- **Загрузка:** `POST /api/content/{sku}/certificate` — загрузить PDF сертификата с опцией `apply_to_group` для применения ко всей склейке
-- **Получение:** `GET /api/content/{sku}/certificate` — получить информацию о сертификате
-- **Удаление:** `DELETE /api/content/{sku}/certificate` — удалить сертификат с опцией `from_group`
+- **Проверка:** `GET /api/certificates/{external_id}` — есть ли сертификат (возвращает `has_certificate: true/false`)
+- **Загрузка:** `POST /api/certificates/{external_id}` — загрузить PDF с опцией `apply_to_group` для склейки
+- **Просмотр PDF:** `GET /api/certificates/{external_id}/file` — открыть PDF в браузере (inline)
+- **Удаление:** `DELETE /api/certificates/{external_id}` — удалить с опцией `apply_to_group`
 
-Сертификаты сохраняются в PDF формате и могут быть просмотрены в браузере.
+Сертификаты хранятся как PDF-файлы на сервере (`uploads/certificates/`). Soft-delete: при удалении файл убирается с диска только если на него нет других ссылок (из группы).
+
+### Управление правилами тегов
+
+Правила сезонных и праздничных тегов ("Декоративные элементы" на WB) настраиваются менеджером через API:
+
+- **Список:** `GET /api/tag-rules` — все правила с `is_active_today` и вычисленными `managed_tags`
+- **Создание:** `POST /api/tag-rules` — новое правило (теги, пол, даты активации)
+- **Редактирование:** `PUT /api/tag-rules/{id}` — обновить правило
+- **Удаление:** `DELETE /api/tag-rules/{id}` — удалить правило
+- **Превью:** `POST /api/tag-rules/preview?target_date=YYYY-MM-DD` — какие товары изменятся на дату
+
+Правила хранятся в БД (таблица `app_settings`, ключ `tag_rules`). Планировщик (раз в сутки, если включён `tag_scheduler_enabled`) автоматически применяет активные правила через WB API.
