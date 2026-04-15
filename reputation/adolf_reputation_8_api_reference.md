@@ -16,12 +16,13 @@
 6. [Reviews — История](#6-reviews--история)
 7. [Polling (сбор отзывов)](#7-polling-сбор-отзывов)
 8. [Statistics (аналитика)](#8-statistics-аналитика)
-9. [Settings (настройки)](#9-settings-настройки)
-10. [Prompt Management (промт генерации)](#10-prompt-management-промт-генерации)
-11. [Автоматические процессы (Scheduler)](#11-автоматические-процессы-scheduler)
-12. [Схема БД](#12-схема-бд)
-13. [Пайплайн обработки](#13-пайплайн-обработки)
-14. [Миграции](#14-миграции)
+9. [Products (рейтинг товаров)](#9-products-рейтинг-товаров)
+10. [Settings (настройки)](#10-settings-настройки)
+11. [Prompt Management (промт генерации)](#11-prompt-management-промт-генерации)
+12. [Автоматические процессы (Scheduler)](#12-автоматические-процессы-scheduler)
+13. [Схема БД](#13-схема-бд)
+14. [Пайплайн обработки](#14-пайплайн-обработки)
+15. [Миграции](#15-миграции)
 
 ---
 
@@ -565,7 +566,102 @@
 
 ---
 
-## 9. Settings (настройки)
+## 9. Products (рейтинг товаров)
+
+### `GET /api/v1/products`
+
+Листинг всех товаров с агрегированным рейтингом и распределением по звёздам. Показывает и товары **без отзывов** (LEFT JOIN → `avg_rating=null`, `total_reviews=0`, `last_review_at=null`) — именно они обычно и есть кандидаты «куда писать отзывы первыми».
+
+**Query-параметры:**
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `marketplace` | string | — | `wildberries` / `ozon` / `yandex_market` |
+| `category` | string | — | Точный фильтр по категории товара |
+| `search` | string | — | ILIKE по `title`, `vendor_code`, внутреннему артикулу (`sku_mappings.internal_article`) и SKU маркетплейса (`external_id`) |
+| `date_from` | date | — | Учитывать отзывы с этой даты (включительно). Фильтр применяется к **отзывам, формирующим метрики**; товары без отзывов за период остаются в списке с нулями |
+| `date_to` | date | — | Учитывать отзывы до этой даты (включительно) |
+| `sort_by` | string | `total_reviews` | `avg_rating`, `total_reviews`, `title`, `last_review_at` |
+| `order` | string | `desc` | `asc` / `desc`. Для пустых значений используется NULLS LAST — товары без отзывов всегда в конце списка |
+| `page` | int | `1` | ≥ 1 |
+| `page_size` | int | `20` | 1–100 |
+
+**Ответ: `ProductListResponse`**
+
+```json
+{
+  "items": [
+    {
+      "product_id": 293797327,
+      "marketplace": "wildberries",
+      "title": "Платье с коротким рукавом",
+      "first_photo": "https://basket-18.wbbasket.ru/vol2937/part293797/293797327/images/big/1.webp",
+      "vendor_code": "91002",
+      "internal_article": "91002",
+      "category": "платья",
+      "avg_rating": 4.62,
+      "total_reviews": 3114,
+      "stars": {
+        "star_1": 139,
+        "star_2": 57,
+        "star_3": 117,
+        "star_4": 209,
+        "star_5": 2592
+      },
+      "last_review_at": "2026-04-14T06:36:30"
+    }
+  ],
+  "total": 855,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+**Поля `ProductListItem`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `product_id` | int | `external_id` — SKU товара на маркетплейсе |
+| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
+| `title` | string? | Название товара |
+| `first_photo` | string? | URL первого фото (`media_urls[0]`) |
+| `vendor_code` | string? | Артикул из справочника маркетплейса |
+| `internal_article` | string? | Внутренний артикул из `sku_mappings`; fallback — `vendor_code` |
+| `category` | string? | Категория товара |
+| `avg_rating` | float? | Средняя оценка (округление до 2 знаков); `null` если отзывов за период нет |
+| `total_reviews` | int | Количество отзывов за период (или всего, если даты не заданы) |
+| `stars` | StarDistribution | Распределение по звёздам 1–5 |
+| `last_review_at` | datetime? | Дата последнего отзыва (в рамках периода) |
+
+**`StarDistribution`:**
+
+| Поле | Тип |
+|------|-----|
+| `star_1` | int |
+| `star_2` | int |
+| `star_3` | int |
+| `star_4` | int |
+| `star_5` | int |
+
+**Типовые сценарии использования:**
+
+| Цель | Запрос |
+|------|--------|
+| Какие товары «хромают» | `?sort_by=avg_rating&order=asc` — самые низкие рейтинги сверху |
+| Где не хватает отзывов | `?sort_by=total_reviews&order=asc` — товары с нулём/мало отзывов сверху |
+| Рейтинг за последние 30 дней | `?date_from=2026-03-16&date_to=2026-04-15&sort_by=avg_rating&order=asc` |
+| Свежие отзывы | `?sort_by=last_review_at&order=desc` |
+| Поиск товара | `?search=<артикул или SKU>` |
+
+---
+
+### `GET /api/v1/products/stats` *(legacy)*
+
+Исторический эндпоинт — возвращает `ProductStatsResponse` с подмножеством полей (без `first_photo`, `internal_article`, `last_review_at`) и только товары, у которых есть хотя бы один отзыв (INNER JOIN). Для нового кода использовать `GET /api/v1/products`.
+
+---
+
+## 10. Settings (настройки)
 
 ### `GET /api/v1/settings`
 
@@ -591,7 +687,7 @@
 
 ---
 
-## 10. Prompt Management (промт генерации)
+## 11. Prompt Management (промт генерации)
 
 Менеджер может просматривать и редактировать системный промт AI-генерации без деплоя. Дефолтное значение захардкожено в `ai_prompts.py`; кастомное хранится в `app_settings` и имеет приоритет.
 
@@ -639,7 +735,7 @@
 
 ---
 
-## 11. Автоматические процессы (Scheduler)
+## 12. Автоматические процессы (Scheduler)
 
 Scheduler активен с v1.2.50. Запускается при старте сервера. Backfill убран из автозапуска — для исторических данных: `POST /stats/recompute`.
 
@@ -655,7 +751,7 @@ Scheduler активен с v1.2.50. Запускается при старте 
 
 ---
 
-## 12. Схема БД
+## 13. Схема БД
 
 ### `reputation_products`
 Данные о товарах (заполняются из AdolfDataSync).
@@ -832,7 +928,7 @@ Key-value хранилище настроек и промтов.
 
 ---
 
-## 13. Пайплайн обработки
+## 14. Пайплайн обработки
 
 ```
 Polling → new → analyzing → pending_review → approved → publishing → answered
@@ -852,7 +948,7 @@ Polling → new → analyzing → pending_review → approved → publishing →
 
 ---
 
-## 14. Миграции
+## 15. Миграции
 
 | Файл | Описание |
 |------|----------|
