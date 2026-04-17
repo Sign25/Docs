@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.50
+> **Версия:** 1.2.59
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -37,7 +37,7 @@
 ```json
 {
   "service": "AdolfReputationBack",
-  "version": "1.2.50",
+  "version": "1.2.59",
   "docs": "/docs"
 }
 ```
@@ -92,12 +92,12 @@
 | `marketplace` | string | — | `wildberries`, `ozon`, `yandex_market` |
 | `status` | string | — | `new`, `analyzing`, `pending_review`, `approved`, `publishing`, `published`, `answered`, `skipped`, `escalated`, `error`, `manual_required` |
 | `item_type` | string | — | `review`, `question` |
-| `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating`, `wb_created_at` |
+| `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating` |
 | `order` | string | `desc` | Порядок: `asc`, `desc` |
 | `rating` | int | — | Фильтр по оценке (1–5) |
 | `search` | string | — | Поиск по тексту, имени клиента, плюсам, минусам, артикулу (ILIKE) |
-| `date_from` | date | — | Начало периода (`YYYY-MM-DD`), фильтр по `wb_created_at` |
-| `date_to` | date | — | Конец периода (`YYYY-MM-DD`), фильтр по `wb_created_at` |
+| `date_from` | date | — | Начало периода (`YYYY-MM-DD`), фильтр по `created_at` (дата загрузки в систему) |
+| `date_to` | date | — | Конец периода (`YYYY-MM-DD`), фильтр по `created_at` |
 | `page` | int | `1` | Номер страницы (≥ 1) |
 | `page_size` | int | `20` | Записей на странице (1–100) |
 
@@ -346,7 +346,7 @@
 | Маркетплейс | Отзывы | Вопросы |
 |-------------|--------|---------|
 | **Wildberries** | `POST /api/v1/feedbacks/answer` | `PATCH /api/v1/questions` |
-| **Яндекс Маркет** | `POST /v2/businesses/{id}/goods-feedback/comments` | `POST /v1/businesses/{id}/goods-questions/answers` |
+| **Яндекс Маркет** | `POST /v2/businesses/{id}/goods-feedback/comments/update` | `POST /v1/businesses/{id}/goods-questions/update` |
 | **Ozon** | `POST /v1/review/comment/create` | `POST /v1/question/answer/create` |
 
 **Ответ: `PublishResponse`**
@@ -735,6 +735,68 @@
 
 ---
 
+### Промты по маркетплейсу
+
+Отдельный промт для каждого МП имеет приоритет над глобальным. `effective` промт выбирается в порядке: `{marketplace}` → глобальный → дефолт из кода.
+
+**`{marketplace}`**: `wildberries` / `ozon` / `yandex_market`. Неверное значение → `400`.
+
+### `GET /api/v1/prompts/{marketplace}`
+
+Effective промт для маркетплейса.
+
+**Ответ:** структура `PromptResponse` (как в глобальном), но `current_value` — итоговое значение с учётом fallback.
+
+### `PUT /api/v1/prompts/{marketplace}`
+
+Сохранить промт, специфичный для маркетплейса. **Тело:** `{"value": "..."}`. Пустая строка → `400`.
+
+Ключ в `app_settings`: `generation_system_prompt_{marketplace}`.
+
+### `DELETE /api/v1/prompts/{marketplace}`
+
+Удалить промт маркетплейса → fallback на глобальный / дефолт.
+
+---
+
+### Сценарии по маркетплейсу
+
+Отдельные инструкции для каждого из 7 сценариев классификации (`positive_with_text`, `positive_no_text`, `five_stars`, `negative`, `defect`, `wrong_item`, `question`). Как и системный промт — хранятся per-МП, приоритет над дефолтом из `ai_prompts.py`.
+
+### `GET /api/v1/prompts/scenarios/{marketplace}`
+
+Все 7 сценариев для маркетплейса с их current/default/is_customized.
+
+**Ответ: `AllScenariosResponse`**
+
+```json
+{
+  "marketplace": "wildberries",
+  "scenarios": [
+    {
+      "scenario": "positive_with_text",
+      "marketplace": "wildberries",
+      "current_value": "Сценарий: положительный отзыв с текстом...",
+      "default_value": "Сценарий: положительный отзыв с текстом...",
+      "is_customized": false,
+      "updated_at": null
+    }
+  ]
+}
+```
+
+### `PUT /api/v1/prompts/scenarios/{marketplace}/{scenario}`
+
+Сохранить инструкции сценария для маркетплейса. **Тело:** `{"value": "..."}`. Неизвестный `scenario` или пустой `value` → `400`.
+
+Ключ в `app_settings`: `scenario_instructions_{scenario}_{marketplace}`.
+
+### `DELETE /api/v1/prompts/scenarios/{marketplace}/{scenario}`
+
+Сбросить сценарий к дефолту из кода.
+
+---
+
 ## 12. Автоматические процессы (Scheduler)
 
 Scheduler активен с v1.2.50. Запускается при старте сервера. Backfill убран из автозапуска — для исторических данных: `POST /stats/recompute`.
@@ -760,15 +822,21 @@ Scheduler активен с v1.2.50. Запускается при старте 
 |------|-----|----------|
 | `external_id` | BIGINT (PK) | ID товара на маркетплейсе |
 | `marketplace` | VARCHAR (PK) | `wildberries` / `ozon` / `yandex_market` |
-| `vendor_code` | VARCHAR | Артикул |
+| `vendor_code` | VARCHAR | Артикул из справочника маркетплейса |
+| `brand_tag` | VARCHAR | Бренд |
 | `title` | TEXT | Название |
 | `description` | TEXT | Описание |
 | `composition` | TEXT | Состав |
 | `size_measurements` | JSONB | Размеры |
-| `media_urls` | JSONB | Фото |
+| `media_urls` | JSONB | Массив URL фото (`[0]` используется как `first_photo` в `/products`) |
+| `video_url` | TEXT | URL видео |
 | `attributes` | JSONB | Характеристики |
+| `imt_id` | BIGINT | ID склейки (merch-tree ID) |
+| `category` | VARCHAR(100) | Категория товара (платья, штаны и т.д.) |
+| `updated_at` | DATETIME | Дата последнего обновления карточки |
 
 > Composite PK: `(external_id, marketplace)`
+> Индекс: `ix_rprod_category` на `category`
 
 ---
 
@@ -788,8 +856,10 @@ Scheduler активен с v1.2.50. Запускается при старте 
 | `product_id` | BIGINT | → `reputation_products.external_id` |
 | `pros` | TEXT | Достоинства |
 | `cons` | TEXT | Недостатки |
+| `photos` | JSONB | Фото клиента |
+| `video` | JSONB | Видео клиента |
 | `wb_created_at` | DATETIME | Дата создания на маркетплейсе |
-| `created_at` | DATETIME | Дата загрузки в систему |
+| `created_at` | DATETIME | Дата загрузки в систему (используется для сортировки и фильтров по дате) |
 | `is_viewed` | BOOLEAN | Просмотрен |
 
 **Статусы:**
@@ -814,9 +884,11 @@ Backward-compatibility слой.
 | `final_text` | TEXT | Одобренный текст |
 | `status` | VARCHAR | `draft` / `approved` / `published` / `failed` |
 | `manager_notes` | TEXT | |
+| `approved_by_id` | INTEGER | ID менеджера, одобрившего ответ |
 | `generated_at` | DATETIME | |
 | `published_at` | DATETIME | |
 | `wb_error` | TEXT | Ошибка от маркетплейса |
+| `marketplace` | VARCHAR | Маркетплейс (дублируется из item для быстрых фильтров) |
 | `source` | VARCHAR(20) | `ai` / `manager` |
 
 ---
@@ -924,7 +996,50 @@ Key-value хранилище настроек и промтов.
 | Ключ | Описание |
 |------|----------|
 | `auto_generate_enabled` | `"true"` / `"false"` — управление авто-генерацией |
-| `generation_system_prompt` | Кастомный системный промт (если задан менеджером) |
+| `auto_check_enabled` | Включение авто-проверки/тегирования |
+| `auto_check_interval` | Интервал авто-проверки (сек) |
+| `auto_check_threshold` | Порог авто-проверки |
+| `reputation_max_regenerations` | Лимит вариантов на один отзыв (по умолчанию 5) |
+| `tag_scheduler_enabled` | Включение планировщика тегов |
+| `tag_rules` | Правила тегирования (JSON) |
+| `generation_system_prompt` | Глобальный кастомный системный промт |
+| `generation_system_prompt_{marketplace}` | Per-МП системный промт (приоритет над глобальным) |
+| `scenario_instructions_{scenario}_{marketplace}` | Per-МП инструкции для сценария генерации |
+| `wb_token` | API-токен Wildberries |
+| `ym_token`, `ym_api_key`, `ym_business_id` | Креды Yandex Market |
+| `ozon_client_id`, `ozon_api_key`, `ozon_token` | Креды Ozon |
+
+---
+
+### `sku_mappings`
+Маппинг SKU маркетплейса ↔ внутренний артикул продавца. Используется в `/reviews` и `/products` для отображения внутреннего артикула.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `external_sku` | VARCHAR(100) (PK) | SKU маркетплейса (как строка) |
+| `marketplace` | VARCHAR(10) (PK) | Короткий код: `wb` / `ym` / `ozon` |
+| `internal_article` | VARCHAR(100) | Внутренний артикул продавца |
+| `created_at` | TIMESTAMPTZ | |
+
+> Composite PK: `(external_sku, marketplace)`
+> Индекс: `ix_sm_ext_sku_mp` на `(external_sku, marketplace)`
+
+---
+
+### `auto_process_log`
+Аудит автоматических процессов (auto-generate, retry, scheduler и т.д.). Используется `GET /worker/status` для вычисления `age_minutes`.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | INTEGER (PK) | |
+| `run_id` | VARCHAR(36) | ID прогона (UUID как строка) |
+| `process_type` | VARCHAR(30) | Тип процесса (`reputation_auto_generate`, ...) |
+| `external_id` | BIGINT | ID товара (если релевантно) |
+| `action` | VARCHAR(100) | Тип операции (`auto_generate:success`, ...) |
+| `status` | VARCHAR(20) | `success` / `error` |
+| `error` | TEXT | Сообщение ошибки |
+| `marketplace` | VARCHAR(30) | |
+| `created_at` | DATETIME | |
 
 ---
 
@@ -953,3 +1068,5 @@ Polling → new → analyzing → pending_review → approved → publishing →
 | Файл | Описание |
 |------|----------|
 | `add_response_source.sql` | Добавляет колонку `source` (VARCHAR(20), default `'manager'`) в `reputation_responses`. Backfill: `source='ai'` для ответов с непустым `ai_variants` |
+| `add_performance_indexes.sql` | 15 индексов: 8 на `reputation_items` (marketplace, status, item_type, rating, created_at, product_id + составные), 5 на FK-колонки (`ix_rr_item_id`, `ix_rd_item_id`, `ix_rg_item_id`, `ix_rp_item_id`, `ix_rp_status`), 1 на `sku_mappings` (`ix_sm_ext_sku_mp`), 1 на `reputation_products` (`ix_rprod_category`) |
+| `add_product_category.sql` | Добавляет колонку `category` (VARCHAR(100)) в `reputation_products` + индекс `ix_rprod_category` |
