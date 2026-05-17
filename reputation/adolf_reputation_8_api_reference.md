@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.59
+> **Версия:** 1.2.60
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -24,9 +24,10 @@
 12. [Settings (настройки)](#12-settings-настройки)
 13. [Prompt Management (промт генерации)](#13-prompt-management-промт-генерации)
 14. [Автоматические процессы (Scheduler)](#14-автоматические-процессы-scheduler)
-15. [Схема БД](#15-схема-бд)
-16. [Пайплайн обработки](#16-пайплайн-обработки)
-17. [Миграции](#17-миграции)
+15. [Auto-Respond (авто-ответ на 5★)](#15-auto-respond-авто-ответ-на-5)
+16. [Схема БД](#16-схема-бд)
+17. [Пайплайн обработки](#17-пайплайн-обработки)
+18. [Миграции](#18-миграции)
 
 ---
 
@@ -1044,12 +1045,73 @@ Scheduler активен с v1.2.50. Запускается при старте 
 | `refresh_today_analytics` | Каждые 30 минут | Пересчитывает статистику за сегодня и вчера |
 | `refresh_mp_ratings` | Ежедневно в 03:00 UTC | Тянет официальный рейтинг товара (`mp_rating`, `mp_rating_count`, `mp_rating_updated_at`) из API маркетплейсов. WB — через `card.wb.ru`, Ozon — `POST /v1/product/rating-by-sku` (Premium Plus), YM — пока без источника. Ручной trigger: `POST /api/v1/polling/ratings/refresh` |
 | `reconcile_missing_publications` | Каждые 15 минут | Создаёт записи в `reputation_publications` для legacy `ReputationResponse(status='published', published_at not null)`, у которых публикации не было. Закрывает разрыв исторических данных |
+| `auto_publish_five_stars_pending` | Каждые 3 минуты | Авто-публикация ответов на 5★ отзывы WB/YM без участия менеджера. Управляется тоггл-эндпоинтом `PUT /api/v1/auto-respond/five-stars` (см. раздел 15). Чаще, чем `auto_generate_pending`, чтобы перехватывать новые 5★ раньше; конфликт с обычным auto-generate решён через широкую выборку (`status IN (new, pending_review)`) |
 
 > Управление авто-генерацией: `PUT /api/v1/settings/auto_generate_enabled` со значением `"true"` / `"false"`.
+> Управление авто-ответом на 5★: `PUT /api/v1/auto-respond/five-stars` с телом `{"enabled": true|false}` (это удобный wrapper над `app_settings.auto_publish_five_stars_enabled`).
 
 ---
 
-## 15. Схема БД
+## 15. Auto-Respond (авто-ответ на 5★)
+
+Тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market без участия менеджера. Пока включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 14) каждые 3 минуты выбирает review-ы с `rating=5`, `marketplace IN (wildberries, yandex_market)`, `status IN (new, pending_review)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
+
+**Что не трогается:**
+- **Ozon** исключён на уровне SQL-фильтра — нестабильная подписка Premium+.
+- **Вопросы** (`item_type='question'`) — у них нет рейтинга, фильтр их не зацепит.
+- **1–4★ отзывы** — идут обычным маршрутом (auto-generate → `pending_review` → ручное одобрение).
+- **Невалидный draft** (после 3 retry в `_validate_response` остался `is_valid=False`) — пропускается, item остаётся в `pending_review` для менеджера.
+
+**Ошибки публикации** (404 / 429 / network): `item.status='error'`, запись в `reputation_publications.status='failed'`, последующая попытка — через существующий `retry_failed_publications` (раз в час).
+
+**Аудит:** каждая успешная/неуспешная авто-публикация пишется в `auto_process_log` с `process_type='reputation_auto_five_stars'` и `action='auto_publish_five_stars:success'` / `:failed`.
+
+### `GET /api/v1/auto-respond/five-stars`
+
+Текущее состояние тоггла + статистика за последние 24 часа по `auto_process_log` (`process_type='reputation_auto_five_stars'`).
+
+**Ответ: `AutoRespondFiveStarsStatus`**
+
+```json
+{
+  "enabled": true,
+  "last_run_at": "2026-05-17T15:42:00",
+  "last_succeeded": 38,
+  "last_failed": 2
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | Текущее значение `app_settings.auto_publish_five_stars_enabled` (`"true"` / иное → `false`) |
+| `last_run_at` | datetime? | Время последней записи в `auto_process_log` для этого `process_type` (Омск, +6h). `null` если задача ещё не запускалась |
+| `last_succeeded` | int | Сколько раз `status='success'` за последние 24 часа |
+| `last_failed` | int | Сколько раз `status='error'` или `'failed'` за последние 24 часа |
+
+---
+
+### `PUT /api/v1/auto-respond/five-stars`
+
+Включить или выключить авто-ответ на 5★.
+
+**Тело запроса:**
+
+```json
+{ "enabled": true }
+```
+
+**Что происходит:**
+- Апсертит `app_settings.auto_publish_five_stars_enabled` в `"true"` или `"false"`.
+- Эффект применяется со следующего тика scheduler-а (≤ 3 минуты).
+- Никакие текущие в работе items не прерываются — выключение блокирует только новые итерации.
+
+**Ответ:** тот же `AutoRespondFiveStarsStatus` со свежим `enabled` (статистика остаётся за последние 24 часа, не сбрасывается).
+
+> **Альтернатива через универсальный settings-эндпоинт:** `PUT /api/v1/settings/auto_publish_five_stars_enabled` с телом `{"value": "true"}`. Делает то же самое, но без человекочитаемого ответа со статистикой.
+
+---
+
+## 16. Схема БД
 
 ### `reputation_products`
 Данные о товарах (заполняются из AdolfDataSync).
@@ -1235,6 +1297,7 @@ Key-value хранилище настроек и промтов.
 | Ключ | Описание |
 |------|----------|
 | `auto_generate_enabled` | `"true"` / `"false"` — управление авто-генерацией |
+| `auto_publish_five_stars_enabled` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы WB/YM (см. раздел 15). Default `"false"` |
 | `auto_check_enabled` | Включение авто-проверки/тегирования |
 | `auto_check_interval` | Интервал авто-проверки (сек) |
 | `auto_check_threshold` | Порог авто-проверки |
@@ -1282,7 +1345,7 @@ Key-value хранилище настроек и промтов.
 
 ---
 
-## 16. Пайплайн обработки
+## 17. Пайплайн обработки
 
 ```
 Polling → new → analyzing → pending_review → approved → publishing → answered
@@ -1302,7 +1365,7 @@ Polling → new → analyzing → pending_review → approved → publishing →
 
 ---
 
-## 17. Миграции
+## 18. Миграции
 
 | Файл | Описание |
 |------|----------|
