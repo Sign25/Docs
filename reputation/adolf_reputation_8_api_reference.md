@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.60
+> **Версия:** 1.2.61
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -1045,54 +1045,81 @@ Scheduler активен с v1.2.50. Запускается при старте 
 | `refresh_today_analytics` | Каждые 30 минут | Пересчитывает статистику за сегодня и вчера |
 | `refresh_mp_ratings` | Ежедневно в 03:00 UTC | Тянет официальный рейтинг товара (`mp_rating`, `mp_rating_count`, `mp_rating_updated_at`) из API маркетплейсов. WB — через `card.wb.ru`, Ozon — `POST /v1/product/rating-by-sku` (Premium Plus), YM — пока без источника. Ручной trigger: `POST /api/v1/polling/ratings/refresh` |
 | `reconcile_missing_publications` | Каждые 15 минут | Создаёт записи в `reputation_publications` для legacy `ReputationResponse(status='published', published_at not null)`, у которых публикации не было. Закрывает разрыв исторических данных |
-| `auto_publish_five_stars_pending` | Каждые 3 минуты | Авто-публикация ответов на 5★ отзывы WB/YM без участия менеджера. Управляется тоггл-эндпоинтом `PUT /api/v1/auto-respond/five-stars` (см. раздел 15). Чаще, чем `auto_generate_pending`, чтобы перехватывать новые 5★ раньше; конфликт с обычным auto-generate решён через широкую выборку (`status IN (new, pending_review)`) |
+| `auto_publish_five_stars_pending` | Каждые 3 минуты | Авто-публикация ответов на 5★ отзывы WB/YM без участия менеджера. Управляется раздельными тоггл-эндпоинтами `PUT /api/v1/auto-respond/five-stars/{marketplace}` (см. раздел 15) — WB и YM включаются независимо. Каждый тик собирает список включённых МП и фильтрует выборку (`marketplace IN :enabled_mps`); если оба выключены — early return. Чаще, чем `auto_generate_pending`, чтобы перехватывать новые 5★ раньше; конфликт с обычным auto-generate решён через широкую выборку (`status IN (new, pending_review)`) |
 
 > Управление авто-генерацией: `PUT /api/v1/settings/auto_generate_enabled` со значением `"true"` / `"false"`.
-> Управление авто-ответом на 5★: `PUT /api/v1/auto-respond/five-stars` с телом `{"enabled": true|false}` (это удобный wrapper над `app_settings.auto_publish_five_stars_enabled`).
+> Управление авто-ответом на 5★: `PUT /api/v1/auto-respond/five-stars/{marketplace}` с телом `{"enabled": true|false}` (это удобный wrapper над `app_settings.auto_publish_five_stars_enabled_{marketplace}`). При старте сервиса `migrate_legacy_five_stars_flag()` одноразово переносит значение legacy-ключа `auto_publish_five_stars_enabled` в оба per-МП ключа и удаляет legacy. Идемпотентна.
 
 ---
 
 ## 15. Auto-Respond (авто-ответ на 5★)
 
-Тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market без участия менеджера. Пока включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 14) каждые 3 минуты выбирает review-ы с `rating=5`, `marketplace IN (wildberries, yandex_market)`, `status IN (new, pending_review)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
+Раздельные тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market — каждый маркетплейс включается и выключается независимо. Пока МП включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 14) каждые 3 минуты выбирает review-ы этого МП с `rating=5`, `status IN (new, pending_review)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
 
 **Что не трогается:**
-- **Ozon** исключён на уровне SQL-фильтра — нестабильная подписка Premium+.
+- **Ozon** исключён на уровне SQL-фильтра — нестабильная подписка Premium+. Тоггла для него нет.
 - **Вопросы** (`item_type='question'`) — у них нет рейтинга, фильтр их не зацепит.
 - **1–4★ отзывы** — идут обычным маршрутом (auto-generate → `pending_review` → ручное одобрение).
 - **Невалидный draft** (после 3 retry в `_validate_response` остался `is_valid=False`) — пропускается, item остаётся в `pending_review` для менеджера.
 
 **Ошибки публикации** (404 / 429 / network): `item.status='error'`, запись в `reputation_publications.status='failed'`, последующая попытка — через существующий `retry_failed_publications` (раз в час).
 
-**Аудит:** каждая успешная/неуспешная авто-публикация пишется в `auto_process_log` с `process_type='reputation_auto_five_stars'` и `action='auto_publish_five_stars:success'` / `:failed`.
+**Аудит:** каждая успешная/неуспешная авто-публикация пишется в `auto_process_log` с `process_type='reputation_auto_five_stars'`, `action='auto_publish_five_stars:success'` / `:failed` и `marketplace=<wildberries|yandex_market>`. Поле `marketplace` используется для подсчёта статистики per-МП.
+
+**Хранение состояния:** два ключа в `app_settings` (`"true"` / `"false"`, default `"false"`):
+- `auto_publish_five_stars_enabled_wildberries`
+- `auto_publish_five_stars_enabled_yandex_market`
+
+При старте сервиса одноразовая миграция `migrate_legacy_five_stars_flag()` переносит значение legacy-ключа `auto_publish_five_stars_enabled` (если он есть) в оба per-МП ключа и удаляет legacy. Идемпотентна.
 
 ### `GET /api/v1/auto-respond/five-stars`
 
-Текущее состояние тоггла + статистика за последние 24 часа по `auto_process_log` (`process_type='reputation_auto_five_stars'`).
+Состояние тогглов и статистика за последние 24 часа по обоим МП. Порядок элементов в массиве фиксированный: `wildberries`, `yandex_market`. Удобно для рендера всей страницы одним запросом.
 
-**Ответ: `AutoRespondFiveStarsStatus`**
+**Ответ: `AutoRespondFiveStarsListResponse`**
 
 ```json
 {
-  "enabled": true,
-  "last_run_at": "2026-05-17T15:42:00",
-  "last_succeeded": 38,
-  "last_failed": 2
+  "marketplaces": [
+    {
+      "marketplace": "wildberries",
+      "enabled": true,
+      "last_run_at": "2026-05-18T09:42:00",
+      "last_succeeded": 38,
+      "last_failed": 2
+    },
+    {
+      "marketplace": "yandex_market",
+      "enabled": false,
+      "last_run_at": null,
+      "last_succeeded": 0,
+      "last_failed": 0
+    }
+  ]
 }
 ```
 
+**Поля одного `AutoRespondFiveStarsMarketplaceStatus`:**
+
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `enabled` | bool | Текущее значение `app_settings.auto_publish_five_stars_enabled` (`"true"` / иное → `false`) |
-| `last_run_at` | datetime? | Время последней записи в `auto_process_log` для этого `process_type` (Омск, +6h). `null` если задача ещё не запускалась |
-| `last_succeeded` | int | Сколько раз `status='success'` за последние 24 часа |
-| `last_failed` | int | Сколько раз `status='error'` или `'failed'` за последние 24 часа |
+| `marketplace` | string | `"wildberries"` / `"yandex_market"` |
+| `enabled` | bool | Текущее значение `app_settings.auto_publish_five_stars_enabled_{marketplace}` (`"true"` / иное → `false`) |
+| `last_run_at` | datetime? | Время последней записи в `auto_process_log` (`process_type='reputation_auto_five_stars'`, `marketplace=<mp>`) (Омск, +6h). `null` если задача ещё не запускалась для этого МП |
+| `last_succeeded` | int | Сколько раз `status='success'` за последние 24 часа для этого МП |
+| `last_failed` | int | Сколько раз `status='error'` или `'failed'` за последние 24 часа для этого МП |
 
 ---
 
-### `PUT /api/v1/auto-respond/five-stars`
+### `PUT /api/v1/auto-respond/five-stars/{marketplace}`
 
-Включить или выключить авто-ответ на 5★.
+Включить или выключить авто-ответ на 5★ для одного маркетплейса.
+
+**Path-параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `marketplace` | string | `wildberries` или `yandex_market`. Любое другое значение (включая `ozon`) → `400` |
 
 **Тело запроса:**
 
@@ -1101,13 +1128,20 @@ Scheduler активен с v1.2.50. Запускается при старте 
 ```
 
 **Что происходит:**
-- Апсертит `app_settings.auto_publish_five_stars_enabled` в `"true"` или `"false"`.
+- Апсертит `app_settings.auto_publish_five_stars_enabled_{marketplace}` в `"true"` или `"false"`.
+- Влияет только на этот МП — состояние второго не меняется.
 - Эффект применяется со следующего тика scheduler-а (≤ 3 минуты).
 - Никакие текущие в работе items не прерываются — выключение блокирует только новые итерации.
 
-**Ответ:** тот же `AutoRespondFiveStarsStatus` со свежим `enabled` (статистика остаётся за последние 24 часа, не сбрасывается).
+**Ответ:** `AutoRespondFiveStarsMarketplaceStatus` для этого МП (см. выше — со свежим `enabled` и текущей статистикой).
 
-> **Альтернатива через универсальный settings-эндпоинт:** `PUT /api/v1/settings/auto_publish_five_stars_enabled` с телом `{"value": "true"}`. Делает то же самое, но без человекочитаемого ответа со статистикой.
+**Ошибки:**
+
+| HTTP | Когда |
+|------|-------|
+| `400` | `marketplace` не `wildberries` / `yandex_market` (например, `ozon`) — для него тоггл не предусмотрен |
+
+> **Альтернатива через универсальный settings-эндпоинт:** `PUT /api/v1/settings/auto_publish_five_stars_enabled_{marketplace}` с телом `{"value": "true"}`. Делает то же самое, но без валидации path-параметра и без человекочитаемого ответа со статистикой.
 
 ---
 
@@ -1297,7 +1331,8 @@ Key-value хранилище настроек и промтов.
 | Ключ | Описание |
 |------|----------|
 | `auto_generate_enabled` | `"true"` / `"false"` — управление авто-генерацией |
-| `auto_publish_five_stars_enabled` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы WB/YM (см. раздел 15). Default `"false"` |
+| `auto_publish_five_stars_enabled_wildberries` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Wildberries (см. раздел 15). Default `"false"` |
+| `auto_publish_five_stars_enabled_yandex_market` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Yandex Market (см. раздел 15). Default `"false"` |
 | `auto_check_enabled` | Включение авто-проверки/тегирования |
 | `auto_check_interval` | Интервал авто-проверки (сек) |
 | `auto_check_threshold` | Порог авто-проверки |
