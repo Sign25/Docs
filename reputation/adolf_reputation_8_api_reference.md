@@ -1,8 +1,10 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.59
+> **Версия:** 1.2.61
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
+
+> **Часовой пояс:** все поля типа `datetime` в JSON-ответах API сериализуются как **naive datetime в часовом поясе Омска (UTC+6)** — в БД хранится UTC, сдвиг на +6 часов выполняется автоматически на сериализации (см. `app/utils/tz.py`). Фронту не нужно дополнительно конвертировать. Поля типа `date` не сдвигаются. Фильтры `date_from`/`date_to` принимаются как есть (без сдвига).
 
 ---
 
@@ -14,15 +16,18 @@
 4. [Reviews — Модерация](#4-reviews--модерация)
 5. [Reviews — Публикация](#5-reviews--публикация)
 6. [Reviews — История](#6-reviews--история)
-7. [Polling (сбор отзывов)](#7-polling-сбор-отзывов)
-8. [Statistics (аналитика)](#8-statistics-аналитика)
-9. [Products (рейтинг товаров)](#9-products-рейтинг-товаров)
-10. [Settings (настройки)](#10-settings-настройки)
-11. [Prompt Management (промт генерации)](#11-prompt-management-промт-генерации)
-12. [Автоматические процессы (Scheduler)](#12-автоматические-процессы-scheduler)
-13. [Схема БД](#13-схема-бд)
-14. [Пайплайн обработки](#14-пайплайн-обработки)
-15. [Миграции](#15-миграции)
+7. [Negative Reviews (негативные + Excel-экспорт)](#7-negative-reviews-негативные--excel-экспорт)
+8. [Polling (сбор отзывов)](#8-polling-сбор-отзывов)
+9. [Subscriptions (зонд подписки WB Джем)](#9-subscriptions-зонд-подписки-wb-джем)
+10. [Statistics (аналитика)](#10-statistics-аналитика)
+11. [Products (рейтинг товаров)](#11-products-рейтинг-товаров)
+12. [Settings (настройки)](#12-settings-настройки)
+13. [Prompt Management (промт генерации)](#13-prompt-management-промт-генерации)
+14. [Автоматические процессы (Scheduler)](#14-автоматические-процессы-scheduler)
+15. [Auto-Respond (авто-ответ на 5★)](#15-auto-respond-авто-ответ-на-5)
+16. [Схема БД](#16-схема-бд)
+17. [Пайплайн обработки](#17-пайплайн-обработки)
+18. [Миграции](#18-миграции)
 
 ---
 
@@ -411,7 +416,102 @@
 
 ---
 
-## 7. Polling (сбор отзывов)
+## 7. Negative Reviews (негативные + Excel-экспорт)
+
+Отдельная страница на фронте: листинг отзывов с `rating ≤ 3` (1–3 звезды) и кнопка выгрузки текущей выборки в Excel. Статус ответа отображается единым бинарным флагом `answered` / `not_answered`.
+
+> **Записи с пустым `wb_created_at` в выдачу не попадают** (`WHERE wb_created_at IS NOT NULL`). Это намеренный фильтр — дата на маркетплейсе должна быть. Для отзывов, у которых маркетплейс не вернул дату создания (бывает у Ozon), используйте обычный `/reviews`.
+
+### `GET /api/v1/reviews/negative`
+
+Листинг негативных отзывов.
+
+**Query-параметры:**
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `marketplace` | string | — | `wildberries` / `ozon` / `yandex_market` |
+| `answer_status` | string | — | `answered` / `not_answered` — фильтр по факту ответа |
+| `date_from` | date | — | `YYYY-MM-DD`, фильтр по `wb_created_at` (включительно) |
+| `date_to` | date | — | `YYYY-MM-DD`, фильтр по `wb_created_at` (включительно) |
+| `search` | string | — | ILIKE по тексту отзыва, SKU маркетплейса, внутреннему артикулу, `vendor_code` |
+| `sort_by` | string | `wb_created_at` | `wb_created_at` / `rating` |
+| `order` | string | `desc` | `asc` / `desc` (NULLS LAST) |
+| `page` | int | `1` | ≥ 1 |
+| `page_size` | int | `20` | 1–100 |
+
+**Ответ: `NegativeReviewsListResponse`**
+
+```json
+{
+  "items": [
+    {
+      "id": 1024,
+      "marketplace_sku": "12345678",
+      "internal_article": "ART-91002",
+      "marketplace": "wildberries",
+      "client_text": "Размер не соответствует. Села после первой стирки.",
+      "rating": 2,
+      "wb_created_at": "2026-05-12T18:30:00",
+      "answer_status": "not_answered"
+    }
+  ],
+  "total": 142,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+**Поля `NegativeReviewItem`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | int | Внутренний ID отзыва (для перехода в детали через `/reviews/{id}`) |
+| `marketplace_sku` | string | `wb_id` — ID отзыва на маркетплейсе |
+| `internal_article` | string? | Внутренний артикул из `sku_mappings`, fallback — `reputation_products.vendor_code` |
+| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
+| `client_text` | string? | Текст отзыва |
+| `rating` | int | 1–3 |
+| `wb_created_at` | datetime? | Дата создания отзыва на маркетплейсе (Омск, +6h) |
+| `answer_status` | string | `"answered"` / `"not_answered"` |
+
+**Логика `answer_status`:** `answered` = в БД есть `ReputationPublication.status='success'` для этого `item_id` ИЛИ legacy `ReputationResponse.status='published'`. Иначе `not_answered`. Реализовано через коррелированные `EXISTS` — без дублей в выборке.
+
+---
+
+### `GET /api/v1/reviews/negative/export`
+
+Выгрузка всех отзывов под текущие фильтры в формате Excel (.xlsx).
+
+**Query-параметры:** **те же**, что у `GET /reviews/negative`, **кроме** `page` и `page_size` — экспорт всегда возвращает полную выборку под фильтры.
+
+**Лимит:** `MAX_EXPORT_ROWS = 50_000` строк. При превышении — `400`:
+
+```json
+{ "detail": "Слишком много строк для экспорта (123456 > 50000). Сузьте фильтры." }
+```
+
+**Ответ:** `200 OK`, `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment; filename="negative_reviews_YYYYMMDD_HHMM.xlsx"`.
+
+**Колонки файла (в порядке вывода):**
+
+| Колонка | Источник | Формат |
+|---------|----------|--------|
+| SKU маркетплейса | `marketplace_sku` | строка |
+| Внутренний артикул | `internal_article` | строка (пусто, если нет маппинга) |
+| Маркетплейс | `marketplace` | human-readable: `Wildberries` / `Ozon` / `Yandex Market` |
+| Текст отзыва | `client_text` | строка с переносом строк |
+| Звёзды | `rating` | целое 1–3 |
+| Дата отзыва | `wb_created_at` | `DD.MM.YYYY HH:MM` (Омск, +6h) |
+| Статус ответа | `answer_status` | `Отвечен` / `Не отвечен` |
+
+Заголовки таблицы зафиксированы (freeze pane), ширины колонок настроены, перенос текста в колонке "Текст отзыва".
+
+**Поведение пагинации:** на экране — обычная постраничная навигация (`page` / `page_size`). При нажатии "Выгрузить в Excel" фронт передаёт **те же** фильтры (`marketplace`, `answer_status`, `date_from`, `date_to`, `search`, `sort_by`, `order`), но **без** `page`/`page_size`. В файл попадают все строки под фильтры. Без фильтров — весь список негативных отзывов (до лимита).
+
+---
+
+## 8. Polling (сбор отзывов)
 
 ### `POST /api/v1/polling/{marketplace}/trigger`
 
@@ -464,7 +564,70 @@
 
 ---
 
-## 8. Statistics (аналитика)
+### `POST /api/v1/polling/ratings/refresh`
+
+Ручной запуск обновления **официальных рейтингов товаров** из API маркетплейсов (поля `mp_rating`, `mp_rating_count`, `mp_rating_updated_at` в `reputation_products`). Эта же задача автоматически запускается scheduler-ом ежедневно в 03:00 UTC (см. раздел 14).
+
+**Query-параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` — обновить только один МП. Если не указан — обновляются все |
+
+**Источники:**
+
+| Маркетплейс | Источник `mp_rating` |
+|-------------|-----------------------|
+| **Wildberries** | Публичный `card.wb.ru/cards/v2/detail` (без авторизации) — поля `reviewRating`, `feedbacks`. Неофициальный путь, fallback — расчётный `avg_rating` |
+| **Ozon** | `POST /v1/product/rating-by-sku` (требует Premium Plus). При отсутствии подписки/доступа — graceful fallback на `avg_rating` |
+| **Yandex Market** | Без реализации — публичного источника нет, `mp_rating` остаётся `NULL` |
+
+**Ответ:** `200 OK` со сводкой обновлённых товаров (точная схема — см. Swagger). Используется как прогрев перед демо или для ручной отладки.
+
+---
+
+## 9. Subscriptions (зонд подписки WB Джем)
+
+Best-effort проверка подписки **WB Джем** — у Wildberries нет публичного API «есть ли Джем», поэтому зондируем feature-gated эндпоинт аналитики поисковых запросов (`POST /api/v2/search-report/report`) и классифицируем ответ.
+
+### `GET /api/v1/subscriptions/wb/jem`
+
+**Query-параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `probe_url` | string | Переопределить URL зонда (по умолчанию `https://seller-analytics-api.wildberries.ru/api/v2/search-report/report`). Также можно зашить в `app_settings.wb_jem_probe_url` |
+
+**Ответ:**
+
+```json
+{
+  "status": "active",
+  "http_status": 200,
+  "probe_url": "https://seller-analytics-api.wildberries.ru/api/v2/search-report/report",
+  "message": null,
+  "body_snippet": "{\"data\":{\"items\":[...]}}"
+}
+```
+
+**Классификатор `status`:**
+
+| `status` | HTTP | Смысл |
+|----------|------|-------|
+| `active` | 2xx | Подписка активна — эндпоинт вернул данные |
+| `inactive` | 403 | Подписка не оплачена / отозвана |
+| `auth_error` | 401 | Невалидный или отсутствует WB-токен |
+| `endpoint_missing` | 404 | WB поменяли путь — нужно поднять `probe_url` |
+| `unknown` | 429 / прочее / сетевая ошибка | Не классифицируется однозначно — смотри `body_snippet` (первые 500 символов) |
+
+**Особенности:**
+- Эндпоинт всегда отвечает `200 OK` со стороны нашего API. Сетевая ошибка → `status="unknown"`, без `5xx` наружу.
+- Минимальное валидное тело зонда: `currentPeriod` за последние 7 дней, `positionCluster="all"`, `orderBy={avgPosition, asc}`, `includeSubstitutedSKUs=true`, `includeSearchTexts=true`, `limit=1`.
+- Если WB поменяет схему body, классификатор может выдать `unknown` — анализируй `body_snippet` глазами и при необходимости задай свой `probe_url`.
+
+---
+
+## 10. Statistics (аналитика)
 
 ### `GET /api/v1/stats`
 
@@ -566,11 +729,20 @@
 
 ---
 
-## 9. Products (рейтинг товаров)
+## 11. Products (рейтинг товаров)
 
 ### `GET /api/v1/products`
 
-Листинг всех товаров с агрегированным рейтингом и распределением по звёздам. Показывает и товары **без отзывов** (LEFT JOIN → `avg_rating=null`, `total_reviews=0`, `last_review_at=null`) — именно они обычно и есть кандидаты «куда писать отзывы первыми».
+Листинг всех товаров с рейтингом и распределением по звёздам. Показывает и товары **без отзывов** (LEFT JOIN → `avg_rating=null`, `total_reviews=0`, `last_review_at=null`) — именно они обычно и есть кандидаты «куда писать отзывы первыми».
+
+**Источник рейтинга:** основное отображаемое значение — `rating = COALESCE(mp_rating, avg_rating)`. `mp_rating` — официальная оценка с маркетплейса (с точностью до сотых, совпадает с ЛК), `avg_rating` — наша агрегация по отзывам в БД. Поле `rating_source` указывает источник:
+
+| `rating_source` | Значение |
+|-----------------|----------|
+| `"marketplace"` | Используется `mp_rating` — официальный рейтинг |
+| `"computed"` | `mp_rating` отсутствует, используется наш `avg_rating` |
+
+`mp_rating` подтягивается ежедневной задачей scheduler-а (см. раздел 14, `refresh_mp_ratings`). Ручной прогрев — `POST /api/v1/polling/ratings/refresh`.
 
 **Query-параметры:**
 
@@ -579,9 +751,9 @@
 | `marketplace` | string | — | `wildberries` / `ozon` / `yandex_market` |
 | `category` | string | — | Точный фильтр по категории товара |
 | `search` | string | — | ILIKE по `title`, `vendor_code`, внутреннему артикулу (`sku_mappings.internal_article`) и SKU маркетплейса (`external_id`) |
-| `date_from` | date | — | Учитывать отзывы с этой даты (включительно). Фильтр применяется к **отзывам, формирующим метрики**; товары без отзывов за период остаются в списке с нулями |
+| `date_from` | date | — | Учитывать отзывы с этой даты (включительно). Фильтр применяется к **отзывам, формирующим `avg_rating` и `total_reviews`**; на `mp_rating` не влияет |
 | `date_to` | date | — | Учитывать отзывы до этой даты (включительно) |
-| `sort_by` | string | `total_reviews` | `avg_rating`, `total_reviews`, `title`, `last_review_at` |
+| `sort_by` | string | `total_reviews` | `rating` (COALESCE mp→avg), `mp_rating`, `avg_rating`, `total_reviews`, `title`, `last_review_at` |
 | `order` | string | `desc` | `asc` / `desc`. Для пустых значений используется NULLS LAST — товары без отзывов всегда в конце списка |
 | `page` | int | `1` | ≥ 1 |
 | `page_size` | int | `20` | 1–100 |
@@ -599,6 +771,11 @@
       "vendor_code": "91002",
       "internal_article": "91002",
       "category": "платья",
+      "rating": 4.7,
+      "rating_source": "marketplace",
+      "mp_rating": 4.7,
+      "mp_rating_count": 3120,
+      "mp_rating_updated_at": "2026-04-17T09:00:00",
       "avg_rating": 4.62,
       "total_reviews": 3114,
       "stars": {
@@ -624,11 +801,16 @@
 | `product_id` | int | `external_id` — SKU товара на маркетплейсе |
 | `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
 | `title` | string? | Название товара |
-| `first_photo` | string? | URL первого фото (`media_urls[0]`) |
+| `first_photo` | string? | URL первого фото |
 | `vendor_code` | string? | Артикул из справочника маркетплейса |
 | `internal_article` | string? | Внутренний артикул из `sku_mappings`; fallback — `vendor_code` |
 | `category` | string? | Категория товара |
-| `avg_rating` | float? | Средняя оценка (округление до 2 знаков); `null` если отзывов за период нет |
+| `rating` | float? | Основное отображаемое значение, `COALESCE(mp_rating, avg_rating)` |
+| `rating_source` | string | `"marketplace"` или `"computed"` |
+| `mp_rating` | float? | Официальный рейтинг с маркетплейса |
+| `mp_rating_count` | int? | Количество отзывов по версии маркетплейса |
+| `mp_rating_updated_at` | datetime? | Когда мы последний раз тянули `mp_rating` |
+| `avg_rating` | float? | Наша средняя оценка по отзывам (округление до 2 знаков); `null` если отзывов за период нет |
 | `total_reviews` | int | Количество отзывов за период (или всего, если даты не заданы) |
 | `stars` | StarDistribution | Распределение по звёздам 1–5 |
 | `last_review_at` | datetime? | Дата последнего отзыва (в рамках периода) |
@@ -647,11 +829,64 @@
 
 | Цель | Запрос |
 |------|--------|
-| Какие товары «хромают» | `?sort_by=avg_rating&order=asc` — самые низкие рейтинги сверху |
-| Где не хватает отзывов | `?sort_by=total_reviews&order=asc` — товары с нулём/мало отзывов сверху |
+| Какие товары «хромают» (по официальному рейтингу) | `?sort_by=rating&order=asc` |
+| Расхождение с маркетплейсом | сравнивать `mp_rating` и `avg_rating` (или сортировать по разнице на фронте) |
+| Где не хватает отзывов | `?sort_by=total_reviews&order=asc` |
 | Рейтинг за последние 30 дней | `?date_from=2026-03-16&date_to=2026-04-15&sort_by=avg_rating&order=asc` |
 | Свежие отзывы | `?sort_by=last_review_at&order=desc` |
 | Поиск товара | `?search=<артикул или SKU>` |
+
+---
+
+### `GET /api/v1/products/ratings`
+
+Лёгкий листинг товаров **только с рейтингом маркетплейса** — без агрегатов по нашим отзывам. Отдельная страница «Рейтинги товаров» на фронте. Скрывает товары, у которых нет ни `mp_rating`, ни расчётного `avg_rating` (для YM `mp_rating` пока всегда `NULL` — YM в выдачу попадает только если есть отзывы в БД).
+
+**Query-параметры:**
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `marketplace` | string | — | `wildberries` / `ozon` / `yandex_market` |
+| `search` | string | — | ILIKE по SKU маркетплейса (`external_id`), `internal_article`, `vendor_code` |
+| `sort_by` | string | `rating` | `rating`, `rating_count`, `updated_at` |
+| `order` | string | `desc` | `asc` / `desc` (NULLS LAST) |
+| `page` | int | `1` | ≥ 1 |
+| `page_size` | int | `20` | 1–100 |
+
+**Ответ: `ProductRatingsListResponse`**
+
+```json
+{
+  "items": [
+    {
+      "marketplace": "wildberries",
+      "external_sku": 293797327,
+      "internal_sku": "91002",
+      "title": "Платье с коротким рукавом",
+      "rating": 4.7,
+      "rating_count": 3120,
+      "source": "api",
+      "updated_at": "2026-04-17T09:00:00"
+    }
+  ],
+  "total": 661,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+**Поля `ProductRatingItem`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `marketplace` | string | Маркетплейс |
+| `external_sku` | int | SKU на маркетплейсе |
+| `internal_sku` | string? | `sku_mappings.internal_article`, fallback — `vendor_code` |
+| `title` | string? | Название |
+| `rating` | float | `COALESCE(mp_rating, avg_rating)` |
+| `rating_count` | int? | `mp_rating_count` |
+| `source` | string | `"api"` если есть `mp_rating`, иначе `"calculated"` |
+| `updated_at` | datetime? | `mp_rating_updated_at` или `last_review_at` |
 
 ---
 
@@ -661,7 +896,7 @@
 
 ---
 
-## 10. Settings (настройки)
+## 12. Settings (настройки)
 
 ### `GET /api/v1/settings`
 
@@ -687,7 +922,7 @@
 
 ---
 
-## 11. Prompt Management (промт генерации)
+## 13. Prompt Management (промт генерации)
 
 Менеджер может просматривать и редактировать системный промт AI-генерации без деплоя. Дефолтное значение захардкожено в `ai_prompts.py`; кастомное хранится в `app_settings` и имеет приоритет.
 
@@ -797,7 +1032,7 @@ Effective промт для маркетплейса.
 
 ---
 
-## 12. Автоматические процессы (Scheduler)
+## 14. Автоматические процессы (Scheduler)
 
 Scheduler активен с v1.2.50. Запускается при старте сервера. Backfill убран из автозапуска — для исторических данных: `POST /stats/recompute`.
 
@@ -808,12 +1043,109 @@ Scheduler активен с v1.2.50. Запускается при старте 
 | `auto_generate_pending` | Каждые 5 минут | Берёт до 5 отзывов со статусом `new`, классифицирует и генерирует черновик. Управляется настройкой `auto_generate_enabled` в `app_settings` |
 | `retry_failed_publications` | Каждый час | Повторяет публикацию для отзывов со статусом `error` (до 50 шт.) |
 | `refresh_today_analytics` | Каждые 30 минут | Пересчитывает статистику за сегодня и вчера |
+| `refresh_mp_ratings` | Ежедневно в 03:00 UTC | Тянет официальный рейтинг товара (`mp_rating`, `mp_rating_count`, `mp_rating_updated_at`) из API маркетплейсов. WB — через `card.wb.ru`, Ozon — `POST /v1/product/rating-by-sku` (Premium Plus), YM — пока без источника. Ручной trigger: `POST /api/v1/polling/ratings/refresh` |
+| `reconcile_missing_publications` | Каждые 15 минут | Создаёт записи в `reputation_publications` для legacy `ReputationResponse(status='published', published_at not null)`, у которых публикации не было. Закрывает разрыв исторических данных |
+| `auto_publish_five_stars_pending` | Каждые 3 минуты | Авто-публикация ответов на 5★ отзывы WB/YM без участия менеджера. Управляется раздельными тоггл-эндпоинтами `PUT /api/v1/auto-respond/five-stars/{marketplace}` (см. раздел 15) — WB и YM включаются независимо. Каждый тик собирает список включённых МП и фильтрует выборку (`marketplace IN :enabled_mps`); если оба выключены — early return. Чаще, чем `auto_generate_pending`, чтобы перехватывать новые 5★ раньше; конфликт с обычным auto-generate решён через широкую выборку (`status IN (new, pending_review)`) |
 
 > Управление авто-генерацией: `PUT /api/v1/settings/auto_generate_enabled` со значением `"true"` / `"false"`.
+> Управление авто-ответом на 5★: `PUT /api/v1/auto-respond/five-stars/{marketplace}` с телом `{"enabled": true|false}` (это удобный wrapper над `app_settings.auto_publish_five_stars_enabled_{marketplace}`). При старте сервиса `migrate_legacy_five_stars_flag()` одноразово переносит значение legacy-ключа `auto_publish_five_stars_enabled` в оба per-МП ключа и удаляет legacy. Идемпотентна.
 
 ---
 
-## 13. Схема БД
+## 15. Auto-Respond (авто-ответ на 5★)
+
+Раздельные тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market — каждый маркетплейс включается и выключается независимо. Пока МП включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 14) каждые 3 минуты выбирает review-ы этого МП с `rating=5`, `status IN (new, pending_review)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
+
+**Что не трогается:**
+- **Ozon** исключён на уровне SQL-фильтра — нестабильная подписка Premium+. Тоггла для него нет.
+- **Вопросы** (`item_type='question'`) — у них нет рейтинга, фильтр их не зацепит.
+- **1–4★ отзывы** — идут обычным маршрутом (auto-generate → `pending_review` → ручное одобрение).
+- **Невалидный draft** (после 3 retry в `_validate_response` остался `is_valid=False`) — пропускается, item остаётся в `pending_review` для менеджера.
+
+**Ошибки публикации** (404 / 429 / network): `item.status='error'`, запись в `reputation_publications.status='failed'`, последующая попытка — через существующий `retry_failed_publications` (раз в час).
+
+**Аудит:** каждая успешная/неуспешная авто-публикация пишется в `auto_process_log` с `process_type='reputation_auto_five_stars'`, `action='auto_publish_five_stars:success'` / `:failed` и `marketplace=<wildberries|yandex_market>`. Поле `marketplace` используется для подсчёта статистики per-МП.
+
+**Хранение состояния:** два ключа в `app_settings` (`"true"` / `"false"`, default `"false"`):
+- `auto_publish_five_stars_enabled_wildberries`
+- `auto_publish_five_stars_enabled_yandex_market`
+
+При старте сервиса одноразовая миграция `migrate_legacy_five_stars_flag()` переносит значение legacy-ключа `auto_publish_five_stars_enabled` (если он есть) в оба per-МП ключа и удаляет legacy. Идемпотентна.
+
+### `GET /api/v1/auto-respond/five-stars`
+
+Состояние тогглов и статистика за последние 24 часа по обоим МП. Порядок элементов в массиве фиксированный: `wildberries`, `yandex_market`. Удобно для рендера всей страницы одним запросом.
+
+**Ответ: `AutoRespondFiveStarsListResponse`**
+
+```json
+{
+  "marketplaces": [
+    {
+      "marketplace": "wildberries",
+      "enabled": true,
+      "last_run_at": "2026-05-18T09:42:00",
+      "last_succeeded": 38,
+      "last_failed": 2
+    },
+    {
+      "marketplace": "yandex_market",
+      "enabled": false,
+      "last_run_at": null,
+      "last_succeeded": 0,
+      "last_failed": 0
+    }
+  ]
+}
+```
+
+**Поля одного `AutoRespondFiveStarsMarketplaceStatus`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `marketplace` | string | `"wildberries"` / `"yandex_market"` |
+| `enabled` | bool | Текущее значение `app_settings.auto_publish_five_stars_enabled_{marketplace}` (`"true"` / иное → `false`) |
+| `last_run_at` | datetime? | Время последней записи в `auto_process_log` (`process_type='reputation_auto_five_stars'`, `marketplace=<mp>`) (Омск, +6h). `null` если задача ещё не запускалась для этого МП |
+| `last_succeeded` | int | Сколько раз `status='success'` за последние 24 часа для этого МП |
+| `last_failed` | int | Сколько раз `status='error'` или `'failed'` за последние 24 часа для этого МП |
+
+---
+
+### `PUT /api/v1/auto-respond/five-stars/{marketplace}`
+
+Включить или выключить авто-ответ на 5★ для одного маркетплейса.
+
+**Path-параметры:**
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `marketplace` | string | `wildberries` или `yandex_market`. Любое другое значение (включая `ozon`) → `400` |
+
+**Тело запроса:**
+
+```json
+{ "enabled": true }
+```
+
+**Что происходит:**
+- Апсертит `app_settings.auto_publish_five_stars_enabled_{marketplace}` в `"true"` или `"false"`.
+- Влияет только на этот МП — состояние второго не меняется.
+- Эффект применяется со следующего тика scheduler-а (≤ 3 минуты).
+- Никакие текущие в работе items не прерываются — выключение блокирует только новые итерации.
+
+**Ответ:** `AutoRespondFiveStarsMarketplaceStatus` для этого МП (см. выше — со свежим `enabled` и текущей статистикой).
+
+**Ошибки:**
+
+| HTTP | Когда |
+|------|-------|
+| `400` | `marketplace` не `wildberries` / `yandex_market` (например, `ozon`) — для него тоггл не предусмотрен |
+
+> **Альтернатива через универсальный settings-эндпоинт:** `PUT /api/v1/settings/auto_publish_five_stars_enabled_{marketplace}` с телом `{"value": "true"}`. Делает то же самое, но без валидации path-параметра и без человекочитаемого ответа со статистикой.
+
+---
+
+## 16. Схема БД
 
 ### `reputation_products`
 Данные о товарах (заполняются из AdolfDataSync).
@@ -833,10 +1165,13 @@ Scheduler активен с v1.2.50. Запускается при старте 
 | `attributes` | JSONB | Характеристики |
 | `imt_id` | BIGINT | ID склейки (merch-tree ID) |
 | `category` | VARCHAR(100) | Категория товара (платья, штаны и т.д.) |
+| `mp_rating` | NUMERIC(3,2) | Официальный рейтинг с маркетплейса (точность 2 знака) |
+| `mp_rating_count` | INTEGER | Количество отзывов по версии маркетплейса |
+| `mp_rating_updated_at` | TIMESTAMPTZ | Когда мы последний раз тянули `mp_rating` |
 | `updated_at` | DATETIME | Дата последнего обновления карточки |
 
 > Composite PK: `(external_id, marketplace)`
-> Индекс: `ix_rprod_category` на `category`
+> Индексы: `ix_rprod_category` на `category`, `ix_rprod_mp_rating` на `mp_rating`
 
 ---
 
@@ -996,6 +1331,8 @@ Key-value хранилище настроек и промтов.
 | Ключ | Описание |
 |------|----------|
 | `auto_generate_enabled` | `"true"` / `"false"` — управление авто-генерацией |
+| `auto_publish_five_stars_enabled_wildberries` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Wildberries (см. раздел 15). Default `"false"` |
+| `auto_publish_five_stars_enabled_yandex_market` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Yandex Market (см. раздел 15). Default `"false"` |
 | `auto_check_enabled` | Включение авто-проверки/тегирования |
 | `auto_check_interval` | Интервал авто-проверки (сек) |
 | `auto_check_threshold` | Порог авто-проверки |
@@ -1043,7 +1380,7 @@ Key-value хранилище настроек и промтов.
 
 ---
 
-## 14. Пайплайн обработки
+## 17. Пайплайн обработки
 
 ```
 Polling → new → analyzing → pending_review → approved → publishing → answered
@@ -1063,10 +1400,11 @@ Polling → new → analyzing → pending_review → approved → publishing →
 
 ---
 
-## 15. Миграции
+## 18. Миграции
 
 | Файл | Описание |
 |------|----------|
 | `add_response_source.sql` | Добавляет колонку `source` (VARCHAR(20), default `'manager'`) в `reputation_responses`. Backfill: `source='ai'` для ответов с непустым `ai_variants` |
 | `add_performance_indexes.sql` | 15 индексов: 8 на `reputation_items` (marketplace, status, item_type, rating, created_at, product_id + составные), 5 на FK-колонки (`ix_rr_item_id`, `ix_rd_item_id`, `ix_rg_item_id`, `ix_rp_item_id`, `ix_rp_status`), 1 на `sku_mappings` (`ix_sm_ext_sku_mp`), 1 на `reputation_products` (`ix_rprod_category`) |
 | `add_product_category.sql` | Добавляет колонку `category` (VARCHAR(100)) в `reputation_products` + индекс `ix_rprod_category` |
+| `add_mp_rating_columns.sql` | Добавляет в `reputation_products` колонки `mp_rating` (NUMERIC(3,2)), `mp_rating_count` (INTEGER), `mp_rating_updated_at` (TIMESTAMPTZ) + индекс `ix_rprod_mp_rating` для сортировки по официальному рейтингу |
