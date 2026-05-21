@@ -1,6 +1,6 @@
 # AdolfReputationBack — API Reference
 
-> **Версия:** 1.2.61
+> **Версия:** 1.2.62
 > **Base URL:** `https://your-server.com` (dev: `http://localhost:8000`)
 > **Swagger UI:** `{BASE_URL}/docs`
 
@@ -16,18 +16,19 @@
 4. [Reviews — Модерация](#4-reviews--модерация)
 5. [Reviews — Публикация](#5-reviews--публикация)
 6. [Reviews — История](#6-reviews--история)
-7. [Negative Reviews (негативные + Excel-экспорт)](#7-negative-reviews-негативные--excel-экспорт)
-8. [Polling (сбор отзывов)](#8-polling-сбор-отзывов)
-9. [Subscriptions (зонд подписки WB Джем)](#9-subscriptions-зонд-подписки-wb-джем)
-10. [Statistics (аналитика)](#10-statistics-аналитика)
-11. [Products (рейтинг товаров)](#11-products-рейтинг-товаров)
-12. [Settings (настройки)](#12-settings-настройки)
-13. [Prompt Management (промт генерации)](#13-prompt-management-промт-генерации)
-14. [Автоматические процессы (Scheduler)](#14-автоматические-процессы-scheduler)
-15. [Auto-Respond (авто-ответ на 5★)](#15-auto-respond-авто-ответ-на-5)
-16. [Схема БД](#16-схема-бд)
-17. [Пайплайн обработки](#17-пайплайн-обработки)
-18. [Миграции](#18-миграции)
+7. [AI Auto-Responses (история ответов AI)](#7-ai-auto-responses-история-ответов-ai)
+8. [Negative Reviews (негативные + Excel-экспорт)](#8-negative-reviews-негативные--excel-экспорт)
+9. [Polling (сбор отзывов)](#9-polling-сбор-отзывов)
+10. [Subscriptions (зонд подписки WB Джем)](#10-subscriptions-зонд-подписки-wb-джем)
+11. [Statistics (аналитика)](#11-statistics-аналитика)
+12. [Products (рейтинг товаров)](#12-products-рейтинг-товаров)
+13. [Settings (настройки)](#13-settings-настройки)
+14. [Prompt Management (промт генерации)](#14-prompt-management-промт-генерации)
+15. [Автоматические процессы (Scheduler)](#15-автоматические-процессы-scheduler)
+16. [Auto-Respond (авто-ответ на 5★)](#16-auto-respond-авто-ответ-на-5)
+17. [Схема БД](#17-схема-бд)
+18. [Пайплайн обработки](#18-пайплайн-обработки)
+19. [Миграции](#19-миграции)
 
 ---
 
@@ -416,7 +417,121 @@
 
 ---
 
-## 7. Negative Reviews (негативные + Excel-экспорт)
+## 7. AI Auto-Responses (история ответов AI)
+
+> ⚠️ **Для вкладки «Ответы AI»** фронт должен вызывать **`GET /api/v1/reviews/ai-responses`**, а **не** `GET /api/v1/reviews?status=answered`. Старый эндпоинт возвращает все отвеченные отзывы вперемешку (и от AI, и от менеджера) без дедупа. Новый отдаёт **только AI-публикации** (`source='ai'`), с дедупом по `item_id` (одна строка = один отзыв, самая свежая попытка) и дополнительными полями `retry_count` и `error_message`.
+
+История авто-публикаций AI на маркетплейсы. Отдельная страница в UI («Ответы AI») — там видно, что AI наотвечал, какие попытки упали и почему. Manager-публикации в эту выдачу не попадают.
+
+### `GET /api/v1/reviews/ai-responses`
+
+**Источник данных:** `reputation_publications WHERE source='ai' AND status IN ('success','failed')`. На каждый отзыв возвращается **одна строка** — самая последняя попытка публикации (`DISTINCT ON (item_id) ORDER BY published_at DESC`). Включает и успешные, и неудачные попытки (для `failed` — с `error_message`).
+
+**Что попадает / что нет:**
+
+| | Попадает в выдачу? |
+|---|---|
+| 5★ авто-ответ WB/YM (полный цикл `generate→approve→publish`) | ✅ `status=success` |
+| 5★ авто-ретрай: упало, не получилось | ✅ `status=failed` + `error_message` |
+| 5★ авто-ретрай: успешно повторили | ✅ `status=success` (заменит прежний `failed` по дедупу), `retry_count` = всего попыток |
+| Перманентная ошибка (404/401/403) | ✅ последний `failed` остаётся в выдаче (ретрая больше не будет) |
+| Cap retry исчерпан (5 попыток) | ✅ последний `failed` остаётся в выдаче |
+| Черновик AI создан, но не опубликован (`item.status=pending_review`) | ❌ нет записи в `reputation_publications` |
+| Ручной ответ менеджера через UI | ❌ `source='manual'` — отсекается фильтром |
+| Авто-ответ на вопрос | ❌ AI на вопросы не отвечает автоматически |
+| 5★ Ozon | ❌ Ozon исключён из авто-публикации |
+
+**Query-параметры:**
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|--------------|----------|
+| `marketplace` | string | — | `wildberries` / `ozon` / `yandex_market`. Технически Ozon принимается, но в авто-ответе не участвует — выдача по нему обычно пуста |
+| `date_from` | date | — | Фильтр по `published_at` (включительно) |
+| `date_to` | date | — | Фильтр по `published_at` (включительно) |
+| `search` | string | — | ILIKE по `client_text`, SKU маркетплейса (`wb_id`), `internal_article` (из `sku_mappings`), `vendor_code` |
+| `sort_by` | string | `published_at` | `published_at` или `rating` |
+| `order` | string | `desc` | `asc` / `desc` (NULLS LAST) |
+| `page` | int | `1` | ≥ 1 |
+| `page_size` | int | `20` | 1–100 |
+
+**Ответ: `AIResponsesListResponse`**
+
+```json
+{
+  "items": [
+    {
+      "id": 12345,
+      "marketplace": "wildberries",
+      "marketplace_sku": "feedback_abc123",
+      "internal_article": "91002",
+      "client_text": "Очень понравилось платье, спасибо!",
+      "rating": 5,
+      "pros": "Качественная ткань",
+      "cons": null,
+      "wb_created_at": "2026-05-20T13:42:11",
+      "ai_response_text": "Анна, благодарим вас за тёплый отзыв! ...",
+      "published_at": "2026-05-20T14:03:22",
+      "status": "success",
+      "error_message": null,
+      "retry_count": 1
+    },
+    {
+      "id": 12346,
+      "marketplace": "yandex_market",
+      "marketplace_sku": "feedback_xyz999",
+      "internal_article": "91008",
+      "client_text": "Спасибо!",
+      "rating": 5,
+      "pros": null,
+      "cons": null,
+      "wb_created_at": "2026-05-20T11:15:00",
+      "ai_response_text": "Благодарим вас за отзыв! ...",
+      "published_at": "2026-05-20T11:20:14",
+      "status": "failed",
+      "error_message": "503 Service Unavailable",
+      "retry_count": 3
+    }
+  ],
+  "total": 412,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+**Поля `AIResponseItem`:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | int | Внутренний ID отзыва (`reputation_items.id`) |
+| `marketplace` | string | `wildberries` / `ozon` / `yandex_market` |
+| `marketplace_sku` | string | `wb_id` — идентификатор отзыва на маркетплейсе |
+| `internal_article` | string? | `sku_mappings.internal_article`; fallback — `vendor_code` |
+| `client_text` | string? | Текст отзыва |
+| `rating` | int? | Оценка (1–5) |
+| `pros` | string? | Достоинства |
+| `cons` | string? | Недостатки |
+| `wb_created_at` | datetime? | Дата отзыва на маркетплейсе (+6h Омск) |
+| `ai_response_text` | string? | Опубликованный AI-ответ (`reputation_publications.published_text`) |
+| `published_at` | datetime? | Когда отправили на маркетплейс (+6h Омск) |
+| `status` | string | `"success"` или `"failed"` |
+| `error_message` | string? | Сообщение об ошибке (только для `failed`) |
+| `retry_count` | int | Всего попыток AI-публикации для этого отзыва (включая текущую). Помогает понять «один раз с первого раза» vs «нужно несколько ретраев» |
+
+**Особенности:**
+
+- Запись появляется **в момент попытки публикации**, не в момент генерации черновика. То есть лаг от появления 5★ отзыва на МП до строки в этой выдаче — до 3 минут (тик scheduler-а, см. раздел 15).
+- Все datetime отдаются как naive в часовом поясе Омска (UTC+6), фронту дополнительно конвертировать не нужно.
+- Дедуп строгий: если по одному отзыву было 3 `failed` подряд — в выдаче ты увидишь **только последний** `failed` с `retry_count=3`. Если потом ретрай сработал — увидишь `success` с `retry_count=4`. Старые `failed` остаются в БД, но в эту выдачу не дублируются.
+
+**Связанные эндпоинты:**
+
+- `GET /api/v1/auto-respond/five-stars` — состояние тогглов авто-ответа на 5★ по каждому МП (см. раздел 16).
+- `PUT /api/v1/auto-respond/five-stars/{marketplace}` — включить/выключить.
+- `GET /api/v1/reviews/{item_id}/history` — полная история конкретного отзыва: все генерации, черновики и попытки публикации (без дедупа).
+
+---
+
+## 8. Negative Reviews (негативные + Excel-экспорт)
 
 Отдельная страница на фронте: листинг отзывов с `rating ≤ 3` (1–3 звезды) и кнопка выгрузки текущей выборки в Excel. Статус ответа отображается единым бинарным флагом `answered` / `not_answered`.
 
@@ -511,7 +626,7 @@
 
 ---
 
-## 8. Polling (сбор отзывов)
+## 9. Polling (сбор отзывов)
 
 ### `POST /api/v1/polling/{marketplace}/trigger`
 
@@ -566,7 +681,7 @@
 
 ### `POST /api/v1/polling/ratings/refresh`
 
-Ручной запуск обновления **официальных рейтингов товаров** из API маркетплейсов (поля `mp_rating`, `mp_rating_count`, `mp_rating_updated_at` в `reputation_products`). Эта же задача автоматически запускается scheduler-ом ежедневно в 03:00 UTC (см. раздел 14).
+Ручной запуск обновления **официальных рейтингов товаров** из API маркетплейсов (поля `mp_rating`, `mp_rating_count`, `mp_rating_updated_at` в `reputation_products`). Эта же задача автоматически запускается scheduler-ом ежедневно в 03:00 UTC (см. раздел 15).
 
 **Query-параметры:**
 
@@ -586,7 +701,7 @@
 
 ---
 
-## 9. Subscriptions (зонд подписки WB Джем)
+## 10. Subscriptions (зонд подписки WB Джем)
 
 Best-effort проверка подписки **WB Джем** — у Wildberries нет публичного API «есть ли Джем», поэтому зондируем feature-gated эндпоинт аналитики поисковых запросов (`POST /api/v2/search-report/report`) и классифицируем ответ.
 
@@ -627,7 +742,7 @@ Best-effort проверка подписки **WB Джем** — у Wildberries
 
 ---
 
-## 10. Statistics (аналитика)
+## 11. Statistics (аналитика)
 
 ### `GET /api/v1/stats`
 
@@ -729,7 +844,7 @@ Best-effort проверка подписки **WB Джем** — у Wildberries
 
 ---
 
-## 11. Products (рейтинг товаров)
+## 12. Products (рейтинг товаров)
 
 ### `GET /api/v1/products`
 
@@ -742,7 +857,7 @@ Best-effort проверка подписки **WB Джем** — у Wildberries
 | `"marketplace"` | Используется `mp_rating` — официальный рейтинг |
 | `"computed"` | `mp_rating` отсутствует, используется наш `avg_rating` |
 
-`mp_rating` подтягивается ежедневной задачей scheduler-а (см. раздел 14, `refresh_mp_ratings`). Ручной прогрев — `POST /api/v1/polling/ratings/refresh`.
+`mp_rating` подтягивается ежедневной задачей scheduler-а (см. раздел 15, `refresh_mp_ratings`). Ручной прогрев — `POST /api/v1/polling/ratings/refresh`.
 
 **Query-параметры:**
 
@@ -896,7 +1011,7 @@ Best-effort проверка подписки **WB Джем** — у Wildberries
 
 ---
 
-## 12. Settings (настройки)
+## 13. Settings (настройки)
 
 ### `GET /api/v1/settings`
 
@@ -908,9 +1023,9 @@ Best-effort проверка подписки **WB Джем** — у Wildberries
 
 ```json
 {
-  "key": "auto_generate_enabled",
+  "key": "auto_publish_five_stars_enabled_wildberries",
   "value": "true",
-  "updated_at": "2026-03-10T12:00:00"
+  "updated_at": "2026-05-21T12:00:00"
 }
 ```
 
@@ -922,7 +1037,7 @@ Best-effort проверка подписки **WB Джем** — у Wildberries
 
 ---
 
-## 13. Prompt Management (промт генерации)
+## 14. Prompt Management (промт генерации)
 
 Менеджер может просматривать и редактировать системный промт AI-генерации без деплоя. Дефолтное значение захардкожено в `ai_prompts.py`; кастомное хранится в `app_settings` и имеет приоритет.
 
@@ -1032,7 +1147,7 @@ Effective промт для маркетплейса.
 
 ---
 
-## 14. Автоматические процессы (Scheduler)
+## 15. Автоматические процессы (Scheduler)
 
 Scheduler активен с v1.2.50. Запускается при старте сервера. Backfill убран из автозапуска — для исторических данных: `POST /stats/recompute`.
 
@@ -1040,21 +1155,19 @@ Scheduler активен с v1.2.50. Запускается при старте 
 
 | Задача | Интервал | Описание |
 |--------|----------|----------|
-| `auto_generate_pending` | Каждые 5 минут | Берёт до 5 отзывов со статусом `new`, классифицирует и генерирует черновик. Управляется настройкой `auto_generate_enabled` в `app_settings` |
-| `retry_failed_publications` | Каждый час | Повторяет публикацию для отзывов со статусом `error` (до 50 шт.) |
-| `refresh_today_analytics` | Каждые 30 минут | Пересчитывает статистику за сегодня и вчера |
-| `refresh_mp_ratings` | Ежедневно в 03:00 UTC | Тянет официальный рейтинг товара (`mp_rating`, `mp_rating_count`, `mp_rating_updated_at`) из API маркетплейсов. WB — через `card.wb.ru`, Ozon — `POST /v1/product/rating-by-sku` (Premium Plus), YM — пока без источника. Ручной trigger: `POST /api/v1/polling/ratings/refresh` |
-| `reconcile_missing_publications` | Каждые 15 минут | Создаёт записи в `reputation_publications` для legacy `ReputationResponse(status='published', published_at not null)`, у которых публикации не было. Закрывает разрыв исторических данных |
-| `auto_publish_five_stars_pending` | Каждые 3 минуты | Авто-публикация ответов на 5★ отзывы WB/YM без участия менеджера. Управляется раздельными тоггл-эндпоинтами `PUT /api/v1/auto-respond/five-stars/{marketplace}` (см. раздел 15) — WB и YM включаются независимо. Каждый тик собирает список включённых МП и фильтрует выборку (`marketplace IN :enabled_mps`); если оба выключены — early return. Чаще, чем `auto_generate_pending`, чтобы перехватывать новые 5★ раньше; конфликт с обычным auto-generate решён через широкую выборку (`status IN (new, pending_review)`) |
+| `refresh_today_analytics` | Каждые 30 минут | Пересчитывает статистику за сегодня и вчера для всех маркетплейсов |
+| `retry_failed_publications` | Каждый час | Повторяет публикацию для отзывов в `status='error'` (до 50 шт.). Пропускает items с последней публикацией `not_supported`. Это safety net для manager-публикаций; для AI-публикаций есть отдельный авто-ретрай внутри 5★ цикла (см. раздел 16) |
+| `auto_publish_five_stars_pending` | Каждые 3 минуты | Полный авто-цикл `generate → approve → publish` для 5★ review-ов на WB / YM в статусах `new`, `pending_review`, `error`. Управляется раздельными тоггл-эндпоинтами `PUT /api/v1/auto-respond/five-stars/{marketplace}` (см. раздел 16) — WB и YM включаются независимо. Каждый тик собирает список включённых МП и фильтрует выборку (`marketplace IN :enabled_mps`); если оба выключены — early return. Item-ы в `status='error'` подхватываются для авто-ретрая (правила в разделе 16) |
+| `refresh_mp_ratings` | Ежедневно в 03:00 UTC | Тянет официальный рейтинг товара (`mp_rating`, `mp_rating_count`, `mp_rating_updated_at`) из API маркетплейсов. WB — через `card.wb.ru`, Ozon — `POST /v1/product/rating-by-sku` (Premium Plus), YM — без источника. Ручной trigger: `POST /api/v1/polling/ratings/refresh` |
 
-> Управление авто-генерацией: `PUT /api/v1/settings/auto_generate_enabled` со значением `"true"` / `"false"`.
-> Управление авто-ответом на 5★: `PUT /api/v1/auto-respond/five-stars/{marketplace}` с телом `{"enabled": true|false}` (это удобный wrapper над `app_settings.auto_publish_five_stars_enabled_{marketplace}`). При старте сервиса `migrate_legacy_five_stars_flag()` одноразово переносит значение legacy-ключа `auto_publish_five_stars_enabled` в оба per-МП ключа и удаляет legacy. Идемпотентна.
+> **Note (v1.2.62):** общая авто-генерация черновиков (`auto_generate_pending`) удалена. Теперь черновики создаются только в составе 5★ авто-цикла либо вручную через `POST /api/v1/reviews/{item_id}/generate`. Ключ `app_settings.auto_generate_enabled` больше не используется.
+> Управление авто-ответом на 5★: `PUT /api/v1/auto-respond/five-stars/{marketplace}` с телом `{"enabled": true|false}` (удобный wrapper над `app_settings.auto_publish_five_stars_enabled_{marketplace}`). При старте сервиса `migrate_legacy_five_stars_flag()` одноразово переносит значение legacy-ключа `auto_publish_five_stars_enabled` в оба per-МП ключа и удаляет legacy. Идемпотентна.
 
 ---
 
-## 15. Auto-Respond (авто-ответ на 5★)
+## 16. Auto-Respond (авто-ответ на 5★)
 
-Раздельные тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market — каждый маркетплейс включается и выключается независимо. Пока МП включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 14) каждые 3 минуты выбирает review-ы этого МП с `rating=5`, `status IN (new, pending_review)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
+Раздельные тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market — каждый маркетплейс включается и выключается независимо. Пока МП включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 15) каждые 3 минуты выбирает review-ы этого МП с `rating=5`, `status IN (new, pending_review, error)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
 
 **Что не трогается:**
 - **Ozon** исключён на уровне SQL-фильтра — нестабильная подписка Premium+. Тоггла для него нет.
@@ -1062,9 +1175,24 @@ Scheduler активен с v1.2.50. Запускается при старте 
 - **1–4★ отзывы** — идут обычным маршрутом (auto-generate → `pending_review` → ручное одобрение).
 - **Невалидный draft** (после 3 retry в `_validate_response` остался `is_valid=False`) — пропускается, item остаётся в `pending_review` для менеджера.
 
-**Ошибки публикации** (404 / 429 / network): `item.status='error'`, запись в `reputation_publications.status='failed'`, последующая попытка — через существующий `retry_failed_publications` (раз в час).
+**Ошибки публикации** (4xx / 5xx / network): `item.status='error'`, запись в `reputation_publications` с `source='ai'` и `status='failed'`. Item подхватывается следующим тиком `auto_publish_five_stars_pending` (см. правила авто-ретрая ниже). Существующий `retry_failed_publications` (раз в час) тоже работает, но для AI-публикаций он избыточен — авто-цикл сам ретраит каждые 3 минуты с собственными правилами.
 
-**Аудит:** каждая успешная/неуспешная авто-публикация пишется в `auto_process_log` с `process_type='reputation_auto_five_stars'`, `action='auto_publish_five_stars:success'` / `:failed` и `marketplace=<wildberries|yandex_market>`. Поле `marketplace` используется для подсчёта статистики per-МП.
+#### Авто-ретрай неудачных AI-публикаций
+
+Каждый тик помимо `new` / `pending_review` подхватывает items в `status='error'`, если у них есть упавшая `reputation_publications` с `source='ai'`. Для таких items **переиспользуется существующий approved-draft** (повторной генерации не происходит) и снова вызывается `publish_item_response`.
+
+**Правила:**
+
+| Условие | Поведение | Action в `auto_process_log` |
+|---------|-----------|------------------------------|
+| Меньше 5 попыток (`MAX_AUTO_RETRY=5`), ошибка не перманентная | Ретрай через 3 минуты | `auto_publish_five_stars_retry:success` или `:failed` |
+| Достигли 5 попыток | SQL-фильтр отсекает item ещё на выборке; не тратится `limit=10` тика. Item остаётся менеджеру в `status='error'` | `auto_publish_five_stars_retry:cap_exceeded` |
+| Последний `error_message` содержит `404` / `401` / `403` / `not_found` / `unauthorized` / `forbidden` (case-insensitive) | Перманентная ошибка — не ретраим, оставляем менеджеру | `auto_publish_five_stars_retry:permanent_error` |
+| Прочая ошибка (`5xx`, network, `429`) | Ретраим следующим тиком (до cap=5) | — (по результату попытки) |
+
+Все попытки публикации (и успешные, и упавшие) попадают в выдачу `GET /api/v1/reviews/ai-responses` (см. раздел 7) — там в одной строке отображается **самая свежая** попытка по каждому item с полем `retry_count` (всего попыток) и `error_message` (если упало).
+
+**Аудит:** каждая успешная/неуспешная авто-публикация пишется в `auto_process_log` с `process_type='reputation_auto_five_stars'`, `action='auto_publish_five_stars:success'` / `:failed` для первичных попыток и `auto_publish_five_stars_retry:*` для ретраев. Поле `marketplace=<wildberries|yandex_market>` используется для подсчёта статистики per-МП.
 
 **Хранение состояния:** два ключа в `app_settings` (`"true"` / `"false"`, default `"false"`):
 - `auto_publish_five_stars_enabled_wildberries`
@@ -1145,7 +1273,7 @@ Scheduler активен с v1.2.50. Запускается при старте 
 
 ---
 
-## 16. Схема БД
+## 17. Схема БД
 
 ### `reputation_products`
 Данные о товарах (заполняются из AdolfDataSync).
@@ -1330,9 +1458,8 @@ Key-value хранилище настроек и промтов.
 
 | Ключ | Описание |
 |------|----------|
-| `auto_generate_enabled` | `"true"` / `"false"` — управление авто-генерацией |
-| `auto_publish_five_stars_enabled_wildberries` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Wildberries (см. раздел 15). Default `"false"` |
-| `auto_publish_five_stars_enabled_yandex_market` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Yandex Market (см. раздел 15). Default `"false"` |
+| `auto_publish_five_stars_enabled_wildberries` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Wildberries (см. раздел 16). Default `"false"` |
+| `auto_publish_five_stars_enabled_yandex_market` | `"true"` / `"false"` — тоггл авто-ответа на 5★ отзывы Yandex Market (см. раздел 16). Default `"false"` |
 | `auto_check_enabled` | Включение авто-проверки/тегирования |
 | `auto_check_interval` | Интервал авто-проверки (сек) |
 | `auto_check_threshold` | Порог авто-проверки |
@@ -1380,7 +1507,7 @@ Key-value хранилище настроек и промтов.
 
 ---
 
-## 17. Пайплайн обработки
+## 18. Пайплайн обработки
 
 ```
 Polling → new → analyzing → pending_review → approved → publishing → answered
@@ -1400,7 +1527,7 @@ Polling → new → analyzing → pending_review → approved → publishing →
 
 ---
 
-## 18. Миграции
+## 19. Миграции
 
 | Файл | Описание |
 |------|----------|
