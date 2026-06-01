@@ -38,3 +38,4 @@
 | Анастасия Короткова | lqf43ajf | `https://vpn.adolf.su:24355/sub/bHFmNDNhamYsMTc3NTIwNjMzOQxWqwLnZ-VJ` |
 | Федоряк Юлия | EgzD7h | `https://vpn.adolf.su:24355/sub/RWd6RDdoLDE3NzY0MjMyMDQ7ru70nyCRv` |
 | Федорова Ирина | uSO8WB | `https://vpn.adolf.su:24355/sub/dVNPOFdCLDE3NzY0MjMyODIeYyNd7-zuo` |
+| Анна Секретарь | VyYg78 | `https://vpn.adolf.su:24355/sub/VnlZZzc4LDE3Nzk5NTY4MTckc2pHwExNI` |
