@@ -96,7 +96,7 @@
 | Параметр | Тип | По умолчанию | Описание |
 |----------|-----|-------------|----------|
 | `marketplace` | string | — | `wildberries`, `ozon`, `yandex_market` |
-| `status` | string | — | `new`, `analyzing`, `pending_review`, `approved`, `publishing`, `published`, `answered`, `skipped`, `escalated`, `error`, `manual_required` |
+| `status` | string | — | `new`, `analyzing`, `pending_review`, `approved`, `publishing`, `published`, `answered`, `sent`, `skipped`, `escalated`, `error`, `manual_required` |
 | `item_type` | string | — | `review`, `question` |
 | `sort_by` | string | `created_at` | Поле сортировки: `created_at`, `rating` |
 | `order` | string | `desc` | Порядок: `asc`, `desc` |
@@ -368,8 +368,10 @@
 
 | `status` | Описание |
 |----------|----------|
-| `published` | Успешно, отзыв → `answered` |
+| `published` | Успешно, отзыв → `answered` (или → `sent` для немых 5★ — см. ниже) |
 | `failed` | Ошибка, отзыв → `error` (автоповтор раз в час) |
+
+**Статус `sent` («Отправлено») для немых 5★ отзывов.** Если отзыв — `review` с `rating=5` и **пустыми** `client_text`, `pros` и `cons`, то после успешной публикации он получает статус `sent` вместо `answered`. Маркетплейс не показывает наш ответ на такой отзыв публично — его видит только сам покупатель в своём ЛК (отвечаем для повышения лояльности). Логика едина для обоих путей ответа: ручной `POST /reviews/{item_id}/publish` и авто-публикация 5★ (раздел 16). Любое непустое поле (`client_text`/`pros`/`cons`) или `rating≠5` → обычный `answered`. Вопросы всегда → `answered`. В аналитике (`/stats`) `sent` учитывается как отвеченный наравне с `answered`/`published`.
 
 ---
 
@@ -1169,6 +1171,8 @@ Scheduler активен с v1.2.50. Запускается при старте 
 
 Раздельные тоггл фоновой обработки 5★ отзывов на Wildberries и Yandex Market — каждый маркетплейс включается и выключается независимо. Пока МП включён, scheduler-задача `auto_publish_five_stars_pending` (раздел 15) каждые 3 минуты выбирает review-ы этого МП с `rating=5`, `status IN (new, pending_review, error)` и проводит каждый через полный цикл **классификация → генерация (сценарий `five_stars`) → approve → публикация на маркетплейс**.
 
+> **Итоговый статус `answered` / `sent`.** Если 5★ отзыв «немой» — без `client_text`, `pros` и `cons` — после успешной публикации он получает статус **`sent`** («Отправлено») вместо `answered`: маркетплейс не показывает такой ответ публично, его видит только сам покупатель. Если у отзыва есть хоть один из текстовых блоков — статус обычный `answered`. Логика общая с ручной публикацией (раздел 5).
+
 **Что не трогается:**
 - **Ozon** исключён на уровне SQL-фильтра — нестабильная подписка Premium+. Тоггла для него нет.
 - **Вопросы** (`item_type='question'`) — у них нет рейтинга, фильтр их не зацепит.
@@ -1329,6 +1333,7 @@ Scheduler активен с v1.2.50. Запускается при старте 
 
 ```
 new → analyzing → pending_review → approved → publishing → answered
+                                                          ├→ sent  (немой 5★: rating=5 без text/pros/cons)
                                                           └→ error (retry)
 new → skipped
 new → escalated
