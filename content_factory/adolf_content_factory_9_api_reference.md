@@ -6,6 +6,7 @@ Content Factory — это FastAPI-сервис, предназначенный 
 
 **Base URL:** `http://<host>:3000`
 **Swagger UI:** `GET /docs`
+**Версия приложения:** `1.4.0` (см. `app/config.py::APP_VERSION`)
 
 ---
 
@@ -13,11 +14,12 @@ Content Factory — это FastAPI-сервис, предназначенный 
 
 | Версия | Дата | Изменения |
 |--------|------|----------|
-| **v1.4** | 2026-04-08 | ✨ Реализованы эндпоинты сертификатов (`/api/certificates`), управление правилами тегов (`/api/tag-rules`). Правила сезонных/праздничных тегов теперь настраиваются через API. |
-| **v1.3** | 2026-04-07 | ✨ Добавлены эндпоинты медиафайлов, шаблонов и сертификатов. Новые параметры `generate_for_group` и `selected_skus`. Поле `vendor_code` во всех ответах. |
-| **v1.2** | 2026-02-27 | Полный переводом на русский, мониторинг токенов маркетплейсов |
-| **v1.1** | 2026-01-15 | Добавлена поддержка Ozon и Яндекс Маркета |
-| **v1.0** | 2026-01-01 | Первый релиз (только Wildberries) |
+| **v1.4.4** | 2026-06-04 | Исправлена публикация выбранных товаров склейки: при `approve` обновляются **все** SKU из `selected_skus` черновика (раньше обновлялась только одна карточка). `regenerate` наследует `selected_skus` из предыдущего черновика. В историю публикаций (`/approvals/history`) добавлено поле `selected_skus`. |
+| **v1.4** | 2026-04-08 | Эндпоинты сертификатов (`/api/certificates`), управление правилами тегов (`/api/tag-rules`), кастомные промты (`/api/content/prompts`), пакетная загрузка медиа (`/upload-batch`), синхронизация медиа с маркетплейсом (`/sync`), переработанная система шаблонов фотографий (категории + шаблоны). |
+| **v1.3** | 2026-04-07 | Добавлены эндпоинты медиафайлов, шаблонов и сертификатов. Новые параметры `generate_for_group` и `selected_skus`. Поле `vendor_code` во всех ответах. |
+| **v1.2** | 2026-02-27 | Полный перевод на русский, мониторинг токенов маркетплейсов. |
+| **v1.1** | 2026-01-15 | Добавлена поддержка Ozon и Яндекс Маркета. |
+| **v1.0** | 2026-01-01 | Первый релиз (только Wildberries). |
 
 ---
 
@@ -27,37 +29,47 @@ Content Factory — это FastAPI-сервис, предназначенный 
 2. [Данные товаров](#данные-товаров)
 3. [Генерация контента](#генерация-контента)
 4. [Публикация](#публикация)
-5. [Управление медиафайлами](#управление-медиафайлами)
-6. [Шаблоны фотографий](#шаблоны-фотографий)
-7. [Сертификаты товаров](#сертификаты-товаров)
-8. [Управление правилами тегов](#управление-правилами-тегов)
-9. [Мониторинг](#мониторинг)
-10. [Эндпоинты маркетплейсов](#эндпоинты-маркетплейсов)
-11. [Настройки и мониторинг токенов](#настройки-и-мониторинг-токенов)
-12. [Ключевые концепции](#ключевые-концепции)
+5. [Кастомные промты](#кастомные-промты)
+6. [Управление медиафайлами](#управление-медиафайлами)
+7. [Шаблоны фотографий](#шаблоны-фотографий)
+8. [Сертификаты товаров](#сертификаты-товаров)
+9. [Управление правилами тегов](#управление-правилами-тегов)
+10. [Мониторинг и автообработка](#мониторинг-и-автообработка)
+11. [Ошибки маркетплейсов](#ошибки-маркетплейсов)
+12. [Настройки и мониторинг токенов](#настройки-и-мониторинг-токенов)
+13. [Ключевые концепции](#ключевые-концепции)
 
 ---
 
+## Информация о сервисе
+
 ### `GET /`
 
-Описание сервиса и текущая версия.
+Корневой эндпоинт с метаданными сервиса.
 
 **Ответ:**
 ```json
 {
   "service": "Content Factory",
   "version": "1.4.0",
-  "status": "running"
+  "status": "running",
+  "docs": "/docs",
+  "health": "/health"
 }
 ```
 
 ### `GET /health`
 
-Проверка статуса системы.
+Healthcheck.
+
+**Ответ:**
+```json
+{ "status": "ok", "service": "content-factory" }
+```
 
 ### `GET /ready`
 
-Проверка готовности (включая подключение к БД).
+Readiness-check с проверкой подключения к БД.
 
 ---
 
@@ -65,57 +77,83 @@ Content Factory — это FastAPI-сервис, предназначенный 
 
 ### `GET /api/content/product`
 
-Получить оригинальные данные товара из БД с валидацией и SEO-анализом.
+Получить оригинальные данные товара из БД с валидацией и SEO-анализом. Возвращает все товары склейки (группы с одинаковым `imt_id`).
 
 **Query параметры:**
 | Параметр | Тип | Обязательно | Описание |
 |----------|-----|------------|---------|
-| `url` | string | Один из (url/sku) | URL товара на маркетплейсе |
-| `sku` | string | Один из (url/sku) | SKU товара (nmID) или vendor_code |
-| `marketplace` | string | Нет | `wb` / `ozon` / `ym` (автоопределяется из URL) |
+| `url` | string | один из (url / sku+marketplace) | URL товара на маркетплейсе |
+| `sku` | string | один из (url / sku+marketplace) | SKU товара (nmID) или vendor_code |
+| `marketplace` | string | обязателен если нет url | `wb` / `ozon` / `ym` |
 
 **Пример запроса:**
 ```
 GET /api/content/product?sku=203873004&marketplace=wb
-GET /api/content/product?sku=16378&marketplace=wb
 GET /api/content/product?url=https://www.wildberries.ru/catalog/123456789/detail.aspx
 ```
 
-**Ответ:** Данные товара, включая `products[]` (все товары в группе/склейке), `validation`, `analysis` оценки, `imt_id`, `group_count`.
+**Ответ (`ProductResponse`):**
+```json
+{
+  "sku": "203873004",
+  "vendor_code": "16378",
+  "title": "Оригинальное название",
+  "description": "Оригинальное описание",
+  "media_urls": ["https://.../photo1.webp", "https://.../photo2.webp"],
+  "video_url": null,
+  "marketplace": "wb",
+  "imt_id": 12345678,
+  "group_count": 3,
+  "products": [
+    {
+      "sku": "203873004",
+      "main_photo": "https://.../photo.webp",
+      "vendor_code": "16378"
+    }
+  ],
+  "validation": {
+    "is_valid": false,
+    "issues": [
+      { "field": "description", "message": "...", "severity": "error" }
+    ]
+  },
+  "analysis": {
+    "total_score": 72,
+    "is_valid": true,
+    "metrics": {
+      "title_quality":       { "name": "Качество названия",   "score": 80, "max_score": 100, "status": "good",    "details": "...", "issues": [] },
+      "description_quality": { "name": "Качество описания",   "score": 65, "max_score": 100, "status": "warning", "details": "...", "issues": [] },
+      "foreign_words":       { "name": "Иностранные слова",   "score": 100,"max_score": 100, "status": "good",    "details": "...", "issues": [] }
+    }
+  }
+}
+```
 
-**Поддержка склеек:** Если товар входит в группу (несколько цветов/вариантов), возвращает данные всех товаров с одинаковым `imt_id`.
+**Поля склейки:**
+- `imt_id` — ID группы товаров (`null`, если товар не в склейке).
+- `group_count` — количество товаров в склейке (1, если одиночный).
+- `products[]` — все товары в склейке (минимальная информация: `sku`, `main_photo`, `vendor_code`).
+
+---
 
 ### `GET /api/content/search`
 
 Поиск товаров по артикулу (SKU или vendor_code) в одном или всех маркетплейсах.
 
-**Поддерживает два сценария:**
-1. **Поиск по всем маркетплейсам** — возвращает товары из WB, Ozon, Яндекс Маркета
-2. **Поиск в конкретном маркетплейсе** — возвращает товары только из указанного МП
-
 **Query параметры:**
 | Параметр | Тип | Обязательно | По умолчанию | Описание |
 |----------|-----|------------|-------------|---------|
-| `query` | string | Да | — | Артикул для поиска: SKU или vendor_code (1-50 символов) |
-| `marketplace` | string | Нет | — | Фильтр по маркетплейсу: `wb` / `ozon` / `ym`. Без параметра — ищет по всем. |
-| `limit` | integer | Нет | 50 | Товаров на странице (1-500) |
-| `offset` | integer | Нет | 0 | Смещение для пагинации |
+| `query` | string | Да | — | Артикул для поиска (1–50 символов) |
+| `marketplace` | string | Нет | — | `wb` / `ozon` (alias `oz`) / `ym`. Без параметра — все МП |
+| `limit` | integer | Нет | 50 | Товаров на странице (1–500) |
+| `offset` | integer | Нет | 0 | Смещение |
 
-**Примеры запросов:**
-```
-# Поиск по всем маркетплейсам
-GET /api/content/search?query=203873004
-
-# Поиск в конкретном МП с пагинацией
-GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
-```
-
-**Ответ:**
+**Ответ (`SearchProductsResponse`):**
 ```json
 {
-  "query": "203873004",
+  "query": "16378",
   "marketplace": "wb",
-  "total_count": 1,
+  "total_count": 3,
   "limit": 50,
   "offset": 0,
   "products": [
@@ -123,7 +161,7 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
       "external_id": "203873004",
       "vendor_code": "16378",
       "marketplace": "wb",
-      "title": "Синие носки мужские набор 5 пар хлопок",
+      "title": "Носки мужские набор 5 пар",
       "brand_tag": "MyBrand",
       "imt_id": 12345678,
       "updated_at": "2026-02-12T15:30:00Z"
@@ -132,33 +170,12 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 }
 ```
 
-**Поля товара в результатах:**
-| Поле | Тип | Описание |
-|------|-----|---------|
-| `external_id` | string | SKU товара на маркетплейсе (nmID для WB) |
-| `vendor_code` | string / null | Артикул продавца |
-| `marketplace` | string | Код маркетплейса: `wb`, `ozon`, `ym` |
-| `title` | string | Название товара |
-| `brand_tag` | string / null | Бренд товара |
-| `imt_id` | int / null | ID группы, если товар в склейке (group) |
-| `updated_at` | datetime | Дата последнего обновления в БД |
+**Поведение:**
+- Поиск по `external_id::TEXT LIKE '%query%'` OR `vendor_code LIKE '%query%'` (case-insensitive).
+- Точные совпадения поднимаются в начало.
+- Пустой результат — `total_count: 0`, `products: []` (не ошибка).
 
-**Алгоритм поиска:**
-1. Ищет по `external_id::TEXT LIKE '%query%'` ИЛИ `vendor_code LIKE '%query%'`
-2. Приоритет точным совпадениям (показывает их в начале)
-3. Применяет фильтр по маркетплейсу (если указан)
-4. Возвращает результаты с пагинацией (LIMIT/OFFSET)
-
-**HTTP статус коды:**
-- `200 OK` — Поиск выполнен успешно (даже если ничего не найдено)
-- `400 Bad Request` — Неверный маркетплейс или query > 50 символов
-- `422 Unprocessable Entity` — Ошибка валидации (limit > 500, offset < 0)
-
-**Особенности:**
-- Пустой результат возвращает `total_count: 0` и `products: []` (это не ошибка)
-- Поиск регистронечувствителен (SQL LIKE)
-- Поддерживает частичное совпадение (например, query="203" найдёт все товары, начинающиеся с "203")
-- Если ничего не найдено в выбранном МП, возвращается пустой массив
+**HTTP статусы:** `200 OK`, `400` (неизвестный маркетплейс), `422` (limit/offset вне границ).
 
 ---
 
@@ -166,9 +183,9 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 
 ### `POST /api/content/generate`
 
-Генерация SEO-названия, описания и тегов для товара с помощью AI.
+Генерация SEO-названия, описания и тегов с помощью AI.
 
-**Запрос:**
+**Запрос (`GenerateRequest`):**
 ```json
 {
   "url": "https://www.wildberries.ru/catalog/123456789/detail.aspx",
@@ -179,16 +196,15 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 }
 ```
 
-**Параметры запроса:**
 | Параметр | Тип | Обязательно | По умолчанию | Описание |
 |----------|-----|------------|-------------|---------|
-| `url` | string | Один из (url/sku) | — | URL товара на маркетплейсе |
-| `sku` | string | Один из (url/sku) | — | SKU товара (nmID) |
-| `marketplace` | string | Нет | `wb` | Маркетплейс: `wb`, `ozon`, `ym` |
-| `generate_for_group` | bool | Нет | `false` | Генерировать одинаковый контент для всей склейки (если `true`, создаёт один title/description для всех вариантов) |
-| `selected_skus` | string[] | Нет | — | Список выбранных SKU для генерации (если указан, генерирует одинаковый контент только для выбранных товаров) |
+| `url` | string (HttpUrl) | один из (url/sku) | — | URL товара |
+| `sku` | string | один из (url/sku) | — | SKU товара |
+| `marketplace` | string | Нет | `wb` | `wb` / `ozon` / `ym` |
+| `generate_for_group` | bool | Нет | `false` | Генерировать единый title/description для всей склейки |
+| `selected_skus` | string[] | Нет | `null` | Список SKU из склейки, для которых применить одинаковый контент |
 
-**Ответ:**
+**Ответ (`GenerateResponse`):**
 ```json
 {
   "draft_id": "uuid",
@@ -198,15 +214,12 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
   "title": "SEO-название",
   "description": "SEO-описание",
   "seo_tags": ["тег1", "тег2"],
-  "model": "claude-sonnet-4-5-20250929",
   "imt_id": 12345678,
   "group_nm_ids": [123456789, 123456790],
   "generated_for_group": false,
-  "validation": {
-    "is_valid": true,
-    "issues": []
-  },
-  "validation_fix": {
+  "validation": { "is_valid": true, "issues": [] },
+  "is_valid": true,
+  "validation_fixes": {
     "was_fixed": false,
     "original_issues": [],
     "fixed_issues": [],
@@ -214,57 +227,41 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
     "fix_attempts": 0
   },
   "analysis": {
-    "total_score": 85,
+    "total_score": 92,
     "is_valid": true,
     "metrics": {
-      "title_quality": {
-        "name": "Качество названия",
-        "score": 90,
-        "max_score": 100,
-        "status": "good",
-        "details": "Название хорошо оптимизировано",
-        "issues": []
-      }
+      "title_quality":       { "name": "Качество названия",   "score": 95, "max_score": 100, "status": "good", "details": "...", "issues": [] },
+      "description_quality": { "name": "Качество описания",   "score": 90, "max_score": 100, "status": "good", "details": "...", "issues": [] },
+      "foreign_words":       { "name": "Иностранные слова",   "score": 100,"max_score": 100, "status": "good", "details": "...", "issues": [] }
     }
   },
-  "created_at": "2024-01-01T00:00:00Z"
-},
-  "generate_for_group": false,
-  "selected_skus": ["123456789", "123456790"]
+  "comparison": {
+    "total_before": 72,
+    "total_after": 92,
+    "improvements": [
+      { "metric": "description_quality", "before": 65, "after": 90, "diff": "+25" }
+    ],
+    "fixed_errors": ["description too short"]
+  },
+  "created_at": "2026-04-08T12:34:56Z"
 }
 ```
 
-**Параметры запроса:**
-| Параметр | Тип | Обязательно | Описание |
-|----------|-----|------------|---------|
-| `draft_id` | UUID | Да | ID предыдущего черновика |
-| `manager_notes` | string | Нет | Пожелания менеджера для перегенерации |
-| `generate_for_group` | bool | Нет | Генерировать одинаковый контент для всей склейки |
-| `selected_skus` | string[] | Нет | Список выбранных SKU для перегенерации |
-**Поля ответа:**
-| Поле | Описание |
-|------|---------|
-| `draft_id` | Уникальный ID сгенерированного черновика |
-| `vendor_code` | Артикул продавца (внутренний артикул) |
-| `generated_for_group` | Был ли контент сгенерирован для всей склейки |
-| `validation_fix` | Информация об автоисправлении валидационных ошибок |
-| `analysis` | SEO анализ контента с 3 метриками (title_quality, description_quality, foreign_words) |
-
 **SEO-теги по маркетплейсам:**
 
-| Маркетплейс | Формат SEO-тегов | Куда отправляются при публикации |
-|-------------|------------------|--------------------------------|
-| **WB** | Поисковые фразы, 10-15 штук (напр. `"Футболка женская"`) | Поле «Комплектация» на карточке WB |
-| **Ozon** | Хештеги через `_`, 5-10 штук (напр. `"халат_женский_ohana"`) | Поле `keywords` через Ozon Seller API |
-| **YM** | Не генерируются (YM не поддерживает кастомные теги) | — |
+| Маркетплейс | Формат | Куда отправляется при approve |
+|-------------|--------|-------------------------------|
+| **WB** | Поисковые фразы, до 12 штук (`"Футболка женская"`) | Поле «Комплектация» на карточке WB |
+| **Ozon** | Хештеги через `_`, 5–10 штук (`"халат_женский_ohana"`) | Поле `keywords` через Ozon Seller API |
+| **YM** | Не генерируются — `seo_tags: []` | — |
 
-> **Ozon:** SEO-теги генерируются как хештеги — слова через нижнее подчёркивание, без `#`, строчные, максимум 30 символов каждый. К каждому тегу автоматически добавляется бренд товара. При публикации теги отправляются в поле `keywords` карточки через `POST /v1/product/import-by-sku`.
+---
 
 ### `POST /api/content/regenerate`
 
-Перегенерация контента с учётом обратной связи менеджера и/или предыдущего контекста.
+Перегенерация контента с учётом пожеланий менеджера и контекста предыдущего черновика.
 
-**Запрос:**
+**Запрос (`RegenerateRequest`):**
 ```json
 {
   "draft_id": "uuid",
@@ -274,15 +271,14 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 }
 ```
 
-**Параметры запроса:**
 | Параметр | Тип | Обязательно | Описание |
 |----------|-----|------------|---------|
 | `draft_id` | UUID | Да | ID предыдущего черновика |
-| `manager_notes` | string | Нет | Пожелания менеджера для перегенерации |
-| `generate_for_group` | bool | Нет | Генерировать одинаковый контент для всей склейки |
-| `selected_skus` | string[] | Нет | Список выбранных SKU для перегенерации |
+| `manager_notes` | string | Нет | Пожелания менеджера |
+| `generate_for_group` | bool | Нет | Генерировать для всей склейки |
+| `selected_skus` | string[] | Нет | Список выбранных SKU |
 
-**Ответ:** Такая же структура как `/generate` (новый `draft_id`).
+**Ответ:** идентичен `POST /api/content/generate` (`GenerateResponse`, новый `draft_id`).
 
 ---
 
@@ -292,7 +288,9 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 
 Утвердить черновик и опубликовать на маркетплейс.
 
-**Запрос:**
+**Path:** `draft_id` — UUID черновика.
+
+**Запрос (`DraftApproveRequest`):**
 ```json
 {
   "title": "Финальное название",
@@ -303,148 +301,196 @@ GET /api/content/search?query=16378&marketplace=wb&limit=20&offset=40
 }
 ```
 
-| Поле | Тип | Обязательно | Описание |
-|------|-----|------------|---------|
-| `title` | string | Да | Финальное название |
-| `description` | string | Да | Финальное описание |
-| `seo_tags` | string[] | Нет | SEO теги (WB → «Комплектация», Ozon → `keywords`, YM → игнорируется) |
-| `update_all_in_group` | bool | Нет | Обновить все карточки в группе (по умолчанию: `false`) |
-| `source` | string | Нет | `manual` (по умолчанию) или `auto` |
+| Поле | Тип | Обязательно | По умолчанию | Описание |
+|------|-----|------------|-------------|---------|
+| `title` | string | Да | — | Финальное название |
+| `description` | string | Да | — | Финальное описание |
+| `seo_tags` | string[] | Нет | `[]` | WB → «Комплектация», Ozon → `keywords`, YM → игнорируется |
+| `update_all_in_group` | bool | Нет | `false` | Обновить все карточки склейки (по `imt_id`) |
+| `source` | string | Нет | `manual` | `manual` или `auto` |
 
-**Ответ:**
+**Какие карточки обновляются (приоритет сверху вниз):**
+1. Если черновик был создан с `selected_skus` (генерация для выбранных товаров склейки) — обновляются **все** эти SKU. Список берётся из черновика, в запросе approve его передавать не нужно.
+2. Иначе если `update_all_in_group: true` и товар в склейке — обновляются **все** карточки склейки (по `imt_id`).
+3. Иначе — обновляется только один SKU черновика.
+
+**Ответ (`ApproveResponse`):**
 ```json
 {
   "success": true,
   "draft_id": "uuid",
-  "message": "Карточка успешно обновлена",
-  "updated_nm_ids": [123456789]
+  "vendor_code": "16378",
+  "message": "Обновлено 3 карточек на Wildberries",
+  "updated_nm_ids": [123456789, 123456790, 123456791]
 }
 ```
 
-> **Примечание:** При `update_all_in_group: true` будут обновлены все SKU в группе товаров (по `imt_id`). Поле `updated_nm_ids` будет содержать список всех обновлённых nmID.
+`updated_nm_ids` содержит все фактически обновлённые карточки (для склейки — несколько).
+
+**HTTP статусы:** `200 OK`, `404` (черновик не найден), `502` (ошибка публикации на маркетплейсе).
 
 ---
 
-### `GET /api/media/{external_id}/list`
+## Кастомные промты
 
-Получить все медиафайлы (фото и видео) товара.
+Управление кастомными промтами для AI по каждому маркетплейсу. Ключ хранения: `content_{marketplace}_{instruction_type}`.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара (nmID для WB) |
+**Поддерживаемые `instruction_type`:**
+- `system_prompt` — системный промт
+- `generation_instructions` — промт первичной генерации
+- `group_generation_instructions` — генерация для склейки
+- `regeneration_instructions` — перегенерация
+- `group_regeneration_instructions` — перегенерация для склейки
+- `fix_validation_instructions` — автоисправление ошибок валидации
+
+Всего: 6 типов × 3 маркетплейса = 18 промтов.
+
+### `GET /api/content/prompts`
+
+Получить все доступные промты.
 
 **Query параметры:**
-| Параметр | Тип | Обязательно | Описание |
-|----------|-----|------------|---------|
-| `marketplace` | string | Да | `wb`, `ozon`, `ym` |
+| Параметр | Тип | Описание |
+|----------|-----|---------|
+| `marketplace` | string | `wb` / `oz` / `ym` (фильтр, опционально) |
 
-**Пример запроса:**
-```
-GET /api/media/203873004/list?marketplace=wb
+**Ответ:** `list[PromptInfo]`
+```json
+[
+  {
+    "key": "content_wb_system_prompt",
+    "label": "Системный промт (WB)",
+    "current_value": "...",
+    "default_value": "...",
+    "is_customized": false,
+    "updated_at": null
+  }
+]
 ```
 
-**Ответ:**
+### `GET /api/content/prompts/{instruction_type}`
+
+Получить один промт.
+
+**Path:** `instruction_type`. **Query:** `marketplace` (default `wb`, pattern `^(wb|oz|ym)$`).
+
+**Ответ:** `PromptInfo`.
+
+### `PUT /api/content/prompts/{instruction_type}`
+
+Сохранить/переопределить промт.
+
+**Запрос:**
+```json
+{ "value": "Новый текст промта..." }
+```
+
+**Ответ:** обновлённый `PromptInfo`.
+
+### `DELETE /api/content/prompts/{instruction_type}`
+
+Сбросить промт к дефолтному значению (удалить кастомизацию).
+
+**Query:** `marketplace` (default `wb`).
+
+**Ответ:** `PromptInfo` с `is_customized: false`.
+
+---
+
+## Управление медиафайлами
+
+### `GET /api/media/{external_id}/list`
+
+Получить все медиафайлы товара из локальной БД.
+
+**Path:** `external_id` — SKU товара (int).
+**Query:** `marketplace` (required) — `wb` / `ozon` / `ym`.
+
+**Ответ (`ProductMediaResponse`):**
 ```json
 {
   "external_id": 203873004,
   "marketplace": "wb",
-  "total_count": 5,
-  "media": [
+  "photos": [
     {
       "id": "uuid",
-      "type": "photo",
-      "url": "https://basket-01.wb.ru/vol123/part456/photo.webp",
+      "external_id": 203873004,
+      "marketplace": "wb",
+      "media_id": "wb-photo-id",
+      "media_type": "photo",
+      "url": "https://.../photo.webp",
       "position": 0,
-      "size_bytes": 245632,
-      "uploaded_at": "2026-02-01T10:30:00Z"
-    },
-    {
-      "id": "uuid",
-      "type": "video",
-      "url": "https://example.com/video.mp4",
-      "position": 1,
-      "duration_seconds": 15,
-      "uploaded_at": "2026-02-01T10:35:00Z"
+      "source": "user_upload",
+      "status": "active",
+      "file_size_bytes": 245632,
+      "published_at": "2026-02-01T10:30:00Z",
+      "created_at": "2026-02-01T10:25:00Z",
+      "marketplace_meta": {}
     }
-  ]
+  ],
+  "videos": [],
+  "total_count": 5,
+  "synced": false
 }
 ```
+
+**Статусы медиа:** `draft`, `uploading`, `active`, `failed`, `deleted`.
+**Источники:** `user_upload`, `marketplace`, `ai_generated`.
 
 ---
 
 ### `POST /api/media/{external_id}/upload`
 
-Загрузить новое фото или видео для товара.
+Загрузить один медиафайл.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара |
+**Path:** `external_id` (int).
+**Form (`multipart/form-data`):**
+| Поле | Тип | Обязательно | По умолчанию | Описание |
+|------|-----|------------|-------------|---------|
+| `file` | file | Да | — | JPG/PNG/WebP (фото) или MP4/WebM (видео) |
+| `marketplace` | string | Да | — | `wb` / `ozon` / `ym` |
+| `position` | integer | Нет | `0` | Позиция в галерее |
+| `media_type` | string | Нет | `photo` | `photo` или `video` |
 
-**Form параметры:**
-| Параметр | Тип | Обязательно | Описание |
-|----------|-----|------------|---------|
-| `file` | file | Да | Файл фото (JPG/PNG/WebP) или видео (MP4/WebM) |
-| `marketplace` | string | Да | `wb`, `ozon`, `ym` |
-| `position` | integer | Нет | Позиция в галерее (0 = первое фото) |
-
-**Пример запроса:**
-```bash
-curl -X POST http://localhost:3000/api/media/203873004/upload \
-  -F "file=@photo.jpg" \
-  -F "marketplace=wb" \
-  -F "position=0"
-```
-
-**Ответ:**
+**Ответ (`MediaUploadResponse`):**
 ```json
 {
   "success": true,
   "media_id": "uuid",
-  "external_id": 203873004,
-  "marketplace": "wb",
-  "type": "photo",
-  "position": 0,
-  "size_bytes": 245632,
-  "uploaded_at": "2026-02-01T10:30:00Z"
+  "message": "Медиафайл загружен",
+  "error": null
 }
 ```
 
 ---
 
-### `PATCH /api/media/{external_id}/reorder`
+### `POST /api/media/{external_id}/upload-batch`
 
-Переупорядочить медиафайлы (drag-drop).
+Пакетная загрузка нескольких медиафайлов за один запрос.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара |
+**Path:** `external_id` (int).
+**Form (`multipart/form-data`):**
+| Поле | Тип | Обязательно | По умолчанию | Описание |
+|------|-----|------------|-------------|---------|
+| `files` | file[] | Да | — | Массив файлов |
+| `marketplace` | string | Да | — | `wb` / `ozon` / `ym` |
+| `media_type` | string | Нет | `photo` | `photo` или `video` |
+| `start_position` | integer | Нет | `-1` | Позиция первого файла; `-1` — в конец |
 
-**Запрос:**
-```json
-{
-  "external_id": 203873004,
-  "marketplace": "wb",
-  "media_ids": ["uuid1", "uuid2", "uuid3"]
-}
-```
+**Ограничения:** до 30 файлов за запрос, суммарно ≤ 500 МБ, каждый ≤ 50 МБ.
 
-| Параметр | Тип | Описание |
-|----------|-----|---------|
-| `external_id` | int | SKU товара |
-| `marketplace` | string | `wb`, `ozon`, `ym` |
-| `media_ids` | string[] | Новый порядок ID медиафайлов |
-
-**Ответ:**
+**Ответ (`BatchUploadResponse`):**
 ```json
 {
   "success": true,
-  "external_id": 203873004,
-  "marketplace": "wb",
-  "reordered_count": 3,
-  "new_order": ["uuid1", "uuid2", "uuid3"]
+  "total": 3,
+  "uploaded": 2,
+  "failed": 1,
+  "items": [
+    { "filename": "1.jpg", "status": "uploaded", "media_id": "uuid", "position": 0, "error": null },
+    { "filename": "2.jpg", "status": "uploaded", "media_id": "uuid", "position": 1, "error": null },
+    { "filename": "3.gif", "status": "failed",   "media_id": null,   "position": null, "error": "Unsupported format" }
+  ]
 }
 ```
 
@@ -454,138 +500,278 @@ curl -X POST http://localhost:3000/api/media/203873004/upload \
 
 Удалить медиафайл.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара |
-| `media_id` | ID медиафайла (UUID) |
+**Path:** `external_id` (int), `media_id` (UUID).
+**Query:** `marketplace` (required).
 
-**Query параметры:**
-| Параметр | Тип | Описание |
-|----------|-----|---------|
-| `marketplace` | string | `wb`, `ozon`, `ym` |
-
-**Пример запроса:**
-```
-DELETE /api/media/203873004/media/uuid?marketplace=wb
+**Ответ (`MediaDeleteResponse`):**
+```json
+{ "success": true, "media_id": "uuid", "message": "Медиафайл удалён" }
 ```
 
-**Ответ:**
+---
+
+### `PATCH /api/media/{external_id}/reorder`
+
+Переупорядочить фото (drag-drop).
+
+**Path:** `external_id`.
+**Запрос (`MediaReorderRequest`):**
 ```json
 {
-  "success": true,
-  "media_id": "uuid",
   "external_id": 203873004,
   "marketplace": "wb",
-  "message": "Медиафайл удалён"
+  "media_ids": ["uuid1", "uuid2", "uuid3"]
 }
 ```
+
+**Ответ (`MediaReorderResponse`):**
+```json
+{ "success": true, "count": 3, "message": "Порядок обновлён" }
+```
+
+---
+
+### `POST /api/media/{external_id}/sync`
+
+Синхронизировать медиафайлы с актуальным состоянием на маркетплейсе (pull).
+
+**Path:** `external_id`.
+**Query:** `marketplace` (required).
+
+**Ответ:** `ProductMediaResponse` (с `synced: true`).
 
 ---
 
 ## Шаблоны фотографий
 
-### `GET /api/v1/templates/categories`
+Система шаблонов состоит из **категорий** и **шаблонов** внутри категорий. Каждый шаблон — это фото определённого типа (размерная сетка, уход, гарантия и т. д.), которое можно применять к товарам (отдельно или сразу к склейке).
 
-Получить список категорий шаблонов.
+### Категории
 
-**Query параметры:**
-| Параметр | Тип | Описание |
-|----------|-----|---------|
-| `marketplace` | string | Фильтр по маркетплейсу (опционально) |
+#### `POST /api/v1/templates/categories` (201)
 
-**Ответ:**
+Создать категорию.
+
+**Запрос (`CategoryCreate`):**
 ```json
 {
-  "total": 5,
-  "categories": [
-    {
-      "id": "uuid",
-      "name": "Футболки женские",
-      "slug": "women-t-shirts",
-      "marketplace": "wb",
-      "templates_count": 12,
-      "created_at": "2026-01-15T10:00:00Z"
-    }
-  ]
+  "name": "Футболки женские",
+  "slug": "women-t-shirts",
+  "marketplace": "wb",
+  "marketplace_category_id": "12345"
 }
 ```
+
+**Ответ (`CategoryResponse`):**
+```json
+{
+  "id": 1,
+  "name": "Футболки женские",
+  "slug": "women-t-shirts",
+  "marketplace": "wb",
+  "display_order": 0,
+  "is_active": true,
+  "created_at": "2026-02-01T10:00:00Z",
+  "updated_at": "2026-02-01T10:00:00Z"
+}
+```
+
+#### `GET /api/v1/templates/categories`
+
+Список всех категорий со статистикой.
+
+**Query:** `marketplace` (optional).
+
+**Ответ:** `list[CategoryWithStatsResponse]` — `CategoryResponse` + `template_count`, `mandatory_template_count`, `optional_template_count`.
+
+#### Не реализовано
+
+- `GET /api/v1/templates/categories/{category_id}` — **501**
+- `PUT /api/v1/templates/categories/{category_id}` — **501**
+- `DELETE /api/v1/templates/categories/{category_id}` — **501**
 
 ---
 
-### `POST /api/v1/templates`
+### Шаблоны
 
-Создать новый шаблон фотографий.
+#### `POST /api/v1/templates/categories/{category_id}/templates` (201)
 
-**Запрос:**
+Создать шаблон в категории.
+
+**Запрос (`TemplateCreate`):**
 ```json
 {
-  "category_id": "uuid",
-  "name": "Белый фон, 3 фото",
-  "description": "Фотографии товара на белом фоне",
-  "marketplace": "wb",
-  "photo_structure": [
-    {
-      "position": 0,
-      "description": "Фото товара спереди",
-      "recommended_size": "800x800"
-    },
-    {
-      "position": 1,
-      "description": "Фото деталей",
-      "recommended_size": "800x800"
-    }
-  ]
+  "category_id": 1,
+  "template_type": "size_chart",
+  "name": "Размерная сетка",
+  "description": "Стандартная таблица размеров",
+  "source_url": "https://cdn.example.com/size_chart.jpg",
+  "position_order": 0,
+  "is_optional": false
 }
 ```
 
-**Ответ:**
+**`template_type`:** `size_chart`, `care_instruction`, `guarantee`, `return_policy`, `material_composition`, `brand_badge`, `measurement_guide`, `custom`.
+
+**Ответ (`TemplateResponse`):**
 ```json
 {
   "id": "uuid",
-  "category_id": "uuid",
-  "name": "Белый фон, 3 фото",
+  "category_id": 1,
+  "template_type": "size_chart",
+  "name": "Размерная сетка",
+  "description": "Стандартная таблица размеров",
+  "source_url": "https://cdn.example.com/size_chart.jpg",
+  "position_order": 0,
+  "is_optional": false,
+  "is_active": true,
+  "file_size_bytes": 102400,
+  "created_at": "2026-02-01T10:00:00Z",
+  "updated_at": "2026-02-01T10:00:00Z"
+}
+```
+
+#### `GET /api/v1/templates/categories/{category_id}/templates`
+
+Получить шаблоны категории. **Ответ:** `list[TemplateResponse]`.
+
+#### `GET /api/v1/templates/templates/{template_id}`
+
+Получить шаблон по UUID. **Ответ:** `TemplateResponse`.
+
+#### Не реализовано
+
+- `PUT /api/v1/templates/templates/{template_id}` — **501**
+- `DELETE /api/v1/templates/templates/{template_id}` — **501**
+- `GET /api/v1/templates/templates/{template_id}/applications` — **501**
+- `GET /api/v1/templates/products/{product_external_id}/applications` — **501**
+
+---
+
+### Применение шаблонов
+
+#### `POST /api/v1/templates/templates/{template_id}/apply`
+
+Применить один шаблон к нескольким товарам.
+
+**Запрос (`ApplyTemplateRequest`):**
+```json
+{
+  "product_external_ids": [203873004, 203873005],
   "marketplace": "wb",
-  "status": "active",
-  "photos_count": 2,
-  "created_at": "2026-02-01T10:00:00Z"
+  "force": false,
+  "scope": "products"
+}
+```
+
+| Поле | Тип | По умолчанию | Описание |
+|------|-----|-------------|---------|
+| `product_external_ids` | int[] | — | SKU товаров |
+| `marketplace` | string | — | `wb` / `ozon` / `ym` |
+| `force` | bool | `false` | Переприменить, даже если уже применено |
+| `scope` | `"products"` \| `"group"` | `products` | `group` — применить ко всей склейке каждого товара |
+
+**Ответ (`ApplyTemplateResponse`):**
+```json
+{
+  "success": true,
+  "total": 2,
+  "applied": 2,
+  "skipped": 0,
+  "failed": 0,
+  "errors": null
+}
+```
+
+#### `POST /api/v1/templates/templates/{template_id}/apply-single`
+
+Применить один шаблон к одному товару.
+
+**Query параметры:**
+| Параметр | Тип | Обязательно | По умолчанию | Описание |
+|----------|-----|------------|-------------|---------|
+| `product_external_id` | int | Да | — | SKU товара |
+| `marketplace` | string | Да | — | `wb` / `ozon` / `ym` |
+| `force` | bool | Нет | `false` | Переприменить |
+
+**Ответ (`ApplyTemplateToProductResponse`):**
+```json
+{
+  "success": true,
+  "status": "applied",
+  "message": "Шаблон применён",
+  "media_id": "uuid",
+  "application_id": "uuid"
+}
+```
+`status`: `applied` / `skipped` / `failed`.
+
+#### `POST /api/v1/templates/categories/{category_id}/apply`
+
+Применить все шаблоны категории к одному товару.
+
+**Query параметры:**
+| Параметр | Тип | Обязательно | По умолчанию | Описание |
+|----------|-----|------------|-------------|---------|
+| `product_external_id` | int | Да | — | SKU товара |
+| `marketplace` | string | Да | — | `wb` / `ozon` / `ym` |
+| `strategy` | string | Нет | `suggested` | `suggested` / `aggressive` / `passive` |
+| `scope` | string | Нет | `products` | `products` / `group` |
+
+**Ответ (`ApplyCategoryTemplatesResponse`):**
+```json
+{
+  "mandatory_applied": 3,
+  "mandatory_skipped": 0,
+  "mandatory_failed": 0,
+  "optional_applied": 2,
+  "optional_skipped": 1,
+  "optional_failed": 0,
+  "notifications": []
 }
 ```
 
 ---
 
-### `POST /api/v1/templates/apply`
+### Статистика
 
-Применить шаблон фотографий к товару.
+#### `GET /api/v1/templates/categories/{category_id}/stats`
 
-**Запрос:**
+**Ответ (`TemplateCoverageStatsResponse`):**
 ```json
 {
-  "product_external_id": 203873004,
-  "template_id": "uuid",
-  "marketplace": "wb",
-  "apply_to_group": false
+  "total_templates": 8,
+  "mandatory_templates": 5,
+  "optional_templates": 3,
+  "products_with_templates": 120,
+  "products_successfully_applied": 115,
+  "products_with_failures": 3,
+  "products_skipped": 2,
+  "coverage_percent": 92.3
 }
 ```
 
-| Параметр | Тип | Описание |
-|----------|-----|---------|
-| `product_external_id` | int | SKU товара |
-| `template_id` | UUID | ID шаблона |
-| `marketplace` | string | `wb`, `ozon`, `ym` |
-| `apply_to_group` | bool | Применить ко всей склейке (если `true`) |
+#### `GET /api/v1/templates/stats`
 
-**Ответ:**
+**Ответ (`GlobalStatsResponse`):**
 ```json
 {
-  "success": true,
-  "product_external_id": 203873004,
-  "template_id": "uuid",
-  "marketplace": "wb",
-  "message": "Шаблон успешно применён",
-  "applied_to_products": [203873004]
+  "total_categories": 5,
+  "total_templates": 32,
+  "total_products_with_templates": 450,
+  "total_applications": 1840,
+  "applications_last_24h": 15,
+  "applications_last_week": 120,
+  "average_coverage_percent": 74.5,
+  "by_category": []
 }
 ```
+
+#### `GET /api/v1/templates/health`
+
+Healthcheck для модуля шаблонов.
+
+**Ответ:** `{ "status": "ok", "service": "templates" }`.
 
 ---
 
@@ -593,24 +779,12 @@ DELETE /api/media/203873004/media/uuid?marketplace=wb
 
 ### `GET /api/certificates/{external_id}`
 
-Проверить наличие сертификата у товара. Возвращает `has_certificate: true/false` (не 404).
+Проверить наличие сертификата. Возвращает `has_certificate: true/false`, а не 404.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара (nmID) |
+**Path:** `external_id` (int).
+**Query:** `marketplace` (default `wb`).
 
-**Query параметры:**
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|---------|
-| `marketplace` | string | `wb` | `wb`, `ozon`, `ym` |
-
-**Пример запроса:**
-```
-GET /api/certificates/203873004?marketplace=wb
-```
-
-**Ответ (сертификат есть):**
+**Ответ (`CertificateCheckResponse`):**
 ```json
 {
   "external_id": 203873004,
@@ -622,49 +796,25 @@ GET /api/certificates/203873004?marketplace=wb
 }
 ```
 
-**Ответ (сертификата нет):**
-```json
-{
-  "external_id": 203873004,
-  "marketplace": "wb",
-  "has_certificate": false,
-  "certificate_name": null,
-  "expire_date": null,
-  "file_url": null
-}
-```
+Если сертификата нет — `has_certificate: false`, остальные поля `null`.
 
 ---
 
 ### `POST /api/certificates/{external_id}`
 
-Загрузить сертификат (PDF) для товара. При `apply_to_group=true` применяется ко всей склейке.
+Загрузить сертификат (PDF). При `apply_to_group=true` применяется ко всей склейке.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара |
-
-**Form параметры (multipart/form-data):**
-| Параметр | Тип | Обязательно | По умолчанию | Описание |
-|----------|-----|------------|-------------|---------|
-| `file` | file | Да | — | PDF файл сертификата (макс. 10 МБ) |
+**Path:** `external_id`.
+**Form (`multipart/form-data`):**
+| Поле | Тип | Обязательно | По умолчанию | Описание |
+|------|-----|------------|-------------|---------|
+| `file` | file | Да | — | PDF-файл (макс. 10 МБ) |
 | `certificate_name` | string | Да | — | Название сертификата |
-| `marketplace` | string | Нет | `wb` | `wb`, `ozon`, `ym` |
-| `expire_date` | string | Нет | — | Дата истечения (YYYY-MM-DD) |
+| `marketplace` | string | Нет | `wb` | `wb` / `ozon` / `ym` |
+| `expire_date` | string (YYYY-MM-DD) | Нет | — | Дата истечения |
 | `apply_to_group` | bool | Нет | `false` | Применить ко всей склейке |
 
-**Пример запроса:**
-```bash
-curl -X POST http://localhost:3000/api/certificates/203873004 \
-  -F "file=@gost_certificate.pdf" \
-  -F "certificate_name=ГОСТ 123-456" \
-  -F "expire_date=2027-12-31" \
-  -F "marketplace=wb" \
-  -F "apply_to_group=true"
-```
-
-**Ответ:**
+**Ответ (`CertificateUploadResponse`):**
 ```json
 {
   "success": true,
@@ -678,25 +828,12 @@ curl -X POST http://localhost:3000/api/certificates/203873004 \
 
 ### `DELETE /api/certificates/{external_id}`
 
-Удалить сертификат товара (soft-delete). Файл удаляется с диска, если нет других ссылок.
+Soft-delete сертификата. Файл удаляется с диска, если нет других ссылок.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара |
+**Path:** `external_id`.
+**Query:** `marketplace` (default `wb`), `apply_to_group` (default `false`).
 
-**Query параметры:**
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|---------|
-| `marketplace` | string | `wb` | `wb`, `ozon`, `ym` |
-| `apply_to_group` | bool | `false` | Удалить у всей склейки |
-
-**Пример запроса:**
-```
-DELETE /api/certificates/203873004?marketplace=wb&apply_to_group=true
-```
-
-**Ответ:**
+**Ответ (`CertificateDeleteResponse`):**
 ```json
 {
   "success": true,
@@ -709,37 +846,23 @@ DELETE /api/certificates/203873004?marketplace=wb&apply_to_group=true
 
 ### `GET /api/certificates/{external_id}/file`
 
-Отдать PDF-файл сертификата для просмотра в браузере (`Content-Disposition: inline`).
+Отдать PDF-файл сертификата (`Content-Disposition: inline`) для встроенного просмотра.
 
-**Path параметры:**
-| Параметр | Описание |
-|----------|---------|
-| `external_id` | SKU товара |
+**Path:** `external_id`. **Query:** `marketplace` (default `wb`).
 
-**Query параметры:**
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|---------|
-| `marketplace` | string | `wb` | `wb`, `ozon`, `ym` |
-
-**Пример:** Открыть в браузере: `http://localhost:3000/api/certificates/203873004/file?marketplace=wb`
-
-**Ответ:** PDF-файл с `Content-Type: application/pdf`
-
-**HTTP статус коды:**
-- `200 OK` — PDF файл
-- `404 Not Found` — Сертификат не найден
+**HTTP статусы:** `200 OK` (PDF), `404` (не найден).
 
 ---
 
 ## Управление правилами тегов
 
-Менеджер настраивает правила сезонных и праздничных тегов ("Декоративные элементы" на WB) через API. Правила хранятся в БД и применяются автоматически планировщиком (если включён в настройках).
+Менеджер настраивает правила сезонных и праздничных тегов («Декоративные элементы» на WB) через API. Правила хранятся в БД и применяются автоматически планировщиком (если включён `tag_scheduler_enabled`).
 
 ### `GET /api/tag-rules`
 
-Получить все правила тегов с флагом `is_active_today`.
+Получить все правила с флагом `is_active_today`.
 
-**Ответ:**
+**Ответ (`TagRulesListResponse`):**
 ```json
 {
   "rules": [
@@ -747,8 +870,8 @@ DELETE /api/certificates/203873004?marketplace=wb&apply_to_group=true
       "id": "uuid",
       "tags": ["23 февраля"],
       "gender": ["Мужской"],
-      "activate": {"month": 2, "day": 9},
-      "deactivate": {"month": 2, "day": 24},
+      "activate":   { "month": 2, "day": 9  },
+      "deactivate": { "month": 2, "day": 24 },
       "managed_variants": [],
       "is_active_today": false
     },
@@ -756,91 +879,48 @@ DELETE /api/certificates/203873004?marketplace=wb&apply_to_group=true
       "id": "uuid",
       "tags": ["зимние"],
       "gender": null,
-      "activate": {"month": 11, "day": 15},
-      "deactivate": {"month": 2, "day": 15},
+      "activate":   { "month": 11, "day": 15 },
+      "deactivate": { "month": 2,  "day": 15 },
       "managed_variants": ["зимний", "зимняя"],
       "is_active_today": true
     }
   ],
-  "managed_tags": ["23 февраля", "зимние", "зимний", "зимняя", "..."]
+  "managed_tags": ["23 февраля", "зимние", "зимний", "зимняя"]
 }
 ```
 
-**Поля правила:**
-| Поле | Тип | Описание |
-|------|-----|---------|
-| `id` | string | UUID правила (генерируется автоматически) |
-| `tags` | string[] | Теги для применения |
-| `gender` | string[] / null | Фильтр по полу (`["Мужской"]`, `["Женский"]`, `null` = все) |
-| `activate` | object | Дата начала: `{month, day}` |
-| `deactivate` | object | Дата окончания: `{month, day}` |
-| `managed_variants` | string[] | Дополнительные формы тегов для очистки |
-| `is_active_today` | bool | Активно ли правило сегодня |
+### `POST /api/tag-rules` (201)
 
-**`managed_tags`** — полный список тегов, которыми управляет система (вычисляется автоматически из всех `tags` + `managed_variants`).
+Создать правило.
 
----
-
-### `POST /api/tag-rules`
-
-Создать новое правило тегов.
-
-**Запрос:**
+**Запрос (`TagRuleRequest`):**
 ```json
 {
   "tags": ["День влюблённых"],
   "gender": null,
-  "activate": {"month": 2, "day": 1},
-  "deactivate": {"month": 2, "day": 15},
+  "activate":   { "month": 2, "day": 1 },
+  "deactivate": { "month": 2, "day": 15 },
   "managed_variants": []
 }
 ```
 
-**Ответ:** Созданное правило с `id` и `is_active_today` (HTTP 201).
-
----
+**Ответ:** `TagRuleResponse` с `id` и `is_active_today`.
 
 ### `PUT /api/tag-rules/{rule_id}`
 
-Обновить правило по UUID.
-
-**Path:** `rule_id` — UUID правила
-
-**Запрос:** Такой же как POST.
-
-**Ответ:** Обновлённое правило.
-
-**HTTP 404** если правило не найдено.
-
----
+Обновить правило. **Запрос:** как POST. **Ответ:** обновлённый `TagRuleResponse`. **404** если не найдено.
 
 ### `DELETE /api/tag-rules/{rule_id}`
 
-Удалить правило по UUID.
+Удалить правило.
 
-**Ответ:**
-```json
-{
-  "ok": true,
-  "message": "Правило uuid удалено"
-}
-```
-
----
+**Ответ:** `{ "ok": true, "message": "Правило uuid удалено" }`.
 
 ### `POST /api/tag-rules/preview`
 
 Превью изменений тегов на указанную дату (dry-run, без обращений к WB API).
 
-**Query параметры:**
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|---------|
-| `target_date` | string | Сегодня | Дата в формате ISO (YYYY-MM-DD) |
-
-**Пример запроса:**
-```
-POST /api/tag-rules/preview?target_date=2026-03-08
-```
+**Query:** `target_date` (YYYY-MM-DD, по умолчанию — сегодня).
 
 **Ответ:**
 ```json
@@ -866,7 +946,7 @@ POST /api/tag-rules/preview?target_date=2026-03-08
 
 ---
 
-## Мониторинг
+## Мониторинг и автообработка
 
 ### `GET /api/content/approvals/history`
 
@@ -874,47 +954,92 @@ POST /api/tag-rules/preview?target_date=2026-03-08
 
 **Query параметры:**
 | Параметр | Тип | По умолчанию | Описание |
-|----------|-----|------------|---------|
-| `marketplace` | string | — | Фильтр по маркетплейсу (`wb` / `ozon` / `ym`) |
-| `source` | string | — | Фильтр по источнику (`manual` / `auto`) |
-| `limit` | int | 50 | Максимум результатов |
-| `offset` | int | 0 | Смещение для пагинации |
+|----------|-----|-------------|---------|
+| `marketplace` | string | — | `wb` / `ozon` / `ym` |
+| `source` | string | — | `manual` / `auto` |
+| `status` | string | — | `success` / `failed` |
+| `limit` | int | 50 | 1–500 |
+| `offset` | int | 0 | ≥ 0 |
 
-### `GET /api/content/{marketplace}/errors`
+**Ответ (`ApprovalHistoryResponse`):**
+```json
+{
+  "total": 120,
+  "limit": 50,
+  "offset": 0,
+  "has_more": true,
+  "items": [
+    {
+      "id": "uuid",
+      "sku": "203873004",
+      "vendor_code": "16378",
+      "marketplace": "wb",
+      "title": "Название",
+      "description": "Описание",
+      "current_score": 85,
+      "status": "success",
+      "source": "manual",
+      "published_at": "2026-04-08T12:34:56Z",
+      "selected_skus": ["203873004", "203873005", "203873006"]
+    }
+  ]
+}
+```
 
-Ошибки модерации по маркетплейсам.
-
-**Path:** `marketplace` — `wb`, `ozon` или `ym`
-**Query:** `?sku=203873004` (опционально)
-
-### `GET /api/auto-process/content/preview`
-
-Предпросмотр товаров с низкими оценками для автоматической обработки.
-
-**Query параметры:**
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|------------|---------|
-| `marketplace` | string | `wb` | Целевой маркетплейс |
-| `limit` | int | 50 | Максимум результатов |
-| `offset` | int | 0 | Смещение для пагинации |
+**Поле `selected_skus`:**
+- Список всех артикулов склейки, по которым публиковался контент в рамках этой записи (берётся из черновика).
+- `null` — если публиковался одиночный товар. В этом случае фронт показывает один `sku`.
+- Если массив не пустой — фронт может отобразить все артикулы склейки (например, «3 артикула»).
 
 ---
 
-## Эндпоинты маркетплейсов
+### `GET /api/auto-process/content/preview`
 
-### `GET /api/content/{marketplace}/card/{sku}`
+Превью товаров с низким скором контента (dry-run) — кандидаты на автообработку.
 
-Получить текущее состояние карточки из API маркетплейса.
+**Query параметры:**
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|---------|
+| `marketplace` | string | — | `wb` / `ozon` / `ym` (без параметра — все МП) |
+| `limit` | int | 50 | 1–500 |
+| `offset` | int | 0 | ≥ 0 |
 
-**Path:** `marketplace` — `wb`, `ozon` или `ym`; `sku` — SKU товара
+**Ответ:** список товаров с `score < auto_check_threshold`, отсортированных по score (худшие первые).
 
-### `GET /api/content/wb/card-by-vendor/{vendor_code}`
+---
 
-Получить карточку WB по артикулу продавца.
+## Ошибки маркетплейсов
 
-### `GET /api/content/wb/my-cards`
+### `GET /api/content/wb/errors`
 
-Список всех карточек продавца на WB (для диагностики). **Query:** `?limit=50`
+Ошибки модерации WB (алиас для `/{marketplace}/errors` с `marketplace=wb`).
+
+**Query:** `sku` (int, optional).
+
+### `GET /api/content/{marketplace}/errors`
+
+Ошибки модерации на любом маркетплейсе.
+
+**Path:** `marketplace` — `wb` / `ozon` / `ym`.
+**Query:** `sku` (int, optional).
+
+**Ответ (`WBCardErrorsResponse`):**
+```json
+{
+  "sku": 203873004,
+  "errors_count": 1,
+  "errors": [
+    {
+      "nmID": 203873004,
+      "vendorCode": "16378",
+      "error": "Измените значения полей «Артикул продавца»",
+      "batchUUID": "uuid",
+      "updatedAt": "2026-04-08T12:34:56Z"
+    }
+  ],
+  "has_errors": true
+}
+```
 
 ---
 
@@ -922,9 +1047,9 @@ POST /api/tag-rules/preview?target_date=2026-03-08
 
 ### `GET /api/settings`
 
-Получить текущие настройки приложения, включая **мониторинг статуса токенов маркетплейсов**.
+Получить текущие настройки приложения и статус токенов маркетплейсов.
 
-**Ответ:**
+**Ответ (`SettingsResponse`):**
 ```json
 {
   "auto_check_threshold": 98,
@@ -937,72 +1062,47 @@ POST /api/tag-rules/preview?target_date=2026-03-08
   "ym_api_key": "ACMA***",
   "ym_business_id": "123456",
   "tokens_status": {
-    "wb": {
-      "marketplace": "wb",
-      "status": "expiring_soon",
-      "configured": true,
-      "expires_at": "2026-03-25T14:30:00+00:00",
-      "days_remaining": 27,
-      "message": "WB токен истекает через 27 дней",
-      "checked_at": "2026-02-27T12:00:00+00:00"
-    },
-    "ozon": {
-      "marketplace": "ozon",
-      "status": "active",
-      "configured": true,
-      "expires_at": null,
-      "days_remaining": null,
-      "message": "Ozon токен активен (бессрочный)",
-      "checked_at": "2026-02-27T12:00:00+00:00"
-    },
-    "ym": {
-      "marketplace": "ym",
-      "status": "not_configured",
-      "configured": false,
-      "expires_at": null,
-      "days_remaining": null,
-      "message": "Яндекс Маркет credentials не настроены",
-      "checked_at": "2026-02-27T12:00:00+00:00"
-    },
+    "wb":   { "marketplace": "wb",   "status": "expiring_soon", "configured": true,  "expires_at": "2026-03-25T14:30:00+00:00", "days_remaining": 27, "message": "WB токен истекает через 27 дней", "checked_at": "2026-02-27T12:00:00+00:00" },
+    "ozon": { "marketplace": "ozon", "status": "active",        "configured": true,  "expires_at": null,                         "days_remaining": null, "message": "Ozon токен активен (бессрочный)", "checked_at": "2026-02-27T12:00:00+00:00" },
+    "ym":   { "marketplace": "ym",   "status": "not_configured","configured": false, "expires_at": null,                         "days_remaining": null, "message": "Яндекс Маркет credentials не настроены", "checked_at": "2026-02-27T12:00:00+00:00" },
     "checked_at": "2026-02-27T12:00:00+00:00",
     "has_warnings": true
   }
 }
 ```
 
-Все значения токенов **скрыты** в ответах (первые 4 символа + `***`).
+Все токены **маскируются** в ответах (первые 4 символа + `***`).
 
 #### Мониторинг токенов
 
-Поле `tokens_status` заполняется фоновым планировщиком, запускаемым каждые **12 часов**. При запуске приложения первая проверка происходит через ~10 секунд.
+Поле `tokens_status` обновляется фоновым планировщиком каждые **12 часов**. Первая проверка происходит через ~10 секунд после старта приложения.
 
-**Как проверяется каждый токен:**
+| Маркетплейс | Метод проверки | Срок действия |
+|-------------|---------------|--------------|
+| **WB** | Декодирование JWT (`exp`) | 180 дней |
+| **Ozon** | Тестовый `POST /v3/product/list` (limit=1) | Бессрочный |
+| **YM** | Тестовый `POST /businesses/{id}/offer-mappings` (limit=1) | Бессрочный |
 
-| Маркетплейс | Метод | Срок действия |
-|-------------|-------|--------------|
-| **WB** | Декодирование JWT (параметр `exp`) | 180 дней с момента создания |
-| **Ozon** | Тестовый вызов API (`POST /v3/product/list` с limit=1) | Неограниченный (до удаления) |
-| **YM** | Тестовый вызов API (`POST /businesses/{id}/offer-mappings` с limit=1) | Неограниченный (до удаления) |
-
-**Значения статуса токена:**
-
+**Значения `status`:**
 | Статус | Описание |
 |--------|---------|
-| `active` | Токен активен и работает |
-| `expiring_soon` | Только WB: менее 30 дней осталось |
-| `critical` | Только WB: менее 7 дней осталось |
-| `expired` | Только WB: параметр JWT `exp` в прошлом |
-| `invalid` | Токен существует, но API вернул 401/403 |
-| `error` | Токен существует, но вызов API не удался (сеть/таймаут) |
+| `active` | Токен работает |
+| `expiring_soon` | Только WB: < 30 дней |
+| `critical` | Только WB: < 7 дней |
+| `expired` | Только WB: JWT `exp` в прошлом |
+| `invalid` | Токен существует, API вернул 401/403 |
+| `error` | Сетевая/таймаут-ошибка при проверке |
 | `not_configured` | Токен отсутствует или пуст |
 
-Если `tokens_status` равен `null`, первая фоновая проверка ещё не завершена (приложение только что запущилось).
+Если `tokens_status: null` — первая проверка ещё не завершена.
+
+---
 
 ### `PUT /api/settings`
 
-Обновить настройки приложения (поддерживаются частичные обновления).
+Частичное обновление настроек.
 
-**Запрос:**
+**Запрос (`SettingsUpdateRequest`):**
 ```json
 {
   "auto_check_threshold": 95,
@@ -1012,129 +1112,150 @@ POST /api/tag-rules/preview?target_date=2026-03-08
 }
 ```
 
-Все поля опциональны. Скрытые значения (содержащие `***`) автоматически пропускаются, чтобы не перезаписывать реальные токены.
-
-**Настраиваемые поля:**
+Все поля опциональны. Значения, содержащие `***` (маскированные), **игнорируются** — чтобы случайно не перезаписать реальный токен.
 
 | Поле | Тип | Описание |
 |------|-----|---------|
-| `auto_check_threshold` | int (0-100) | Порог качества для автоматической проверки |
-| `auto_check_interval` | string | `daily`, `every_2_days`, `weekly`, `every_2_weeks`, `monthly` |
-| `auto_check_enabled` | bool | Включить/отключить автоматическую проверку контента |
-| `tag_scheduler_enabled` | bool | Включить/отключить сезонный планировщик тегов |
-| `wb_token` | string | API токен Wildberries |
+| `auto_check_threshold` | int (0–100) | Порог качества для автопроверки |
+| `auto_check_interval` | string | `daily` / `every_2_days` / `weekly` / `every_2_weeks` / `monthly` |
+| `auto_check_enabled` | bool | Включить автопроверку контента |
+| `tag_scheduler_enabled` | bool | Включить планировщик сезонных тегов |
+| `wb_token` | string | WB API-токен |
 | `ozon_client_id` | string | Ozon Seller Client ID |
 | `ozon_api_key` | string | Ozon Seller API Key |
 | `ym_api_key` | string | Яндекс Маркет API Key |
 | `ym_business_id` | string | Яндекс Маркет Business ID |
 
+**Ответ:** `SettingsResponse` (как в `GET`).
+
 ---
 
 ## Ключевые концепции
 
-### Фреймворк валидации
+### Валидация
 
-Контент проверяется автоматически на:
-- Ограничения по символам для каждого маркетплейса (максимум названия, минимум/максимум описания)
-- Запрещённые слова (превосходные степени, гарантии, маркетинговые слова)
-- URL, домены, email адреса, телефоны, ссылки на Telegram
-- HTML теги
-- Паттерны повтора/спама (слово > 4% текста)
+Контент проверяется автоматически:
+- Ограничения по символам для каждого МП (title max, description min/max).
+- Запрещённые слова (превосходные степени, гарантии, маркетинговые слова).
+- URL, домены, email, телефоны, ссылки на Telegram.
+- HTML-теги.
+- Повтор / спам одного слова (> 4% текста).
 
-Автокоррекция: если AI генерирует контент с ошибками валидации, система автоматически повторяет попытку один раз.
+**Автокоррекция:** если AI сгенерировал контент с ошибками валидации, система один раз повторяет вызов AI с промтом-исправителем. Информация попадает в `validation_fixes` ответа генерации.
 
 ### Ограничения маркетплейсов
 
-| Маркетплейс | Максимум названия | Минимум описания | Максимум описания |
-|-------------|------------------|-----------------|------------------|
-| WB | 60 символов | 1,000 символов | 5,000 символов |
-| Ozon | 255 символов | 100 символов | 6,000 символов |
-| YM | 150 символов | 100 символов | 3,000 символов |
+| Маркетплейс | Title max | Description min | Description max |
+|-------------|-----------|-----------------|-----------------|
+| WB | 60 | 1 000 | 5 000 |
+| Ozon | 255 | 100 | 6 000 |
+| YM | 150 | 100 | 3 000 |
 
-### Обработка групп (Склейки)
+### Обработка склеек (групп товаров)
 
-Товары в "склейке" (группе товаров с одинаковым `imt_id`) можно обрабатывать несколькими способами:
+Товары с одинаковым `imt_id` можно обрабатывать тремя способами:
 
-1. **Отдельно:** Генерировать/утверждать для одного SKU (по умолчанию)
-   ```json
-   { "sku": "203873004", "marketplace": "wb" }
-   ```
+1. **Отдельно** (по умолчанию) — генерация/approve для одного SKU.
+2. **Для выбранных товаров** (`selected_skus`) — одинаковый контент для списка SKU из склейки.
+3. **Для всей склейки** (`generate_for_group: true`) — один title/description для всех товаров в `imt_id`.
 
-2. **Для выбранных товаров** (параметр `selected_skus`): Генерировать одинаковый контент для конкретного списка SKU
-   ```json
-   {
-     "sku": "203873004",
-     "marketplace": "wb",
-     "selected_skus": ["203873004", "203873005"]
-   }
-   ```
+`selected_skus` сохраняется в черновике (`content_drafts`) при генерации и используется позже при approve, поэтому передавать его повторно в запросе approve не нужно.
 
-3. **Как группу** (параметр `generate_for_group: true`): Создать один контент для всех товаров в склейке
-   ```json
-   {
-     "sku": "203873004",
-     "marketplace": "wb",
-     "generate_for_group": true
-   }
-   ```
+При утверждении (`/approve`) выбор карточек определяется по приоритету:
+1. **`selected_skus` из черновика** — обновляются все выбранные при генерации SKU склейки (даже если в запросе approve флаги не переданы).
+2. **`update_all_in_group: true`** — обновляются все карточки склейки (по `imt_id`).
+3. **по умолчанию** — обновляется только один SKU черновика.
 
-При утверждении (`POST /approve`):
-- `update_all_in_group: false` (по умолчанию) — обновляет только один SKU
-- `update_all_in_group: true` — обновляет все карточки в склейке (по `imt_id`)
+`regenerate` наследует `selected_skus` из предыдущего черновика, если не передать новый список, — режим «выбранные товары» сохраняется между перегенерациями.
 
-### Отслеживание публикаций
-
-Поле `source` различает между:
-- `manual` — проверено менеджером и утверждено
-- `auto` — автоматическое/запланированное утверждение
+История публикаций (`/api/content/approvals/history`) возвращает поле `selected_skus`, чтобы фронт мог показать все артикулы склейки для каждой записи.
 
 ### SEO-анализ
 
-Ответы генерации включают `analysis` с тремя метриками:
-- **Качество названия** — релевантность ключевых слов, оптимизация длины
-- **Качество описания** — полнота, плотность ключевых слов
-- **Иностранные слова** — обнаружение не-русских терминов
+Ответы генерации содержат `analysis` с тремя метриками (0–100):
+- **title_quality** — релевантность, длина, ключевые слова названия.
+- **description_quality** — полнота, плотность ключевых слов, структура.
+- **foreign_words** — штраф за не-русские термины.
 
-Каждая метрика имеет оценку (0-100), ответ включает `total_score` для общей оценки качества.
+`total_score` — общая оценка. `comparison` содержит `improvements` по каждой метрике (ДО / ПОСЛЕ) и список исправленных ошибок валидации.
 
-### Управление медиафайлами
+### Источники публикации (`source`)
 
-Система поддерживает загрузку, переупорядочивание и удаление фото/видео товаров:
+- `manual` — менеджер проверил и утвердил.
+- `auto` — автоматическое утверждение (фоновым процессом).
 
-- **Загрузка:** `POST /api/media/{external_id}/upload` — загрузить новое фото или видео
-- **Переупорядочивание:** `PATCH /api/media/{external_id}/reorder` — изменить порядок (drag-drop)
-- **Получение списка:** `GET /api/media/{external_id}/list` — получить все медиафайлы товара
-- **Удаление:** `DELETE /api/media/{external_id}/media/{media_id}` — удалить медиафайл
+### Медиафайлы — жизненный цикл
 
-Все операции поддерживают применение к группе товаров (параметр `apply_to_group`).
+Статусы: `draft` → `uploading` → `active` (или `failed`) → `deleted` (soft).
+Источники: `user_upload`, `marketplace` (pull из МП), `ai_generated`.
 
 ### Шаблоны фотографий
 
-Возможность создавать и применять шаблоны расположения фотографий для товаров:
+Двухуровневая структура: **категории** → **шаблоны**.
+Шаблоны бывают типов `size_chart`, `care_instruction`, `guarantee`, `return_policy`, `material_composition`, `brand_badge`, `measurement_guide`, `custom`.
+Применяются к товарам поштучно (`apply-single`), списком (`apply`) или всей категорией (`categories/{id}/apply`). Параметр `scope` позволяет распространить применение на всю склейку.
 
-- **Категории:** `GET /api/v1/templates/categories` — получить список категорий
-- **Создание:** `POST /api/v1/templates` — создать новый шаблон
-- **Применение:** `POST /api/v1/templates/apply` — применить шаблон к товару (с опцией `apply_to_group`)
+### Сертификаты
 
-### Сертификаты товаров
+PDF-файлы хранятся в `uploads/certificates/` на сервере. Soft-delete: файл удаляется с диска только если нет других ссылок из группы. Проверка — через `GET /api/certificates/{id}` (`has_certificate: true/false`, не 404).
 
-Управление сертификатами товаров (ГОСТ, ISO и т.д.):
+### Правила сезонных тегов
 
-- **Проверка:** `GET /api/certificates/{external_id}` — есть ли сертификат (возвращает `has_certificate: true/false`)
-- **Загрузка:** `POST /api/certificates/{external_id}` — загрузить PDF с опцией `apply_to_group` для склейки
-- **Просмотр PDF:** `GET /api/certificates/{external_id}/file` — открыть PDF в браузере (inline)
-- **Удаление:** `DELETE /api/certificates/{external_id}` — удалить с опцией `apply_to_group`
+Менеджер задаёт правила вида «с 1 по 15 февраля товарам с `gender = Женский` добавить тег `8 марта`». Планировщик (если `tag_scheduler_enabled = true`) раз в сутки применяет активные правила через WB API. Превью — через `POST /api/tag-rules/preview?target_date=YYYY-MM-DD`.
 
-Сертификаты хранятся как PDF-файлы на сервере (`uploads/certificates/`). Soft-delete: при удалении файл убирается с диска только если на него нет других ссылок (из группы).
+### Кастомные промты
 
-### Управление правилами тегов
+Каждому маркетплейсу можно переопределить любой из 6 типов промтов (system, generation, regeneration и их group-варианты, fix). Ключ хранения в БД: `content_{marketplace}_{instruction_type}`. При удалении кастомизации (`DELETE`) используется дефолтное значение из `app/prompts/content_prompts.py`.
 
-Правила сезонных и праздничных тегов ("Декоративные элементы" на WB) настраиваются менеджером через API:
+---
 
-- **Список:** `GET /api/tag-rules` — все правила с `is_active_today` и вычисленными `managed_tags`
-- **Создание:** `POST /api/tag-rules` — новое правило (теги, пол, даты активации)
-- **Редактирование:** `PUT /api/tag-rules/{id}` — обновить правило
-- **Удаление:** `DELETE /api/tag-rules/{id}` — удалить правило
-- **Превью:** `POST /api/tag-rules/preview?target_date=YYYY-MM-DD` — какие товары изменятся на дату
+## Сводная таблица всех эндпоинтов
 
-Правила хранятся в БД (таблица `app_settings`, ключ `tag_rules`). Планировщик (раз в сутки, если включён `tag_scheduler_enabled`) автоматически применяет активные правила через WB API.
+| # | Метод | Путь |
+|---|-------|------|
+| 1 | GET | `/` |
+| 2 | GET | `/health` |
+| 3 | GET | `/ready` |
+| 4 | GET | `/api/content/product` |
+| 5 | GET | `/api/content/search` |
+| 6 | POST | `/api/content/generate` |
+| 7 | POST | `/api/content/regenerate` |
+| 8 | POST | `/api/content/drafts/{draft_id}/approve` |
+| 9 | GET | `/api/content/wb/errors` |
+| 10 | GET | `/api/content/{marketplace}/errors` |
+| 11 | GET | `/api/content/approvals/history` |
+| 12 | GET | `/api/content/prompts` |
+| 13 | GET | `/api/content/prompts/{instruction_type}` |
+| 14 | PUT | `/api/content/prompts/{instruction_type}` |
+| 15 | DELETE | `/api/content/prompts/{instruction_type}` |
+| 16 | GET | `/api/settings` |
+| 17 | PUT | `/api/settings` |
+| 18 | GET | `/api/auto-process/content/preview` |
+| 19 | GET | `/api/media/{external_id}/list` |
+| 20 | POST | `/api/media/{external_id}/upload` |
+| 21 | POST | `/api/media/{external_id}/upload-batch` |
+| 22 | DELETE | `/api/media/{external_id}/media/{media_id}` |
+| 23 | PATCH | `/api/media/{external_id}/reorder` |
+| 24 | POST | `/api/media/{external_id}/sync` |
+| 25 | POST | `/api/v1/templates/categories` |
+| 26 | GET | `/api/v1/templates/categories` |
+| 27 | POST | `/api/v1/templates/categories/{category_id}/templates` |
+| 28 | GET | `/api/v1/templates/categories/{category_id}/templates` |
+| 29 | GET | `/api/v1/templates/templates/{template_id}` |
+| 30 | POST | `/api/v1/templates/templates/{template_id}/apply` |
+| 31 | POST | `/api/v1/templates/templates/{template_id}/apply-single` |
+| 32 | POST | `/api/v1/templates/categories/{category_id}/apply` |
+| 33 | GET | `/api/v1/templates/categories/{category_id}/stats` |
+| 34 | GET | `/api/v1/templates/stats` |
+| 35 | GET | `/api/v1/templates/health` |
+| 36 | GET | `/api/tag-rules` |
+| 37 | POST | `/api/tag-rules` |
+| 38 | PUT | `/api/tag-rules/{rule_id}` |
+| 39 | DELETE | `/api/tag-rules/{rule_id}` |
+| 40 | POST | `/api/tag-rules/preview` |
+| 41 | GET | `/api/certificates/{external_id}` |
+| 42 | POST | `/api/certificates/{external_id}` |
+| 43 | DELETE | `/api/certificates/{external_id}` |
+| 44 | GET | `/api/certificates/{external_id}/file` |
+
+**Итого:** 44 эндпоинта. Дополнительно 8 эндпоинтов в модуле шаблонов возвращают **501 Not Implemented** (CRUD категорий, CRUD шаблонов, история применений).
