@@ -11,9 +11,9 @@ mode: "wide"
 
 ## 1. Обзор
 
-CFO REST API — HTTP-доступ к финансовой аналитике модуля управленческого учёта: P&L по категориям, маркетплейсам и SKU, ABC-анализ по марже, справочники категорий и глобальные исключения, применяемые ко всем расчётам.
+CFO REST API — HTTP-доступ к финансовой аналитике модуля управленческого учёта: P&L по категориям и маркетплейсам, company-wide сводные KPI, ABC-анализ по марже, справочники категорий и глобальные исключения, применяемые ко всем расчётам, а также отчёты напрямую по бухгалтерским регистрам 1С (`/onec/*`, см. §6.10).
 
-Все эндпоинты возвращают JSON, кроме `/abc/export`, `/pnl/category/export` и `/pnl/marketplace/export` (стримят `.xlsx`).
+Все эндпоинты возвращают JSON, кроме `*/export` (`/abc/export`, `/pnl/category/export`, `/pnl/marketplace/export` и все `/onec/*/export`), которые стримят `.xlsx`.
 
 Интерактивная документация, генерируемая FastAPI:
 
@@ -81,7 +81,7 @@ uvicorn cfo.api.main:app --host 0.0.0.0 --port 8000
 
 ### 4.1 Пагинация
 
-Применяется к `/pnl/sku` и `/abc`. В ответе всегда возвращается объект `pagination`:
+Применяется к `/abc`. В ответе всегда возвращается объект `pagination`:
 
 ```json
 { "total": 2911, "limit": 100, "offset": 0 }
@@ -91,7 +91,7 @@ uvicorn cfo.api.main:app --host 0.0.0.0 --port 8000
 - `limit` — размер страницы, переданный в запросе.
 - `offset` — смещение от начала.
 
-> Важно: `summary` для `/pnl/sku` и `/abc` всегда считается по **полному** результату, а не по текущей странице.
+> Важно: `summary` для `/abc` всегда считается по **полному** результату, а не по текущей странице.
 
 ### 4.2 Кеширование
 
@@ -106,13 +106,15 @@ uvicorn cfo.api.main:app --host 0.0.0.0 --port 8000
 - числа суммируются, маржи пересчитываются от итоговых сумм;
 - результат пересортировывается по убыванию `net_profit`.
 
-В `/pnl/marketplace` и `/pnl/sku` это правило **не** применяется.
+В `/pnl/marketplace` это правило **не** применяется (а `/pnl/overview` строк `data[]` не возвращает вовсе).
 
 ---
 
 ## 5. Параметры периода
 
-Все бизнес-эндпоинты (кроме `/exclusions` и `/categories`) принимают одинаковый набор параметров. Период задаётся **одним из трёх** способов: пресетом, явным диапазоном или дефолтом.
+P&L/ABC-эндпоинты (`/pnl/*`, `/abc`; кроме `/exclusions` и `/categories`) принимают одинаковый набор параметров. Период задаётся **одним из трёх** способов: пресетом, явным диапазоном или дефолтом.
+
+> **Отчёты 1С (`/onec/*`)** этот раздел **не** используют — у них собственные помесячные параметры (`month` / `from`+`to` в формате `YYYY-MM` / `date`+`window`). См. §6.10.
 
 Все пресеты привязаны к `yesterday = today − 1 day` (а не к `today`) — сегодняшний день у большинства маркетплейсов закрывается с задержкой.
 
@@ -180,14 +182,28 @@ uvicorn cfo.api.main:app --host 0.0.0.0 --port 8000
 | GET | `/api/v1/cfo/pnl/category/export` | P&L по категориям как `.xlsx` | `pnl` |
 | GET | `/api/v1/cfo/pnl/marketplace` | P&L по маркетплейсам | `pnl` |
 | GET | `/api/v1/cfo/pnl/marketplace/export` | P&L по маркетплейсам как `.xlsx` | `pnl` |
-| GET | `/api/v1/cfo/pnl/sku` | P&L по SKU (фильтры + пагинация) | `pnl` |
+| GET | `/api/v1/cfo/pnl/overview` | Company-wide сводные KPI P&L (реальные расходы МП + YM COGS, без таблицы) | `pnl` |
 | GET | `/api/v1/cfo/abc` | ABC-анализ SKU по марже (WB) | `abc` |
 | GET | `/api/v1/cfo/abc/export` | ABC-анализ как `.xlsx` (WB) | `abc` |
 | GET | `/api/v1/cfo/exclusions` | Текущий список глобальных исключений | `exclusions` |
 | POST | `/api/v1/cfo/exclusions` | Полная замена списка исключений | `exclusions` |
 | GET | `/api/v1/cfo/categories` | Справочник родитель → подкатегории | `catalogs` |
+| GET | `/api/v1/cfo/onec/gross-profit` | Поартикульная валовая прибыль (1С, сч. 90) | `onec` |
+| GET | `/api/v1/cfo/onec/gross-profit/export` | То же как `.xlsx` | `onec` |
+| GET | `/api/v1/cfo/onec/income-expense` | Доходы и расходы (операционный срез 1С) | `onec` |
+| GET | `/api/v1/cfo/onec/income-expense/export` | То же как `.xlsx` | `onec` |
+| GET | `/api/v1/cfo/onec/operating-pnl` | Операционный P&L по месяцам (1С) | `onec` |
+| GET | `/api/v1/cfo/onec/operating-pnl/export` | То же как `.xlsx` | `onec` |
+| GET | `/api/v1/cfo/onec/settlements` | Дебиторка / кредиторка (сч. 60/62) | `onec` |
+| GET | `/api/v1/cfo/onec/settlements/export` | То же как `.xlsx` | `onec` |
+| GET | `/api/v1/cfo/onec/inventory/stock` | Запасы и неликвиды на дату | `onec` |
+| GET | `/api/v1/cfo/onec/inventory/stock/export` | То же как `.xlsx` | `onec` |
+| GET | `/api/v1/cfo/onec/inventory/abc-turnover` | Матрица ABC × оборачиваемость | `onec` |
+| GET | `/api/v1/cfo/onec/inventory/abc-turnover/export` | То же как `.xlsx` | `onec` |
 
-> **Глобальные исключения** (`/exclusions`) применяются автоматически ко всем `/pnl/*`, `/abc`, `/abc/export` и `/categories`. Управление списком — только через `POST /exclusions`.
+> **Глобальные исключения** (`/exclusions`) применяются автоматически ко всем `/pnl/*`, `/abc`, `/abc/export` и `/categories`. Эндпоинты `/onec/*` исключения **не** применяют — они считаются напрямую по бухгалтерским регистрам 1С.
+>
+> **Отчёты 1С (`/onec/*`)** имеют **собственные параметры периода** (помесячные), отличные от §5: см. §6.7.
 
 ---
 
@@ -346,7 +362,17 @@ curl 'http://localhost:8000/api/v1/cfo/pnl/category?from=2026-03-01&to=2026-03-3
 
 P&L по маркетплейсам за период. Возвращает по одной строке на каждый маркетплейс, включённый в `enabled_marketplaces`. Группировка «Прочее» **не** применяется.
 
-В отличие от `/pnl/category` и `/pnl/sku`, этот эндпоинт отдаёт собственный набор метрик — `revenue`, `sales`, `returns`, `logistics`, `storage`, `penalties`, `compensation`, `commission_acquiring`, `commission`, `partner_services`, `ads`. Поля `cogs`, `mp_expenses`, `gross_profit`, `net_profit`, `gross_margin_pct`, `net_margin_pct`, `quantity`, `losses_damages` здесь **не** возвращаются. Знаки: расходы — положительные величины (как в дашборде WB), `returns` — отрицательное (контр-выручка), `revenue` — нетто (`sales − |returns|`), `compensation` — со знаком (нетто-приток).
+В отличие от `/pnl/category`, этот эндпоинт отдаёт собственный набор метрик — `revenue`, `sales`, `sales_disc`, `returns`, `logistics`, `storage`, `penalties`, `compensation`, `commission_acquiring`, `commission`, `partner_services`, `cost_disp`, `acc_trans_pay`, `ads`. Поля `cogs`, `mp_expenses`, `gross_profit`, `net_profit`, `gross_margin_pct`, `net_margin_pct`, `quantity`, `losses_damages` здесь **не** возвращаются. Знаки: расходы — положительные величины (как в дашборде продавца), `returns` — отрицательное (контр-выручка), `compensation` — со знаком (нетто-приток).
+
+Три поля специфичны для **Яндекс.Маркета** (`sales_disc`, `cost_disp`, `acc_trans_pay`); для строк WB и Ozon они = `0`:
+
+| Поле | Назначение (YM) |
+|------|-----------------|
+| `sales_disc` | «Все платежи за скидки» — софинансирование скидок Маркетом (баллы Маркета + Яндекс Плюс) |
+| `cost_disp` | «Стоимость размещения товаров на витрине» — комиссия размещения ЯМ (подкомпонента `commission_acquiring`) |
+| `acc_trans_pay` | «Приём и перевод платежа покупателя» (подкомпонента `commission_acquiring`) |
+
+**Семантика `revenue` зависит от маркетплейса.** Для WB/Ozon `revenue` — нетто (`sales − |returns|`). Для **YM** `revenue` = `sales + sales_disc` (выручка с учётом софинансирования скидок, как в ЛК ЯМ); `returns` для YM = `0`.
 
 **Строка Ozon собирается отдельно** — из разбивки «Начисления» личного кабинета Ozon (агрегация `ozon_finance_transactions` через `catalog/ozon_finance_summary.sql`, сервис `cfo.services.ozon_lk_service`), а не из per-SKU line facts: реклама, услуги FBO и компенсации — это операции уровня периода без SKU, которые в line facts не попадают. Соответствие полей и категорий ЛК Ozon:
 
@@ -366,7 +392,26 @@ P&L по маркетплейсам за период. Возвращает по
 
 Поля `commission` и `partner_services` — это две подкомпоненты `commission_acquiring`, отдаваемые по отдельности (для Ozon `commission + partner_services = commission_acquiring`). Эта разбивка специфична для Ozon: для строк **WB / YM** оба поля = `0` (в Excel-выгрузке `/pnl/marketplace/export` — «—»), а `commission_acquiring` (остаточная комиссия + эквайринг) не меняется.
 
-Для строк **WB / YM** поля `sales` / `returns` / `storage` берутся из тех же line facts, что и раньше (`sales` = выручка по заказам, `returns` = возвраты со знаком минус, `storage` = колонка `storage`); остальные поля без изменений.
+Для строки **WB** поля `sales` / `returns` / `storage` берутся из тех же line facts, что и раньше (`sales` = выручка по заказам, `returns` = возвраты со знаком минус, `storage` = колонка `storage`); остальные поля без изменений.
+
+**Строка YM собирается отдельно** — сервисом `cfo.services.ym_service.get_ym_summary` (как и строка Ozon, у ЯМ нет per-SKU line facts). Источники и маппинг калиброваны по ЛК Яндекс.Маркета за апрель 2026 (все поля сходятся в пределах ~2 %):
+
+| Поле эндпоинта | Источник YM |
+|----------------|-------------|
+| `sales` | `ym_orders.total_payment` («Выручка» ЛК) |
+| `sales_disc` | `ym_report_netting`: баллы Маркета + Яндекс Плюс − возвраты баллов |
+| `revenue` | `sales + sales_disc` |
+| `logistics` | `ym_report_services`: Доставка покупателю + Обработка заказов на складе |
+| `storage` | `ym_report_services`: Платное хранение + Приём излишков + Утилизация + Вывоз со склада |
+| `acc_trans_pay` | `ym_report_services`: Приём платежа + Перевод платежа |
+| `cost_disp` | балансовый остаток: котёл услуг `ym_report_netting` («Оплата услуг Яндекс.Маркета») − логистика − приём/перевод − реклама − хранение |
+| `commission_acquiring` | `cost_disp + acc_trans_pay` |
+| `ads` | `ym_report_boost.boost_spend_rub` (notional-буст); fallback на рекламные категории `ym_report_services`, если boost за период не синкан |
+| `returns` / `penalties` / `compensation` / `commission` / `partner_services` | `0` (в раскладке ЛК ЯМ не выделяются) |
+
+> ⚠️ **Полнота строки YM по месяцам.** Таблицы `ym_report_services` и `ym_report_boost` закрываются актами в начале следующего месяца. Для **незакрытого / текущего месяца** расходные поля (`logistics`, `storage`, `cost_disp`, `acc_trans_pay`, `ads`) могут быть `0`, тогда как `sales` / `sales_disc` уже наполнены из `ym_orders` / `ym_report_netting`. Это **не ошибка**: данные подтянутся после синхронизации актов. Полностью корректны месяцы, где наполнены все четыре источника.
+
+> ⚠️ **`cost_disp` — балансовый остаток.** Надёжен в годовом агрегате и для последнего полностью закрытого месяца; помесячно вне закрытого месяца может колебаться из-за рассинхрона дат `netting` ↔ `services`.
 
 **Параметры запроса:** только параметры периода (см. §5).
 
@@ -378,16 +423,17 @@ P&L по маркетплейсам за период. Возвращает по
 curl 'http://localhost:8000/api/v1/cfo/pnl/marketplace?from=2026-02-01&to=2026-02-28'
 ```
 
-**Пример ответа 200** (`enabled_marketplaces = ["wb", "ozon"]`):
+**Пример ответа 200** (`enabled_marketplaces = ["wb", "ozon", "ym"]`, апрель 2026):
 
 ```json
 {
-  "period": { "from": "2026-02-01", "to": "2026-02-28" },
+  "period": { "from": "2026-04-01", "to": "2026-04-30" },
   "data": [
     {
       "marketplace": "ozon",
       "revenue": 42333326.34,
       "sales": 46216344.28,
+      "sales_disc": 0.0,
       "returns": -3883017.94,
       "logistics": 12224538.99,
       "storage": 1509398.0,
@@ -396,12 +442,15 @@ curl 'http://localhost:8000/api/v1/cfo/pnl/marketplace?from=2026-02-01&to=2026-0
       "commission_acquiring": 19129729.1,
       "commission": 18202729.1,
       "partner_services": 927000.0,
+      "cost_disp": 0.0,
+      "acc_trans_pay": 0.0,
       "ads": 1037017.01
     },
     {
       "marketplace": "wb",
       "revenue": 105027680.32,
       "sales": 110031750.11,
+      "sales_disc": 0.0,
       "returns": -5004069.79,
       "logistics": 180817.02,
       "storage": 0.0,
@@ -410,25 +459,49 @@ curl 'http://localhost:8000/api/v1/cfo/pnl/marketplace?from=2026-02-01&to=2026-0
       "commission_acquiring": 48605181.93,
       "commission": 0.0,
       "partner_services": 0.0,
+      "cost_disp": 0.0,
+      "acc_trans_pay": 0.0,
       "ads": 11978958.0
+    },
+    {
+      "marketplace": "ym",
+      "revenue": 13811164.0,
+      "sales": 10003206.0,
+      "sales_disc": 3807958.0,
+      "returns": 0.0,
+      "logistics": 2102686.0,
+      "storage": 84048.0,
+      "penalties": 0.0,
+      "compensation": 0.0,
+      "commission_acquiring": 3439759.0,
+      "commission": 0.0,
+      "partner_services": 0.0,
+      "cost_disp": 3278705.0,
+      "acc_trans_pay": 161054.0,
+      "ads": 859568.0
     }
   ],
   "summary": {
-    "rows_count": 2,
-    "revenue": 147361006.66,
-    "sales": 156248094.39,
+    "rows_count": 3,
+    "revenue": 161172170.66,
+    "sales": 166251300.39,
+    "sales_disc": 3807958.0,
     "returns": -8887087.73,
-    "logistics": 12405356.01,
-    "storage": 1509398.0,
+    "logistics": 14508042.01,
+    "storage": 1593446.0,
     "penalties": 112540.1,
     "compensation": 204796.17,
-    "commission_acquiring": 67734911.03,
+    "commission_acquiring": 71174670.03,
     "commission": 18202729.1,
     "partner_services": 927000.0,
-    "ads": 13015975.01
+    "cost_disp": 3278705.0,
+    "acc_trans_pay": 161054.0,
+    "ads": 13875543.01
   }
 }
 ```
+
+> Цифры WB/Ozon в примере — иллюстративные (из февральского прогона); строка `ym` — фактические данные апреля 2026. `summary` суммирует все строки.
 
 **Коды ответов:**
 
@@ -458,7 +531,7 @@ curl 'http://localhost:8000/api/v1/cfo/pnl/marketplace?from=2026-02-01&to=2026-0
 Тело — бинарный `.xlsx` с одним листом `P&L`. В листе:
 
 - заголовок «P&L по маркетплейсам» и блок периода;
-- колонки в порядке: `Маркетплейс`, `Продажи`, `Возвраты`, `Выручка (нетто)`, `Комиссия и эквайринг`, `Вознаграждение`, `Услуги партнёров`, `Логистика`, `Хранение`, `Реклама`, `Штрафы`, `Компенсации` (все денежные — в ₽);
+- колонки в порядке: `Маркетплейс`, `Продажи`, `Платежи за скидки`, `Возвраты`, `Выручка (нетто)`, `Комиссия и эквайринг`, `Вознаграждение`, `Услуги партнёров`, `Размещение на витрине`, `Приём и перевод платежа`, `Логистика`, `Хранение`, `Реклама`, `Штрафы`, `Компенсации` (все денежные — в ₽). Колонки `Платежи за скидки`, `Размещение на витрине`, `Приём и перевод платежа` ненулевые только для строки `Я.Маркет`;
 - строки данных: по одной на маркетплейс (`Wildberries` / `Ozon` / `Я.Маркет`);
 - итоговая строка «Все МП» с суммами по каждому столбцу.
 
@@ -476,128 +549,80 @@ curl 'http://localhost:8000/api/v1/cfo/pnl/marketplace?from=2026-02-01&to=2026-0
 
 ---
 
-### 6.4 GET `/api/v1/cfo/pnl/sku`
+### 6.4 GET `/api/v1/cfo/pnl/overview`
 
-P&L по отдельным SKU. Сортировка фиксирована — `net_profit DESC`. Пагинируется.
+**Company-wide «настоящий» P&L** за период — единственный эндпоинт сводных KPI для верхней плашки. Учтены **реальные** расходы всех маркетплейсов (включая period-level рекламу/FBO Ozon из ЛК и весь Yandex.Market) и себестоимость по всем трём МП. Без таблицы, только агрегат.
+
+Собирается из трёх источников:
+
+- **`revenue` и `mp_expenses`** — суммируются по всем включённым МП из конвейера `/pnl/marketplace` (Ozon — из ЛК-начислений, YM — из своей сводки), поэтому реклама / FBO / Yandex.Market **учтены**. `mp_expenses = Σ(logistics + storage + penalties + commission_acquiring + ads − compensation)`; `commission_acquiring` берётся как агрегат (его подкомпоненты `commission` / `partner_services` / `cost_disp` / `acc_trans_pay` **не** прибавляются — это двойной счёт), `compensation` — приток, поэтому вычитается.
+- **`cogs`** — WB + Ozon из per-SKU конвейера **плюс YM**, посчитанный напрямую (`ym_order_items.count × product_costs.cost`, артикул = `split_part(offer_id, '/', 1)`, по тому же множеству заказов, что и выручка YM; ~99 % покрытия, остаток — в `ym_units_no_cost`).
+- **`gross_profit` / `net_profit` / маржа** — выводятся: `gross = revenue − cogs`, `net = gross − mp_expenses`.
+
+> ⚠️ Эти цифры **сознательно не сходятся** с таблицами `/pnl/category` (там нет YM и котла Ozon) — это разные по смыслу показатели. Известные приближения: выручка Ozon берётся из ЛК, а COGS Ozon — из line facts (разные базы); по YM выручка и COGS считаются на одной базе (все статусы заказов по `creation_date`), включая отменённые с обеих сторон.
 
 **Параметры запроса:**
 
 | Имя | Расположение | Тип | Дефолт | Ограничения | Описание |
 |-----|--------------|-----|--------|-------------|----------|
 | `preset` / `from` / `to` | query | — | — | — | См. §5 |
-| `marketplace` | query | string | `null` | regex `^(wb\|ozon\|ym)$` | Фильтр по маркетплейсу. Если значение не в `enabled_marketplaces` — 422 |
-| `category` | query | string | `null` | — | Фильтр по категории. Передаётся в сервис как есть, ограничение длины не накладывается |
-| `only_loss` | query | bool | `false` | — | Если `true`, в ответе только SKU с `net_profit < 0` |
-| `limit` | query | int | `100` | `1 ≤ limit ≤ 500` | Размер страницы |
-| `offset` | query | int | `0` | `offset ≥ 0` | Смещение от начала |
+| `marketplace` | query | string | `null` | regex `^(wb\|ozon\|ym)$` | Ограничить одним МП. Если значение не в `enabled_marketplaces` — 422 |
 
-**Модель ответа:** [`PnLSkuReport`](#pnlskureport).
+Фильтры `category` / `only_loss` **не поддерживаются** — у company-wide расходов нет категории. Пагинации нет.
+
+**Модель ответа:** [`PnLOverviewReport`](#pnloverviewreport).
 
 **Пример запроса:**
 
 ```bash
-curl 'http://localhost:8000/api/v1/cfo/pnl/sku?from=2026-03-01&to=2026-03-31&marketplace=wb&only_loss=false&limit=2&offset=0'
+curl 'http://localhost:8000/api/v1/cfo/pnl/overview?from=2026-05-01&to=2026-06-10'
 ```
 
-**Пример ответа 200:**
+**Пример ответа 200** (`enabled_marketplaces = ["wb", "ozon", "ym"]`):
 
 ```json
 {
-  "period": { "from": "2026-03-01", "to": "2026-03-31" },
+  "period": { "from": "2026-05-01", "to": "2026-06-10" },
   "filters": {
-    "marketplace": "wb",
+    "marketplace": null,
     "category": null,
     "only_loss": false
   },
-  "pagination": { "total": 2911, "limit": 2, "offset": 0 },
-  "data": [
-    {
-      "sku": "sku-001",
-      "sku_name": "Товар 1",
-      "brand": "Бренд А",
-      "category": "Жилеты",
-      "marketplaces": ["wb"],
-      "revenue": 1000000.0,
-      "cogs": 300000.0,
-      "mp_expenses": 400000.0,
-      "gross_profit": 700000.0,
-      "net_profit": 300000.0,
-      "gross_margin_pct": 70.0,
-      "net_margin_pct": 30.0,
-      "quantity": 500,
-      "logistics": 50000.0,
-      "penalties": 0.0,
-      "compensation": 0.0,
-      "commission_acquiring": 320000.0,
-      "deduction": 30000.0,
-      "losses_damages": 0.0,
-      "cost_source": "turns_90"
-    },
-    {
-      "sku": "sku-002",
-      "sku_name": "Товар 2",
-      "brand": "Бренд Б",
-      "category": "Толстовки",
-      "marketplaces": ["wb"],
-      "revenue": 800000.0,
-      "cogs": 250000.0,
-      "mp_expenses": 320000.0,
-      "gross_profit": 550000.0,
-      "net_profit": 230000.0,
-      "gross_margin_pct": 68.75,
-      "net_margin_pct": 28.75,
-      "quantity": 400,
-      "logistics": 40000.0,
-      "penalties": 0.0,
-      "compensation": 0.0,
-      "commission_acquiring": 250000.0,
-      "deduction": 30000.0,
-      "losses_damages": 0.0,
-      "cost_source": "balance_41"
-    }
-  ],
   "summary": {
-    "rows_count": 2911,
-    "revenue": 174662871.0,
-    "cogs": 24166279.0,
-    "mp_expenses": 90157252.0,
-    "gross_profit": 150496592.0,
-    "net_profit": 60339341.0,
-    "gross_margin_pct": 86.2,
-    "net_margin_pct": 34.5,
-    "quantity": 131397,
-    "logistics": 7532660.0,
-    "penalties": 381713.0,
-    "compensation": 0.0,
-    "commission_acquiring": 78900000.0,
-    "deduction": 3000000.0,
-    "losses_damages": 0.0
+    "revenue": 288373050.08,
+    "cogs": 115744495.98,
+    "mp_expenses": 135718252.29,
+    "gross_profit": 172628554.10,
+    "net_profit": 36910301.81,
+    "gross_margin_pct": 59.86,
+    "net_margin_pct": 12.80,
+    "ym_units_no_cost": 394
   }
 }
 ```
 
-> `summary` считается по всему результату после применения фильтров, без учёта пагинации. `pagination.total` равен `summary.rows_count`.
+> `revenue` и `mp_expenses` совпадают с суммой по строкам `/pnl/marketplace` за тот же период; `cogs` превышает товарный COGS из `summary` ответа `/pnl/category` ровно на величину YM-себестоимости.
 
 **Коды ответов:**
 
 | Код | Ситуация |
 |:---:|----------|
 | 200 | Успех |
-| 422 | Невалидные параметры периода; `limit` вне диапазона `1..500`; `offset < 0`; `marketplace` не соответствует regex или не в `enabled_marketplaces` |
+| 422 | Невалидные параметры периода; `marketplace` не соответствует regex или не в `enabled_marketplaces` |
 | 500 | Внутренняя ошибка БД |
 
 ---
 
 ### 6.5 GET `/api/v1/cfo/abc`
 
-ABC-классификация SKU по марже (`margin_rub`). Класс D выделяется для убыточных позиций. Только Wildberries.
+ABC-классификация SKU по марже (`margin_rub`). Класс D выделяется для убыточных позиций. Поддерживаются **Wildberries, Ozon и Yandex.Market** (выбор через `marketplace`); структура ответа одинакова, отличаются источники колонок (см. «Источники по маркетплейсам» ниже).
 
 **Параметры запроса:**
 
 | Имя | Расположение | Тип | Дефолт | Ограничения | Описание |
 |-----|--------------|-----|--------|-------------|----------|
 | `preset` / `from` / `to` | query | — | — | — | См. §5 |
-| `marketplace` | query | string | `"wb"` | regex `^(wb\|ozon\|ym)$` | Сейчас принимается только `wb` |
+| `marketplace` | query | string | `"wb"` | regex `^(wb\|ozon\|ym)$` | `wb`, `ozon` или `ym`; валидируется по `enabled_marketplaces` (422, если МП выключен) |
 | `abc_a` | query | float | из конфига (обычно `80`) | `0 ≤ abc_a ≤ 100` | Кумулятивный порог класса A, % |
 | `abc_b` | query | float | из конфига (обычно `95`) | `0 ≤ abc_b ≤ 100`, `abc_a < abc_b` | Кумулятивный порог класса B, % |
 | `search` | query | string | `null` | `max_length=100` | Case-insensitive **prefix** match по `vendor_code` |
@@ -927,6 +952,114 @@ Content-Type: application/json
 
 ---
 
+### 6.10 Отчёты 1С — `/api/v1/cfo/onec/*`
+
+Отчёты, считаемые **напрямую по бухгалтерским регистрам 1С** (внешние таблицы
+`1C_*`: счета 90.* выручка/себестоимость/расходы, 60/62 расчёты, 41 запасы). Тег
+OpenAPI — `onec`. Каждый отчёт имеет JSON-вид и парный `/export` (`.xlsx`).
+Глобальные исключения и фильтр по маркетплейсу здесь **не** действуют.
+
+**Параметры периода (отличаются от §5 — регистры 1С ключуются месяцем):**
+
+| Параметр | Где | Формат | Дефолт |
+|---|---|---|---|
+| `month` | gross-profit, income-expense, settlements | `YYYY-MM` | прошлый полный месяц |
+| `from` / `to` | operating-pnl | `YYYY-MM` | последние 5 полных месяцев |
+| `date` | inventory/* | `YYYY-MM-DD` | конец прошлого месяца |
+| `window` | inventory/* | целое 1..365 | `30` (дней) |
+| `channel` | gross-profit | `opt` \| `mp` \| `all` | `opt` |
+| `search` | gross-profit | строка ≤100 | — (префикс по артикулу) |
+| `limit` / `offset` | gross-profit, settlements, inventory/stock | целые (limit 1..5000) | `100` / `0` |
+
+**Пагинация.** Многострочные отчёты — `gross-profit`, `settlements`,
+`inventory/stock` — поддерживают `?limit=&offset=` (как `/abc`, §4.1): ответ несёт
+объект `pagination {total, limit, offset}`, `data[]` — запрошенная страница, а
+`summary` считается по **полному** отчёту. У `gross-profit` с `search` поле
+`pagination.total` — число строк **после** фильтра, `summary` — по всему отчёту.
+`/export` всегда отдаёт **полный** набор (без пагинации). Остальные отчёты
+(`income-expense`, `operating-pnl`, `inventory/abc-turnover`) пагинации не имеют —
+строк мало.
+
+**Общие оговорки по данным** (дублируются в поле `notes` каждого ответа):
+выручка — **бухгалтерская** (сч. 90.01.1), а не управленческая; «доп. расходы и
+отклонения» себестоимости в выгрузке отсутствуют, поэтому валовая прибыль = выручка
+− закупка (завышена относительно 1С-отчёта); счёт 91 (прочие доходы/расходы) не
+выгружается; **свежие месяцы в `1C_account_turns_90` бывают неполными** (грузятся
+с глубиной «текущий месяц» и не до-синхронизируются после закрытия).
+
+#### `/onec/gross-profit` — поартикульная валовая прибыль
+
+Грань — номенклатура × характеристика; `article` пуст для ассортиментных карточек
+без артикула в 1С. `channel=opt` = без МП.
+
+```json
+{
+  "period": {"from": "2026-04-01", "to": "2026-04-30"},
+  "channel": "opt",
+  "notes": ["Охват: без МП (опт) …", "…"],
+  "summary": {"rows_count": 252, "quantity": 274279.0, "revenue": 76057580.85,
+              "cogs": 38591538.14, "gross_profit": 37466042.71, "margin_pct": 49.26},
+  "pagination": {"total": 252, "limit": 100, "offset": 0},
+  "data": [{"article": "ФБО-22", "name": "Футболка базовая ФБО-22, …",
+            "quantity": 12.0, "revenue": 2568.0, "cogs": 1505.79,
+            "gross_profit": 1062.21, "margin_pct": 41.36}]
+}
+```
+
+#### `/onec/income-expense` — доходы и расходы (операционный срез)
+
+`lines[]` — иерархия (`level` = `section`|`line`): Продажи (Выручка − Себестоимость)
+и Прочие расходы (Коммерческие 90.07.1 + Управленческие 90.08.1). `summary` несёт
+`revenue / cogs / sales_net / selling / admin / other_expenses / total`. ИТОГО **не**
+сходится с полным 1С-отчётом (нет сч. 91 и детализации по статьям).
+
+#### `/onec/operating-pnl` — операционный P&L по месяцам
+
+`data[]` — строка на месяц: `revenue, cogs, gross_profit, selling_expenses,
+admin_expenses, operating_profit, margin_pct`. Месяцы без выгрузки расходов
+оставляют `selling_expenses/admin_expenses/operating_profit/margin_pct = null`
+(перечислены в `notes`). Ответ несёт `from_month` / `to_month` и `summary`.
+
+#### `/onec/settlements` — дебиторка / кредиторка
+
+`data[]` — контрагент: `receivable` (Дт 62), `payable` (Кт 60), `net`, `delta_recv`,
+`delta_pay` (дельта к прошлому месяцу). Маркетплейсы исключены. `summary` суммирует.
+
+#### `/onec/inventory/stock` — запасы и неликвиды
+
+`data[]` на дату среза: `article, brand, warehouse, quantity, cost_value` (сальдо
+сч.41), `days_no_movement`, `turnover_days` (остаток ÷ средний дневной расход за
+`window`). `cost_value` / `turnover_days` / `days_no_movement` могут быть `null`.
+
+#### `/onec/inventory/abc-turnover` — матрица ABC × оборачиваемость
+
+`data[]` — ячейки `abc_class × turnover_segment` со `sku_count` и `cost_value`.
+ABC по марже месяца среза: A ≤80%, B ≤95%, C >95% кумул. положительной маржи; D —
+маржа ≤ 0; «—» — нет продаж. Сегменты: `<30 дн`, `30–60 дн`, `60–90 дн`, `90+ дн`,
+`∞ (нет расхода)`, `нет остатка`.
+
+#### Примеры
+
+```bash
+# Валовая прибыль без МП за апрель, первая страница
+curl 'http://localhost:8000/api/v1/cfo/onec/gross-profit?month=2026-04&channel=opt&limit=100&offset=0'
+
+# Поиск по префиксу артикула + выгрузка Excel (без пагинации)
+curl 'http://localhost:8000/api/v1/cfo/onec/gross-profit?month=2026-04&channel=opt&search=ФБО'
+curl -OJ 'http://localhost:8000/api/v1/cfo/onec/gross-profit/export?month=2026-04&channel=opt'
+
+# Доходы-расходы и операционный P&L
+curl 'http://localhost:8000/api/v1/cfo/onec/income-expense?month=2026-04'
+curl 'http://localhost:8000/api/v1/cfo/onec/operating-pnl?from=2026-01&to=2026-05'
+
+# Дебиторка/кредиторка и запасы
+curl 'http://localhost:8000/api/v1/cfo/onec/settlements?month=2026-04&limit=50'
+curl 'http://localhost:8000/api/v1/cfo/onec/inventory/stock?date=2026-05-31&window=30&limit=100'
+curl 'http://localhost:8000/api/v1/cfo/onec/inventory/abc-turnover?date=2026-05-31'
+```
+
+---
+
 ## 7. Коды ошибок
 
 Все ошибки возвращают JSON-объект с единственным полем `detail`:
@@ -939,7 +1072,7 @@ Content-Type: application/json
 |:---:|-------|
 | 200 | Успех (включая случай пустого `data`) |
 | 422 | Ошибка валидации параметров запроса или бизнес-правил |
-| 500 | Внутренняя ошибка БД (или ошибка генерации Excel в `/abc/export`, `/pnl/category/export`, `/pnl/marketplace/export`) |
+| 500 | Внутренняя ошибка БД (или ошибка генерации Excel в любом `*/export`, включая `/onec/*/export`) |
 
 **Источники 422:**
 
@@ -954,11 +1087,13 @@ Content-Type: application/json
 | Любой эндпоинт с периодом | `Use either 'preset' OR 'from'/'to', not both` |
 | Любой эндпоинт с периодом | `'from' and 'to' must be provided together` |
 | Любой эндпоинт с периодом | `'from' must be <= 'to'` |
-| `/pnl/category`, `/pnl/category/export`, `/pnl/sku`, `/abc`, `/abc/export` | `marketplace 'X' is currently disabled (enabled: [...])` |
+| `/pnl/category`, `/pnl/category/export`, `/pnl/overview`, `/abc`, `/abc/export` | `marketplace 'X' is currently disabled (enabled: [...])` |
 | `/pnl/category`, `/pnl/category/export` | `marketplace 'X' is not supported for /pnl/category yet (WB-only)` |
 | `/abc`, `/abc/export` | `ABC currently supports only 'wb'; 'X' data sources are not wired up yet.` |
 | `/abc`, `/abc/export` | `abc_a (X) must be < abc_b (Y)` |
-| Любой эндпоинт | Стандартный FastAPI `ValidationError` для `limit`, `offset`, `search`, тела JSON и т.д. |
+| `/onec/*` с `month` | `Invalid month 'X'; expected YYYY-MM` |
+| `/onec/operating-pnl` | `'from' and 'to' must be provided together` / `'from' must be <= 'to'` (формат `YYYY-MM`) |
+| Любой эндпоинт | Стандартный FastAPI `ValidationError` для `limit`, `offset`, `search`, `date`, `window`, тела JSON и т.д. |
 
 **500.** Возвращает шаблонный `{"detail": "Internal database error"}`. Полный стек ошибки пишется в логи (`cfo.api.errors`) и не возвращается клиенту.
 
@@ -977,7 +1112,7 @@ Content-Type: application/json
 
 ### PnLGroupMetrics
 
-Общий набор числовых полей, который встраивается в строки `data[]` и `summary` эндпоинтов `/pnl/category` и `/pnl/sku`. Для `/pnl/marketplace` используется сокращённый набор — см. [`PnLMarketplaceMetrics`](#pnlmarketplacemetrics).
+Общий набор числовых полей, который встраивается в строки `data[]` и `summary` эндпоинта `/pnl/category`. Для `/pnl/marketplace` используется сокращённый набор — см. [`PnLMarketplaceMetrics`](#pnlmarketplacemetrics); для company-wide `/pnl/overview` — см. [`PnLOverview`](#pnloverview).
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -1006,21 +1141,26 @@ Content-Type: application/json
 
 ### PnLMarketplaceMetrics
 
-Набор числовых полей для `/pnl/marketplace` — встраивается в строки `data[]` и `summary`. Расходы — положительные величины; `returns` — отрицательное; `compensation` — со знаком. Для строки **Ozon** значения берутся из разбивки «Начисления» ЛК (см. §6.3).
+Набор числовых полей для `/pnl/marketplace` — встраивается в строки `data[]` и `summary`. Расходы — положительные величины; `returns` — отрицательное; `compensation` — со знаком. Для строки **Ozon** значения берутся из разбивки «Начисления» ЛК, для строки **YM** — из сервиса `ym_service` (см. §6.3).
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `revenue` | float | Выручка нетто (`sales − |returns|`), ₽ |
-| `sales` | float | Продажи (валовая выручка по заказам), ₽ |
-| `returns` | float | Возвраты, ₽ (отрицательное; Ozon — категория «Возвраты», WB — `−return_amount`) |
-| `logistics` | float | Логистика, ₽ (Ozon — «Услуги доставки») |
-| `storage` | float | Хранение, ₽ (Ozon — «Услуги FBO»; WB — колонка `storage`) |
-| `penalties` | float | Штрафы, ₽ (Ozon — «Другие услуги и штрафы») |
-| `compensation` | float | Доплаты от МП продавцу (WB: `additional_payment`; Ozon — «Компенсации/декомпенсации»), ₽ |
-| `commission_acquiring` | float | Комиссия МП + эквайринг одним числом, ₽ (Ozon — «Вознаграждение Ozon + Услуги партнёров») |
-| `commission` | float | Подкомпонента `commission_acquiring`: «Вознаграждение Ozon», ₽. Только Ozon; для WB/YM = `0` (в Excel-выгрузке — «—») |
-| `partner_services` | float | Подкомпонента `commission_acquiring`: «Услуги партнёров», ₽. Только Ozon; для WB/YM = `0` (в Excel-выгрузке — «—»). Для Ozon `commission + partner_services = commission_acquiring` |
-| `ads` | float | Платные услуги: реклама/продвижение (WB — колонка `deduction`; Ozon — «Продвижение и реклама»), ₽ |
+| `revenue` | float | WB/Ozon: выручка нетто (`sales − |returns|`); **YM**: `sales + sales_disc`, ₽ |
+| `sales` | float | Продажи (валовая выручка по заказам; YM — «Выручка» ЛК), ₽ |
+| `sales_disc` | float | **YM only**: «Все платежи за скидки» (софинансирование скидок), ₽. WB/Ozon = `0` |
+| `returns` | float | Возвраты, ₽ (отрицательное; Ozon — категория «Возвраты», WB — `−return_amount`; YM = `0`) |
+| `logistics` | float | Логистика, ₽ (Ozon — «Услуги доставки»; YM — Доставка + Обработка заказов) |
+| `storage` | float | Хранение, ₽ (Ozon — «Услуги FBO»; WB — колонка `storage`; YM — хранение + излишки + утилизация + вывоз) |
+| `penalties` | float | Штрафы, ₽ (Ozon — «Другие услуги и штрафы»; YM = `0`) |
+| `compensation` | float | Доплаты от МП продавцу (WB: `additional_payment`; Ozon — «Компенсации/декомпенсации»; YM = `0`), ₽ |
+| `commission_acquiring` | float | Комиссия МП + эквайринг одним числом, ₽ (Ozon — «Вознаграждение + Услуги партнёров»; YM — `cost_disp + acc_trans_pay`) |
+| `commission` | float | Подкомпонента `commission_acquiring`: «Вознаграждение Ozon», ₽. Только Ozon; для WB/YM = `0` |
+| `partner_services` | float | Подкомпонента `commission_acquiring`: «Услуги партнёров», ₽. Только Ozon; для WB/YM = `0`. Для Ozon `commission + partner_services = commission_acquiring` |
+| `cost_disp` | float | **YM only**: «Стоимость размещения товаров на витрине» (комиссия размещения, подкомпонента `commission_acquiring`), ₽. WB/Ozon = `0` |
+| `acc_trans_pay` | float | **YM only**: «Приём и перевод платежа покупателя» (подкомпонента `commission_acquiring`), ₽. WB/Ozon = `0` |
+| `ads` | float | Платные услуги: реклама/продвижение (WB — `deduction`; Ozon — «Продвижение и реклама»; YM — `ym_report_boost`), ₽ |
+
+> Для YM `commission_acquiring = cost_disp + acc_trans_pay`, а Ozon-разбивка `commission` / `partner_services` = `0`. И наоборот, для Ozon ненулевые `commission` / `partner_services`, а YM-поля `cost_disp` / `acc_trans_pay` = `0`. Оба сплита сосуществуют в схеме как дополнительные поля.
 
 ### PnLMarketplaceRow
 
@@ -1029,19 +1169,6 @@ Content-Type: application/json
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `marketplace` | string | Машинный код: `wb`, `ozon`, `ym` |
-
-### PnLSkuRow
-
-Расширяет `PnLGroupMetrics`:
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `sku` | string | Артикул |
-| `sku_name` | string | Название товара |
-| `brand` | string | Бренд |
-| `category` | string | Категория |
-| `marketplaces` | string[] | Коды маркетплейсов, на которых SKU продаётся |
-| `cost_source` | string \| null | Источник стоимости: `turns_90`, `balance_41`, `supplier_prices` или `null` |
 
 ### PnLGroupSummary
 
@@ -1068,15 +1195,15 @@ Content-Type: application/json
 | `marketplace` | string \| null | Эхо параметра; `null`, если не передан |
 | `category` | string \| null | Эхо параметра; `null`, если не передан |
 
-### PnLSkuFilters
+### PnLOverviewFilters
 
-Эхо применённых фильтров для `/pnl/sku`.
+Эхо применённых фильтров для `/pnl/overview`. Значимо только `marketplace`; `category` / `only_loss` всегда `null` / `false` (поля сохранены для единообразной формы блока `filters`).
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `marketplace` | string \| null | Эхо параметра |
-| `category` | string \| null | Эхо параметра |
-| `only_loss` | bool | Эхо параметра (`false`, если не передан) |
+| `category` | string \| null | Всегда `null` |
+| `only_loss` | bool | Всегда `false` |
 
 ### Pagination
 
@@ -1107,17 +1234,30 @@ Content-Type: application/json
 | `data` | PnLMarketplaceRow[] |
 | `summary` | PnLMarketplaceSummary |
 
-### PnLSkuReport
+### PnLOverview
 
-Ответ `GET /pnl/sku`.
+Блок `summary` ответа `/pnl/overview` — company-wide P&L с реальными расходами МП и себестоимостью по всем трём маркетплейсам (см. §6.5). Это **не** `PnLGroupMetrics`: набор полей урезан до ключевых KPI плюс диагностика покрытия YM.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `revenue` | float | Выручка: Σ `revenue` по всем МП из `/pnl/marketplace`, ₽ |
+| `cogs` | float | Себестоимость: WB + Ozon (per-SKU) + YM (`ym_order_items × product_costs`), ₽ |
+| `mp_expenses` | float | Реальные расходы МП: `Σ(logistics + storage + penalties + commission_acquiring + ads − compensation)`, ₽ |
+| `gross_profit` | float | `revenue − cogs`, ₽ |
+| `net_profit` | float | `gross_profit − mp_expenses`, ₽ |
+| `gross_margin_pct` | float | Валовая маржа, % |
+| `net_margin_pct` | float | Чистая маржа, % |
+| `ym_units_no_cost` | int | Кол-во YM-штук без строки в `product_costs` (дыра покрытия себестоимости, ~1 %) |
+
+### PnLOverviewReport
+
+Ответ `GET /pnl/overview`.
 
 | Поле | Тип |
 |------|-----|
 | `period` | PeriodOut |
-| `filters` | PnLSkuFilters |
-| `pagination` | Pagination |
-| `data` | PnLSkuRow[] |
-| `summary` | PnLGroupSummary |
+| `filters` | PnLOverviewFilters |
+| `summary` | PnLOverview |
 
 ### AbcThresholds
 
@@ -1218,14 +1358,100 @@ Content-Type: application/json
 | `total_parents` | int | Кол-во настоящих родителей (без учёта хвостовой записи) |
 | `total_subcategories` | int | Суммарное число уникальных подкатегорий по всем родителям |
 
+### Модели отчётов 1С (`/onec/*`)
+
+Определены в `cfo/services/onec_models.py`. У всех отчётов есть поле `notes: string[]`
+— оговорки по данным (см. §6.10).
+
+#### OnecGrossProfitRow
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `article` | string | Артикул (пусто для ассортиментных карточек без артикула в 1С) |
+| `name` | string | «Номенклатура, Характеристика» |
+| `quantity` | float | Количество (оборот 90.01.1) |
+| `revenue` | float | Выручка (90.01.1), ₽ |
+| `cogs` | float | Стоимость закупки (90.02.1), ₽ |
+| `gross_profit` | float | `revenue − cogs`, ₽ |
+| `margin_pct` | float | Рентабельность, % |
+
+**OnecGrossProfitSummary** — те же числовые поля по полному отчёту плюс `rows_count: int`.
+**OnecGrossProfitReport** — `{period: PeriodOut, channel: "all"|"opt"|"mp", notes, summary: OnecGrossProfitSummary, pagination: Pagination, data: OnecGrossProfitRow[]}`.
+
+#### OnecIncomeExpenseLine / OnecIncomeExpenseReport
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `label` | string | Название строки/раздела |
+| `amount` | float | Сумма, ₽ (расход — отрицательный) |
+| `level` | string | `section` (итог раздела) \| `line` (статья) |
+
+**OnecIncomeExpenseSummary** — `{revenue, cogs, sales_net, selling, admin, other_expenses, total}` (все float, ₽).
+**OnecIncomeExpenseReport** — `{period: PeriodOut, notes, summary, lines: OnecIncomeExpenseLine[]}`.
+
+#### OnecOperatingPnlRow / OnecOperatingPnlReport
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `month` | string | `YYYY-MM` |
+| `revenue` | float | Выручка (90.01.1), ₽ |
+| `cogs` | float | Себестоимость (90.02.1), ₽ |
+| `gross_profit` | float | Валовая прибыль, ₽ |
+| `selling_expenses` | float \| null | Коммерческие (90.07.1), ₽; `null` — нет выгрузки за месяц |
+| `admin_expenses` | float \| null | Управленческие (90.08.1), ₽; `null` — нет выгрузки |
+| `operating_profit` | float \| null | Операционная прибыль, ₽; `null` — нет расходов |
+| `margin_pct` | float \| null | Опер. маржа, % |
+
+**OnecOperatingPnlReport** — `{from_month, to_month, notes, summary: OnecOperatingPnlSummary, data: OnecOperatingPnlRow[]}`; в `summary` те же поля, не-null (суммы по месяцам с данными).
+
+#### OnecSettlementRow / OnecSettlementReport
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `name` | string | Контрагент |
+| `inn` | string \| null | ИНН |
+| `receivable` | float | ДЗ — сальдо Дт сч. 62, ₽ |
+| `payable` | float | КЗ — сальдо Кт сч. 60, ₽ |
+| `net` | float | `receivable − payable`, ₽ |
+| `delta_recv` | float | Δ ДЗ к прошлому месяцу, ₽ |
+| `delta_pay` | float | Δ КЗ к прошлому месяцу, ₽ |
+
+**OnecSettlementSummary** — те же суммы по полному отчёту плюс `rows_count: int`.
+**OnecSettlementReport** — `{period: PeriodOut, notes, summary, pagination: Pagination, data: OnecSettlementRow[]}`.
+
+#### OnecInventoryStockRow / OnecInventoryStockReport
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `article` | string | Артикул (`(без артикула)` для пустых) |
+| `brand` | string \| null | Бренд (`1C_nomenclature.kind`) |
+| `warehouse` | string \| null | Склад |
+| `quantity` | float | Остаток, шт |
+| `cost_value` | float \| null | Стоимость — сальдо сч.41, ₽; `null` если по сч.41 строки нет |
+| `days_no_movement` | int \| null | Дней без расхода до даты среза |
+| `turnover_days` | int \| null | Оборачиваемость, дней; `null` если нет расхода |
+
+**OnecInventoryStockSummary** — `{rows_count: int, quantity: float, cost_value: float}`.
+**OnecInventoryStockReport** — `{snapshot: date, window_days: int, notes, summary, pagination: Pagination, data: OnecInventoryStockRow[]}`.
+
+#### OnecInventoryMatrixRow / OnecInventoryMatrixReport
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `abc_class` | string | `A` \| `B` \| `C` \| `D` \| `—` |
+| `turnover_segment` | string | `<30 дн` \| `30–60 дн` \| `60–90 дн` \| `90+ дн` \| `∞ (нет расхода)` \| `нет остатка` |
+| `sku_count` | int | Число SKU в ячейке |
+| `cost_value` | float | Стоимость остатка в ячейке, ₽ |
+
+**OnecInventoryMatrixReport** — `{snapshot: date, notes, summary: {sku_count: int, cost_value: float}, data: OnecInventoryMatrixRow[]}` (без пагинации).
+
 ### Перечисления
 
 | Перечисление | Значения | Где встречается |
 |--------------|----------|-----------------|
-| `PresetName` | `yesterday`, `week`, `month`, `year` | query `preset` всех бизнес-эндпоинтов |
-| `Marketplace` | `wb`, `ozon`, `ym` | query `marketplace` (`/pnl/category`, `/pnl/category/export`, `/pnl/sku`, `/abc`, `/abc/export`); поле `marketplace` в `PnLMarketplaceRow` |
+| `PresetName` | `yesterday`, `week`, `month`, `year` | query `preset` эндпоинтов `/pnl/*` и `/abc` (отчёты `/onec/*` используют свои помесячные параметры — §6.10) |
+| `Marketplace` | `wb`, `ozon`, `ym` | query `marketplace` (`/pnl/category`, `/pnl/category/export`, `/pnl/overview`, `/abc`, `/abc/export`); поле `marketplace` в `PnLMarketplaceRow` |
 | `AbcClass` | `A`, `B`, `C`, `D` | поле `abc_class` в `AbcRow` и ключи `classes` в `AbcSummary` |
-| `cost_source` | `turns_90`, `balance_41`, `supplier_prices`, `null` | поле `cost_source` в `PnLSkuRow` |
 
 ---
 
