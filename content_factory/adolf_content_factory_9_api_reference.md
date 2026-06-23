@@ -1,4 +1,4 @@
-# ADOLF Content Factory REST API Справочник (v1.4)
+# ADOLF Content Factory REST API Справочник (v1.5)
 
 ## Обзор
 
@@ -14,6 +14,7 @@ Content Factory — это FastAPI-сервис, предназначенный 
 
 | Версия | Дата | Изменения |
 |--------|------|----------|
+| **v1.5** | 2026-06-23 | Документирован эндпоинт `GET /api/content/group/search` — поиск по артикулу внутри склейки для вкладки «Выбранные» (параметры `sku`, `marketplace`, `q`, `limit`, `offset`; ответ `GroupSearchResponse` с `imt_id`, `group_count`, `filtered_count` и `products[]`, у каждого товара — оценка по отзывам `rating`; для WB только `rating`). |
 | **v1.4.4** | 2026-06-04 | Исправлена публикация выбранных товаров склейки: при `approve` обновляются **все** SKU из `selected_skus` черновика (раньше обновлялась только одна карточка). По каждой обновлённой карточке создаётся **отдельная** запись публикации — в истории (`/approvals/history`) все товары склейки видны как отдельные строки со своим `vendor_code`. Поддержан **частичный успех**: упавшие карточки сохраняются как `failed` (поле `failed_nm_ids` в ответе `/approve`), `502` — только если не обновилось ни одной. `regenerate` наследует `selected_skus` из предыдущего черновика. |
 | **v1.4** | 2026-04-08 | Эндпоинты сертификатов (`/api/certificates`), управление правилами тегов (`/api/tag-rules`), кастомные промты (`/api/content/prompts`), пакетная загрузка медиа (`/upload-batch`), синхронизация медиа с маркетплейсом (`/sync`), переработанная система шаблонов фотографий (категории + шаблоны). |
 | **v1.3** | 2026-04-07 | Добавлены эндпоинты медиафайлов, шаблонов и сертификатов. Новые параметры `generate_for_group` и `selected_skus`. Поле `vendor_code` во всех ответах. |
@@ -187,6 +188,69 @@ GET /api/content/product?url=https://www.wildberries.ru/catalog/123456789/detail
 - Пустой результат — `total_count: 0`, `products: []` (не ошибка).
 
 **HTTP статусы:** `200 OK`, `400` (неизвестный маркетплейс), `422` (limit/offset вне границ).
+
+---
+
+### `GET /api/content/group/search`
+
+Поиск по артикулу **внутри одной склейки** — для вкладки «Выбранные» при отборе карточек на генерацию SEO. Склейки бывают по 100+ карточек, поэтому нужен быстрый фильтр внутри группы. Ответ лёгкий — без валидации и SEO-анализа.
+
+**Query параметры:**
+| Параметр | Тип | Обязательно | По умолчанию | Описание |
+|----------|-----|------------|-------------|---------|
+| `sku` | string | Да | — | Любой артикул склейки (nmID или vendor_code) — по нему определяется группа |
+| `marketplace` | string | Да | — | `wb` / `ozon` (alias `oz`) / `ym` |
+| `q` | string | Нет | — | Строка поиска по артикулу внутри склейки. Без `q` возвращается вся склейка |
+| `limit` | integer | Нет | 50 | Товаров на странице (1–500) |
+| `offset` | integer | Нет | 0 | Смещение |
+
+**Пример запроса:**
+```
+GET /api/content/group/search?marketplace=wb&sku=203873004           # вся склейка
+GET /api/content/group/search?marketplace=wb&sku=203873004&q=16378   # только совпадения
+```
+
+**Ответ (`GroupSearchResponse`):**
+```json
+{
+  "sku": "203873004",
+  "marketplace": "wb",
+  "imt_id": 12345678,
+  "group_count": 120,
+  "filtered_count": 2,
+  "query": "16378",
+  "limit": 50,
+  "offset": 0,
+  "products": [
+    {
+      "sku": "203873004",
+      "main_photo": "https://.../photo.webp",
+      "vendor_code": "16378",
+      "rating": 4.9
+    }
+  ]
+}
+```
+
+**Поля ответа:**
+- `sku` — запрошенный артикул склейки.
+- `marketplace` — реальный маркетплейс склейки (уточняется по найденному товару).
+- `imt_id` — ID склейки (`null`, если товар не в группе).
+- `group_count` — всего товаров в склейке.
+- `filtered_count` — сколько товаров совпало с `q` (равно `group_count`, если `q` не передан).
+- `query` — переданная строка поиска (`null`, если не было).
+- `products[]` — отфильтрованные товары склейки (`sku`, `main_photo`, `vendor_code` + оценка по отзывам, см. ниже).
+
+**Поведение поиска:** строка `q` сопоставляется (подстрока, регистронезависимо) с внешним артикулом (nmID / `external_id`), артикулом продавца (`vendor_code`) и внутренним артикулом (`internal_article`).
+
+**Оценка товара по отзывам** (у каждого товара в `products[]`):
+- `rating` — средний рейтинг по отзывам, **1 знак после запятой** (например `4.9`). `null`, если оценок ещё нет.
+- `rating_count` — количество **оценок** (звёзд), `0` если нет.
+- `reviews_count` — количество **текстовых отзывов**, `0` если нет.
+
+> **Wildberries:** возвращается **только `rating`** — полей `rating_count` и `reviews_count` в элементах `products[]` нет. Они присутствуют только для **Ozon** и **Яндекс Маркета**. Пример выше — WB, поэтому в нём только `rating`.
+
+**HTTP статусы:** `200 OK`, `400` (неизвестный маркетплейс), `404` (товар склейки не найден), `422` (limit/offset вне границ).
 
 ---
 
@@ -1278,44 +1342,45 @@ PDF-файлы хранятся в `uploads/certificates/` на сервере. 
 | 3 | GET | `/ready` |
 | 4 | GET | `/api/content/product` |
 | 5 | GET | `/api/content/search` |
-| 6 | POST | `/api/content/generate` |
-| 7 | POST | `/api/content/regenerate` |
-| 8 | POST | `/api/content/drafts/{draft_id}/approve` |
-| 9 | GET | `/api/content/wb/errors` |
-| 10 | GET | `/api/content/{marketplace}/errors` |
-| 11 | GET | `/api/content/approvals/history` |
-| 12 | GET | `/api/content/prompts` |
-| 13 | GET | `/api/content/prompts/{instruction_type}` |
-| 14 | PUT | `/api/content/prompts/{instruction_type}` |
-| 15 | DELETE | `/api/content/prompts/{instruction_type}` |
-| 16 | GET | `/api/settings` |
-| 17 | PUT | `/api/settings` |
-| 18 | GET | `/api/auto-process/content/preview` |
-| 19 | GET | `/api/media/{external_id}/list` |
-| 20 | POST | `/api/media/{external_id}/upload` |
-| 21 | POST | `/api/media/{external_id}/upload-batch` |
-| 22 | DELETE | `/api/media/{external_id}/media/{media_id}` |
-| 23 | PATCH | `/api/media/{external_id}/reorder` |
-| 24 | POST | `/api/media/{external_id}/sync` |
-| 25 | POST | `/api/v1/templates/categories` |
-| 26 | GET | `/api/v1/templates/categories` |
-| 27 | POST | `/api/v1/templates/categories/{category_id}/templates` |
-| 28 | GET | `/api/v1/templates/categories/{category_id}/templates` |
-| 29 | GET | `/api/v1/templates/templates/{template_id}` |
-| 30 | POST | `/api/v1/templates/templates/{template_id}/apply` |
-| 31 | POST | `/api/v1/templates/templates/{template_id}/apply-single` |
-| 32 | POST | `/api/v1/templates/categories/{category_id}/apply` |
-| 33 | GET | `/api/v1/templates/categories/{category_id}/stats` |
-| 34 | GET | `/api/v1/templates/stats` |
-| 35 | GET | `/api/v1/templates/health` |
-| 36 | GET | `/api/tag-rules` |
-| 37 | POST | `/api/tag-rules` |
-| 38 | PUT | `/api/tag-rules/{rule_id}` |
-| 39 | DELETE | `/api/tag-rules/{rule_id}` |
-| 40 | POST | `/api/tag-rules/preview` |
-| 41 | GET | `/api/certificates/{external_id}` |
-| 42 | POST | `/api/certificates/{external_id}` |
-| 43 | DELETE | `/api/certificates/{external_id}` |
-| 44 | GET | `/api/certificates/{external_id}/file` |
+| 6 | GET | `/api/content/group/search` |
+| 7 | POST | `/api/content/generate` |
+| 8 | POST | `/api/content/regenerate` |
+| 9 | POST | `/api/content/drafts/{draft_id}/approve` |
+| 10 | GET | `/api/content/wb/errors` |
+| 11 | GET | `/api/content/{marketplace}/errors` |
+| 12 | GET | `/api/content/approvals/history` |
+| 13 | GET | `/api/content/prompts` |
+| 14 | GET | `/api/content/prompts/{instruction_type}` |
+| 15 | PUT | `/api/content/prompts/{instruction_type}` |
+| 16 | DELETE | `/api/content/prompts/{instruction_type}` |
+| 17 | GET | `/api/settings` |
+| 18 | PUT | `/api/settings` |
+| 19 | GET | `/api/auto-process/content/preview` |
+| 20 | GET | `/api/media/{external_id}/list` |
+| 21 | POST | `/api/media/{external_id}/upload` |
+| 22 | POST | `/api/media/{external_id}/upload-batch` |
+| 23 | DELETE | `/api/media/{external_id}/media/{media_id}` |
+| 24 | PATCH | `/api/media/{external_id}/reorder` |
+| 25 | POST | `/api/media/{external_id}/sync` |
+| 26 | POST | `/api/v1/templates/categories` |
+| 27 | GET | `/api/v1/templates/categories` |
+| 28 | POST | `/api/v1/templates/categories/{category_id}/templates` |
+| 29 | GET | `/api/v1/templates/categories/{category_id}/templates` |
+| 30 | GET | `/api/v1/templates/templates/{template_id}` |
+| 31 | POST | `/api/v1/templates/templates/{template_id}/apply` |
+| 32 | POST | `/api/v1/templates/templates/{template_id}/apply-single` |
+| 33 | POST | `/api/v1/templates/categories/{category_id}/apply` |
+| 34 | GET | `/api/v1/templates/categories/{category_id}/stats` |
+| 35 | GET | `/api/v1/templates/stats` |
+| 36 | GET | `/api/v1/templates/health` |
+| 37 | GET | `/api/tag-rules` |
+| 38 | POST | `/api/tag-rules` |
+| 39 | PUT | `/api/tag-rules/{rule_id}` |
+| 40 | DELETE | `/api/tag-rules/{rule_id}` |
+| 41 | POST | `/api/tag-rules/preview` |
+| 42 | GET | `/api/certificates/{external_id}` |
+| 43 | POST | `/api/certificates/{external_id}` |
+| 44 | DELETE | `/api/certificates/{external_id}` |
+| 45 | GET | `/api/certificates/{external_id}/file` |
 
-**Итого:** 44 эндпоинта. Дополнительно 8 эндпоинтов в модуле шаблонов возвращают **501 Not Implemented** (CRUD категорий, CRUD шаблонов, история применений).
+**Итого:** 45 эндпоинтов. Дополнительно 8 эндпоинтов в модуле шаблонов возвращают **501 Not Implemented** (CRUD категорий, CRUD шаблонов, история применений).
